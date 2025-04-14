@@ -1,9 +1,8 @@
 {
-    "name": "reddit-proxy",
-    "version": "1.0.0",
-    "main": "proxy.js",
+    "name": "karma-fetch",
+    "main": "DOGFETCH.js",
     "scripts": {
-        "start": "node proxy.js"
+        "start": "node DOGFETCH.js"
     },
     "dependencies": {
         "express": "^4.18.2",
