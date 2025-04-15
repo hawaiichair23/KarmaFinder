@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RedditFinder - Better Reddit Search</title>
+    <title>KarmaFinder - Better Reddit Search</title>
     <style>
     html {
    font-size: 90%;
@@ -156,8 +156,6 @@
  /**/       .subreddit-suggestions-container {
             max-height: 300px;
             overflow-y: auto;
-            scrollbar-width: none;
-            scrollbar-color: white;
         }
 
         .subreddit-suggestions-container::-webkit-scrollbar {
@@ -218,6 +216,9 @@
 
 .subreddit-suggestions:hover {
     scrollbar-color: rgba(180, 180, 180, 0.5) transparent; /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #444 ;
+    background-color: white;
 }
 
 .subreddit-suggestions:hover::-webkit-scrollbar-thumb {
@@ -693,7 +694,6 @@ body.dark-mode .search-controls,
 body.dark-mode .error-card,
 body.dark-mode .comment-box,
 body.dark-mode .search-container,
-body.dark-mode .subreddit-chip,
 body.dark-mode .subreddit-suggestion,
 body.dark-mode .subreddit-suggestions .custom-spinner-wrapper,
 body.dark-mode .subreddit-suggestions::-webkit-scrollbar,
@@ -704,37 +704,43 @@ body.dark-mode .spinner-container {
   border-color: #333; /* optional border */
 }
 
+body.dark-mode .result-card,
+body.dark-mode .result-title,
+body.dark-mode .result-title a,
+body.dark-mode .result-content,
+body.dark-mode .result-header,
+body.dark-mode .result-subreddit,
+body.dark-mode .result-actions,
+body.dark-mode .result-action {
+  color: white;
+}
+
 /* Inputs and dropdowns */
 body.dark-mode input,
 body.dark-mode select,
+body.dark-mode .filter-chip-container,
 body.dark-mode textarea {
   background-color:  #595959 ;
   color: #fff;
   border-color: #444;
 }
 
+body.dark-mode .comments-section {
+  color: #1e1e1e;
+}
 /* Scrollbar */
 body.dark-mode .subreddit-suggestions::-webkit-scrollbar-thumb {
     background-color: transparent;
 }
 
-body.dark-mode .subreddit-suggestions:hover::-webkit-scrollbar-thumb {
-    background-color: #444; /* visible on hover */
-}
-
-body.dark-mode .subreddit-suggestions:hover::-webkit-scrollbar-thumb:hover,
-body.dark-mode .subreddit-suggestions:hover::-webkit-scrollbar-thumb:active {
-    background-color: #444;
-}
-
-body.dark-mode .subreddit-suggestions {
+body.dark-mode .subreddit-suggestion {
   scrollbar-width: none;
 }
 
-body.dark-mode .subreddit-suggestions:hover {
+body.dark-mode .subreddit-suggestion:hover {
   scrollbar-color: #444;
   scrollbar-width: thin;
-  background-color: #1e1e1e;
+  background-color: #2a2a2a;
 }
 body.dark-mode .subreddit-suggestions-container {
   scrollbar-width: none;
@@ -742,9 +748,10 @@ body.dark-mode .subreddit-suggestions-container {
   background-color: #1e1e1e;
 }
 
-body.dark-mode .subreddit-suggestions-container:hover {
+body.dark-mode .subreddit-suggestions:hover {
   scrollbar-width: thin;
-  scrollbar-color: #444; /* Thumb appears on hover */
+  scrollbar-color: #444 ;
+  background-color: #1e1e1e;
 }
 
     </style>
@@ -753,7 +760,7 @@ body.dark-mode .subreddit-suggestions-container:hover {
 <body>
     <div class="container">
         <header>
-            <div class="logo">RedditFinder</div>
+            <div class="logo">KarmaFinder</div>
             <div class="tagline">Find exactly what you're looking for on Reddit</div>
         </header>
 
@@ -823,8 +830,9 @@ body.dark-mode .subreddit-suggestions-container:hover {
         </div>
 
         <footer>
-            <p>RedditFinder helps you search Reddit content more effectively than Reddit's native search.</p>
+            <p>KarmaFinder helps you search Reddit content more effectively than Reddit's native search.</p>
             <p>If you find this tool useful, please consider supporting its development.</p>
+            <p>KarmaFinder is an independent search utility and is not affiliated with Reddit Inc.</p>
             <a href="#" class="donate-btn">Donate</a>
         </footer>
     </div>
@@ -1647,7 +1655,7 @@ if (after) {
                         imageLink.target = '_blank';
 
                         const resultImage = document.createElement('img');
-                        resultImage.src = `https://redditfinderproxy.onrender.com/image?url=${encodeURIComponent(previewImage)}`;
+                        resultImage.src = `https://karmafinder.onrender.com/image?url=${encodeURIComponent(previewImage)}`;
                         resultImage.alt = 'Post thumbnail';
                         resultImage.style.maxWidth = '140px';
                         resultImage.style.maxHeight = '100px';
@@ -1660,13 +1668,6 @@ if (after) {
                         imgContainer.style.visibility = 'hidden';
                     }
 
-                    // Test play icon
-                    // const playIcon = document.createElement('div');
-                    // playIcon.className = 'play-icon';
-                    // playIcon.innerHTML = '▶';
-                    // imgContainer.appendChild(playIcon);
-
-                    // Add play icon directly to the container if it's a video
                     if (
                         post.is_video ||
                         (post.domain && post.domain.includes('youtu')) ||
