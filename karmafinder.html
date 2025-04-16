@@ -52,9 +52,49 @@
             color: var(--light-text);
         }
 
+        .image-wrapper {
+  position: relative;
+  width: 140px;
+  height: 100px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.image-placeholder {
+  width: 100%;
+  height: 100%;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.shimmer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -150px;
+  height: 100%;
+  width: 150px;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.9) 50%,  /* almost pure white */
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer 1.25s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(300%);
+  }
+}
+
         .search-container {
             position: relative;
-            /*transform: scale(0.99);*/
             display: flex;
             flex-direction: column;
             gap: 20px;
@@ -259,7 +299,6 @@
         }
 
         .result-card {
-           /* transform: scale(0.99);*/
             position: relative;
             margin-bottom: 15px;
             overflow: visible; 
@@ -276,8 +315,7 @@
         }
 
          .result-card:hover { 
-            transform: translateY(-0.05px);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 3px 4px rgba(0, 0, 0, 0.1);
         }
 
         .vote-section {
@@ -394,17 +432,27 @@
             font-size: small;
             flex-shrink: 0;
             max-height: 100px;
-            overflow-y: auto;
+            overflow-y: hidden;
             background-color: #f9f9f9;
             border-radius: 6px;
             padding: 8px;
             margin-left: 15px;
             margin-right: 25px;
+        }
 
-        /* Scrollbar */
-            scrollbar-width: thin; /* For Firefox */
-            scrollbar-color: transparent transparent; /* For Firefox */
+        .comments-scroll {
+            max-height: 100px;
+            overflow-y: auto;
+            padding: 8px;
+            scrollbar-color: transparent transparent;
+            scrollbar-width: thin;
+            scrollbar-gutter: stable;
             transition: scrollbar-color 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .comments-scroll:hover {
+            scrollbar-color: rgba(180, 180, 180, 0.5) transparent;
         }
 
         .comments-section::-webkit-scrollbar {
@@ -438,6 +486,7 @@
             margin-bottom: 8px;
             padding-bottom: 8px;
             border-bottom: 1px solid #eee;
+            box-sizing: border-box;
         }
 
         .comment:last-child {
@@ -476,6 +525,7 @@
             font-size: 10px;
             color: var(--light-text);
             margin-top: 2px;
+            box-sizing: border-box;
         }
 
         .comment-score {
@@ -499,6 +549,7 @@
             color: var(--secondary-color);
             cursor: pointer;
             font-weight: bold;
+            box-sizing: border-box;
         }
 
         .see-more-comments:hover {
@@ -510,10 +561,17 @@
         }
 
         .result-image {
-            max-width: 140px;
-            max-height: 100px;
-            border-radius: 4px;
+            width: 100%;
+            height: 100%;
             object-fit: cover;
+            border-radius: 6px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            display: block;
+        }
+
+        .result-image.show {
+            opacity: 1;
         }
 
         .loading {
@@ -703,6 +761,9 @@ body.dark-mode .spinner-container {
   color: #ffffff;
   border-color: #333; /* optional border */
 }
+body.dark-mode .comment {
+  border-bottom: 1px solid #444;
+}
 
 body.dark-mode .result-card,
 body.dark-mode .result-title,
@@ -715,19 +776,54 @@ body.dark-mode .result-action {
   color: white;
 }
 
+body.dark-mode .result-card:hover { 
+            box-shadow: 0 3px 5px black;
+        }
+
+body.dark-mode .result-title a:hover {
+            color: var(--secondary-color);
+        }
+
+body.dark-mode .image-placeholder {
+  background-color: #333;
+}
+
+body.dark-mode .shimmer::before {
+background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+}
+
 /* Inputs and dropdowns */
 body.dark-mode input,
 body.dark-mode select,
 body.dark-mode .filter-chip-container,
 body.dark-mode textarea {
-  background-color:  #595959 ;
+  background-color:  #333 ;
   color: #fff;
   border-color: #444;
 }
 
-body.dark-mode .comments-section {
-  color: #1e1e1e;
+body.dark-mode .results-container {
+  background-color: #121212;
+  color: #f5f5f5;
 }
+
+body.dark-mode .comments-section {
+  color: white;
+  background-color: #333;
+  border-color: #222;
+}
+
+body .dark-mode .vote-count {
+  font-weight: bold;
+  margin: 5px 0;
+  color: white;
+}
+
 /* Scrollbar */
 body.dark-mode .subreddit-suggestions::-webkit-scrollbar-thumb {
     background-color: transparent;
@@ -1252,79 +1348,75 @@ body.dark-mode .subreddit-suggestions:hover {
             subredditSuggestions.classList.remove('active');
         }
 
-        function performSearch(after = null, before = null) {
-            const query = searchInput.value.trim();
-            if (!query) return;
+ // Error handler
+    function showError(err) {
+        console.error('🚨 Error fetching Reddit data:', err);
+        const resultsContainer = document.getElementById('results');
+        resultsContainer.innerHTML = `
+        <div class="error-box">
+            <strong>Error:</strong> ${err.message || 'Unknown error occurred.'}
+        </div>
+    `;
+    }
 
-            currentQuery = query;
-            currentAfter = after;
-            currentBefore = before;
+            // Perform search
+            function performSearch(after = null, before = null) {
+                    console.log('🟢 performSearch() was called');
 
-            showLoading();
+                    const query = searchInput.value.trim();
+                    if (!query) return;
 
-           let baseQuery = query;
+                    // Update filters from UI
+                    currentFilters.query = query;
+                    currentFilters.time = document.getElementById('time-select').value;
+                    currentFilters.sort = document.getElementById('sort-select').value;
 
-// ✅ Apply subreddit filter
-if (currentFilters.subreddit) {
-    baseQuery += `+subreddit:${currentFilters.subreddit}`;
-}
-
-// ✅ Build API URL with all filters
-let url = `${API_ENDPOINT}?url=${encodeURIComponent('https://www.reddit.com/search.json?q=' + baseQuery)}`;
-
-// ✅ Sort
-url += `&sort=${currentFilters.sort}`;
-
-// ✅ Time filter
-if (currentFilters.sort === 'top' || currentFilters.sort === 'comments') {
-    url += `&t=${currentFilters.time}`;
-}
-
-// ✅ Content type filter
-if (currentFilters.contentType === 'comments') {
-    url += '&type=comment';
-} else if (currentFilters.contentType === 'posts') {
-    url += '&type=link';
-}
-
-// ✅ Pagination
-url += `&limit=${RESULTS_PER_PAGE}`;
-if (after) {
-    url += `&after=${after}`;
-} else if (before) {
-    url += `&before=${before}`;
-}
-
-            // Fetch results from Reddit API
-            fetch(url)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
+                    // IMPORTANT FIX: Check for selected subreddit in the chip container
+                    // instead of directly from the input field
+                    if (subredditChipContainer.style.display === 'flex') {
+                        // Get the subreddit from the chip text (removing the 'r/' prefix)
+                        const chipText = subredditChipContainer.querySelector('.chip-text').textContent;
+                        currentFilters.subreddit = chipText.replace('r/', '');
+                    } else {
+                        // If no chip is displayed, use the input value as fallback
+                        currentFilters.subreddit = document.getElementById('subreddit-input').value.trim();
                     }
-                    return response.json();
-                })
-                .then(data => {
-                    displayResults(data.data);
-                })
-                .catch(error => {
-                    console.error('Error fetching data:', error);
 
-                    resultsContainer.innerHTML = `
-                        <div class="error-card">
-                            <p>Sorry, there was an error fetching results.</p>
-                            <p>Error details: ${error.message}</p>
-                        </div>
-                    `;
-                    
-                    resultsContainer.style.display = 'block';
-                    resultsContainer.scrollIntoView({ behavior: 'smooth' });
+                    currentAfter = after;
+                    currentBefore = before;
 
-                    paginationContainer.innerHTML = '';
-                })
-                .finally(() => {
-                    isLoading = false;
-                });
-        }
+                    showLoading();
+
+                    // Begin constructing URL
+                    const encodedQuery = encodeURIComponent(query);
+                    const sort = currentFilters.sort;
+                    const time = currentFilters.time;
+                    const subreddit = currentFilters.subreddit;
+                    const limit = 25;
+
+                    let url = 'https://www.reddit.com';
+
+                    // IMPORTANT FIX: Only add the subreddit to the URL if it exists
+                    if (subreddit) {
+                        url += `/r/${subreddit}`;
+                    }
+
+                    url += `/search.json?q=${encodedQuery}&sort=${sort}&limit=${limit}`;
+
+                    if (sort === 'top' || sort === 'comments') {
+                        url += `&t=${time}`;
+                    }
+
+                    console.log('🔍 Filters applied:', currentFilters);
+                    console.log('🔗 Final Reddit API URL:', url);
+
+                    // Proxy fetch
+                    fetch(`http://localhost:3000/reddit?url=${encodeURIComponent(url)}`)
+                        .then(res => res.json())
+                        .then(data => displayResults(data))
+                        .catch(err => showError(err));
+
+}
 
         function showLoading() {
                 isLoading = true;
@@ -1446,13 +1538,18 @@ if (after) {
         function displayResults(data) {
                 resultsContainer.innerHTML = '';
 
-                if (!data.children || data.children.length === 0) {
+                // First, let's log the incoming data structure
+                console.log("📊 Data received:", data);
+
+                const posts = data.data?.children || [];
+
+                if (posts.length === 0) {
                     resultsContainer.innerHTML = `
-                    <div style="padding: 20px; background-color: var(--card-color); border-radius: 4px; text-align: center;">
-                        <p>No results found for "${currentQuery}"</p>
-                        <p>Try different search terms or filters.</p>
-                    </div>
-                `;
+            <div style="padding: 20px; background-color: var(--card-color); border-radius: 4px; text-align: center;">
+                <p>No results found for "${currentFilters.query}"</p>
+                <p>Try different search terms or filters.</p>
+            </div>
+        `;
                     paginationContainer.innerHTML = '';
                     return;
                 }
@@ -1462,7 +1559,7 @@ if (after) {
                 currentBefore = data.before || null;
 
                 // Display results
-                data.children.forEach(item => {
+                data.data?.children?.forEach(item => {
                     const post = item.data;
 
                     // Display domain in url
@@ -1478,14 +1575,22 @@ if (after) {
                     const resultCard = document.createElement('div');
                     resultCard.className = 'result-card';
 
-                    // Create comments section
+                    // Create comments section outer shell
                     const commentsSection = document.createElement('div');
                     commentsSection.className = 'comments-section';
-                    commentsSection.innerHTML = '<div class="loading-comments">Loading comments...</div>';
-                    // Don't append comments section yet - we'll do it at the end
 
-                    // Fetch comments for this post
-                    fetchComments(post.permalink, commentsSection);
+                    // Create inner scrollable area
+                    const commentsScroll = document.createElement('div');
+                    commentsScroll.className = 'comments-scroll';
+
+                    // Put a loading message in the scroll area
+                    commentsScroll.innerHTML = '<div class="loading-comments">Loading comments...</div>';
+
+                    // Append scrollable div inside the outer container
+                    commentsSection.appendChild(commentsScroll);
+
+                    // Fetch comments INTO the inner scrollable div
+                    fetchComments(post.permalink, commentsScroll);
 
                     // Vote section
                     const voteSection = document.createElement('div');
@@ -1645,29 +1750,46 @@ if (after) {
 
                     // Add thumbnail/preview image if available
                     
+                    // Add thumbnail/preview image if available
                     const previewImage = post.preview?.images?.[0]?.source?.url?.replace(/&amp;/g, '&');
 
-                    if (previewImage)
-
-                    {
+                    if (previewImage) {
                         const imageLink = document.createElement('a');
                         imageLink.href = `https://www.reddit.com${post.permalink}`;
                         imageLink.target = '_blank';
 
+                        // Create image wrapper
+                        const imageWrapper = document.createElement('div');
+                        imageWrapper.className = 'image-wrapper';
+
+                        // Create shimmer placeholder
+                        const imagePlaceholder = document.createElement('div');
+                        imagePlaceholder.className = 'image-placeholder shimmer';
+
+                        // Create actual image
                         const resultImage = document.createElement('img');
                         resultImage.src = `https://karmafinder.onrender.com/image?url=${encodeURIComponent(previewImage)}`;
                         resultImage.alt = 'Post thumbnail';
-                        resultImage.style.maxWidth = '140px';
-                        resultImage.style.maxHeight = '100px';
-                        resultImage.style.display = 'block';
+                        resultImage.className = 'result-image';
 
-                        imageLink.appendChild(resultImage);
+                        // On load, swap in image and remove shimmer
+                        resultImage.addEventListener('load', () => {
+                            console.log('🖼️ Image loaded and visible:', resultImage.src);
+                            imagePlaceholder.style.display = 'none';
+                            resultImage.classList.add('show');
+
+                        });
+
+                        imageWrapper.appendChild(imagePlaceholder);
+                        imageWrapper.appendChild(resultImage);
+                        imageLink.appendChild(imageWrapper);
                         imgContainer.appendChild(imageLink);
                     } else {
                         // No image: make container invisible, but preserve layout
                         imgContainer.style.visibility = 'hidden';
                     }
 
+                    // Add play icon for video content
                     if (
                         post.is_video ||
                         (post.domain && post.domain.includes('youtu')) ||
@@ -1793,8 +1915,6 @@ if (after) {
                         if (!input.contains(e.target) && !dropdown.contains(e.target)) {
                             dropdown.classList.remove('active');
                         }
-
-                        console.log("Dropdown closer script loaded 😈");
 
                     });
 

@@ -9,41 +9,50 @@ app.use((req, res, next) => {
 });
 
 app.get('/reddit', async (req, res) => {
-    const url = req.query.url;
-    console.log('[PROXY] Forwarding to:', url);
-
-    if (!url || !url.startsWith('https://www.reddit.com/')) {
-        return res.status(400).json({ error: 'Invalid or missing Reddit URL' });
-    }
-
-    // Add delay here (300ms)
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000); // ⏱ 8s timeout
+    const encodedUrl = req.query.url;
+    const decodedUrl = decodeURIComponent(encodedUrl);
 
     try {
-        const response = await fetch(url, {
-            signal: controller.signal,
+        const now = new Date();
+        const timeString = now.toLocaleTimeString();
+        console.log(`🔁 [${timeString}] Fetching: ${decodedUrl}`);
+
+        const response = await fetch(decodedUrl, {
             headers: {
-                'User-Agent': 'KarmaFinder/1.0 (+https://karmafinder.site)'
+                'User-Agent': 'KarmaFinder/1.0 (by u/YourUsername)'
             }
         });
 
-        clearTimeout(timeout);
+        // Optional: rate limit logging
+        const remaining = response.headers.get('x-ratelimit-remaining');
+        const reset = response.headers.get('x-ratelimit-reset');
+        const used = response.headers.get('x-ratelimit-used');
 
-        if (!response.ok) {
-            console.error('[PROXY] Reddit error:', response.status);
-            return res.status(response.status).json({ error: `Reddit returned status ${response.status}` });
+        const timestamp = now.toLocaleTimeString();
+
+        console.log(`📊 [${timestamp}] Rate Limit Info:`);
+        console.log(`   Remaining: ${remaining}`);
+        console.log(`   Used: ${used}`);
+        console.log(`   Resets in: ${reset} seconds`);
+
+        if (response.status === 429) {
+            console.log(`🚫 [${timestamp}] 429 TOO MANY REQUESTS`);
+            console.log(`   Remaining: ${remaining}`);
+            console.log(`   Used: ${used}`);
+            console.log(`   Resets in: ${reset} seconds`);
+
+            return res.status(429).send('Rate limited by Reddit');
         }
+
 
         const data = await response.json();
         res.json(data);
     } catch (err) {
-        console.error('[PROXY] Error:', err.message);
-        res.status(500).json({ error: 'Proxy failed', details: err.message });
+        console.error('❌ Reddit proxy error:', err.message);
+        res.status(500).json({ error: 'Failed to fetch Reddit content. ' + err.message });
     }
 });
+
 
 app.get('/image', async (req, res) => {
     const imageUrl = req.query.url;
