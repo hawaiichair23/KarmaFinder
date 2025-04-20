@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support KarmaFinder</title>
+    <style>
+        :root {
+            --primary-color: #ff4500;
+            --secondary-color: #0079d3;
+            --background-color: #141414;
+            --card-color: #222222;
+            --text-color: #ffffff;
+            --light-text: #b0b0b0;
+            --border-color: #333333;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .tagline {
+            color: var(--light-text);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .donation-card {
+            background-color: var(--card-color);
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .amount-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .amount-option {
+            flex: 1;
+            min-width: 80px;
+            padding: 12px;
+            background-color: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .amount-option:hover {
+            border-color: var(--secondary-color);
+        }
+
+        .amount-option.selected {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+            color: white;
+        }
+
+        .custom-amount {
+            margin-top: 15px;
+        }
+
+        .custom-amount input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-size: 1rem;
+        }
+
+        .info-text {
+            margin: 25px 0;
+            color: var(--light-text);
+            font-size: 0.9rem;
+        }
+
+        .payment-button {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .payment-button:hover {
+            background-color: #e03d00;
+        }
+
+        .secure-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 20px;
+            color: var(--light-text);
+            font-size: 0.9rem;
+        }
+
+        .secure-badge svg {
+            margin-right: 8px;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: var(--light-text);
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            color: var(--secondary-color);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+
+            .donation-card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>KarmaFinder</h1>
+                    <div class="tagline">
+                        Support the development of better Reddit search
+                    </div>
+        </div>
+
+        <div class="donation-card">
+            <h2>Support KarmaFinder</h2>
+
+            <p>Your donation helps keep the servers running and enables new features.</p>
+
+            <div class="amount-options">
+                <div class="amount-option">$3</div>
+                <div class="amount-option selected">$5</div>
+                <div class="amount-option">$10</div>
+                <div class="amount-option">$25</div>
+            </div>
+
+            <div class="custom-amount">
+                <input type="number" placeholder="Custom amount" min="1" step="1">
+            </div>
+
+            <div class="info-text">
+                <p>KarmaFinder is an independent search utility and is not affiliated with Reddit Inc.</p>
+                <p style="text-align: center;">Your support directly funds the development and server costs.</p>
+            </div>
+
+            <button class="payment-button">Donate Now</button>
+
+            <div class="secure-badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                Secure payment via Stripe
+            </div>
+        </div>
+
+        <a href="#" class="back-link">← Return to KarmaFinder</a>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const amountOptions = document.querySelectorAll('.amount-option');
+            const customAmountInput = document.querySelector('.custom-amount input');
+
+            // Handle amount option selection
+            amountOptions.forEach(option => {
+                option.addEventListener('click', function () {
+                    // Remove selected class from all options
+                    amountOptions.forEach(opt => opt.classList.remove('selected'));
+
+                    // Add selected class to clicked option
+                    this.classList.add('selected');
+
+                    // Clear custom amount
+                    customAmountInput.value = '';
+                });
+            });
+
+            // When custom amount is entered, deselect other options
+            customAmountInput.addEventListener('input', function () {
+                if (this.value) {
+                    amountOptions.forEach(opt => opt.classList.remove('selected'));
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

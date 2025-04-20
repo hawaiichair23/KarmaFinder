@@ -6,9 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KarmaFinder - Better Reddit Search</title>
     <style>
-    html {
-   font-size: 90%;
-}
+        html {
+            font-size: 90%;
+        }
+
         :root {
             --primary-color: #ff4500;
             --secondary-color: #0079d3;
@@ -26,6 +27,7 @@
             margin: 0;
             padding: 0;
             line-height: 1.6;
+            transition: all 0.15s ease-in-out;
         }
 
         .container {
@@ -53,45 +55,44 @@
         }
 
         .image-wrapper {
-  position: relative;
-  width: 140px;
-  height: 100px;
-  border-radius: 6px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
+            position: relative;
+            width: 140px;
+            height: 100px;
+            border-radius: 6px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
 
-.image-placeholder {
-  width: 100%;
-  height: 100%;
-  background-color: #f8f9fa;
-  border-radius: 6px;
-  position: absolute;
-  top: 0;
-  left: 0;
-}
+        .image-placeholder {
+            width: 100%;
+            height: 100%;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
 
-.shimmer::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -150px;
-  height: 100%;
-  width: 150px;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.9) 50%,  /* almost pure white */
-    rgba(255, 255, 255, 0) 100%
-  );
-  animation: shimmer 1.25s infinite;
-}
+        .shimmer::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -150px;
+            height: 100%;
+            width: 150px;
+            background: linear-gradient(to right,
+                    rgba(255, 255, 255, 0) 0%,
+                    rgba(255, 255, 255, 0.9) 50%,
+                    /* almost pure white */
+                    rgba(255, 255, 255, 0) 100%);
+            animation: shimmer 1.25s infinite;
+        }
 
-@keyframes shimmer {
-  100% {
-    transform: translateX(300%);
-  }
-}
+        @keyframes shimmer {
+            100% {
+                transform: translateX(300%);
+            }
+        }
 
         .search-container {
             position: relative;
@@ -103,6 +104,7 @@
             padding: 25px;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: all 0.15s ease-in-out;
         }
 
         .search-input-container {
@@ -115,8 +117,9 @@
             padding: 12px 20px;
             font-size: 1.1rem;
             border: 1px solid var(--border-color);
-            border-radius: 4px 0 0 4px;
+            border-radius: 6px 0 0 6px;
             outline: none;
+            background-color: #f8f9fa;
         }
 
         .search-input:focus {
@@ -143,11 +146,17 @@
             display: flex;
             flex-wrap: wrap;
             gap: 15px;
+            transition: all 0.15s ease-in-out;
+            justify-content: flex-start;
         }
 
         .option-group {
-            flex: 1;
-            min-width: 200px;
+            flex: 0 0 auto;
+            /* Don't grow or shrink, stay at natural width */
+            min-width: 150px;
+            /* Reduced minimum width */
+            margin-right: 10px;
+            /* Add some spacing between groups */
         }
 
         .option-group label {
@@ -158,42 +167,75 @@
 
         .option-group select,
         .option-group input {
-            width: 100%;
+            width: 180px;
             padding: 8px 12px;
             border: 1px solid var(--border-color);
-            border-radius: 4px;
+            border-radius: 6px;
+        }
+
+        #subreddit-input {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 0.5rem;
+            max-width: 259px;
+        }
+
+        #time-select {
+            max-width: 165px;
+        }
+
+        #sort-select {
+            max-width: 165px;
+        }
+
+        #safesearch-select {
+            max-width: 165px;
+        }
+
+        body.safe-search-enabled .nsfw img,
+        body.safe-search-enabled .nsfw video,
+        body.safe-search-enabled .nsfw .thumbnail {
+            filter: blur(12px);
+            pointer-events: none;
+            transition: filter 0.2s ease;
         }
 
         .subreddit-dropdown {
             position: relative;
-            z-index: 10000; /* High stacking context to avoid being overlapped */
-        }   
+            z-index: 10000;
+            /* High stacking context to avoid being overlapped */
+            transition: all 0.15s ease-in-out;
+        }
+
         .subreddit-suggestions {
             position: absolute;
             background-color: var(--card-color, #fff);
             width: 100%;
             border: 1px solid #999;
             border-radius: 6px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             z-index: 10000;
             max-height: 300px;
             overflow-y: auto;
-            display: none; /* Hidden by default */
+            display: none;
+            /* Hidden by default */
             scrollbar-width: none;
-            scrollbar-color:rgba(150, 150, 150, 0.6);
+            scrollbar-color: rgba(150, 150, 150, 0.6);
             transition: scrollbar-color 0.3s ease;
 
         }
-        
-/**/        .subreddit-suggestions .custom-spinner-wrapper {
+
+        /**/
+        .subreddit-suggestions .custom-spinner-wrapper {
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 10px 0;
-            
+
         }
 
- /**/       .subreddit-suggestions-container {
+        /**/
+        .subreddit-suggestions-container {
             max-height: 300px;
             overflow-y: auto;
         }
@@ -211,7 +253,8 @@
             border-radius: 4px;
         }
 
- /**/       .subreddit-suggestions-container:hover {
+        /**/
+        .subreddit-suggestions-container:hover {
             scrollbar-color: rgba(150, 150, 150, 0.6);
             scrollbar-width: thin;
         }
@@ -241,34 +284,37 @@
             background-color: var(--background-color);
         }
 
-.subreddit-suggestions::-webkit-scrollbar {
-    width: 4px;
-}
+        .subreddit-suggestions::-webkit-scrollbar {
+            width: 4px;
+        }
 
-.subreddit-suggestions::-webkit-scrollbar-track {
-    background: transparent;
-}
+        .subreddit-suggestions::-webkit-scrollbar-track {
+            background: transparent;
+        }
 
-.subreddit-suggestions::-webkit-scrollbar-thumb {
-    background-color: transparent;
-    border-radius: 4px;
-}
+        .subreddit-suggestions::-webkit-scrollbar-thumb {
+            background-color: transparent;
+            border-radius: 4px;
+        }
 
-.subreddit-suggestions:hover {
-    scrollbar-color: rgba(180, 180, 180, 0.5) transparent; /* Firefox */
-    scrollbar-width: thin;
-    scrollbar-color: #444 ;
-    background-color: white;
-}
+        .subreddit-suggestions:hover {
+            scrollbar-color: rgba(180, 180, 180, 0.5) transparent;
+            /* Firefox */
+            scrollbar-width: thin;
+            scrollbar-color: #444;
+            background-color: white;
+        }
 
-.subreddit-suggestions:hover::-webkit-scrollbar-thumb {
-    background-color: transparent; /* WebKit */
-}
+        .subreddit-suggestions:hover::-webkit-scrollbar-thumb {
+            background-color: transparent;
+            /* WebKit */
+        }
 
-.subreddit-suggestions:hover::-webkit-scrollbar-thumb:hover,
-.subreddit-suggestions:hover::-webkit-scrollbar-thumb:active {
-    background-color: transparent; /* On interaction */
-}
+        .subreddit-suggestions:hover::-webkit-scrollbar-thumb:hover,
+        .subreddit-suggestions:hover::-webkit-scrollbar-thumb:active {
+            background-color: transparent;
+            /* On interaction */
+        }
 
 
         .subreddit-icon {
@@ -291,6 +337,19 @@
             object-fit: cover;
         }
 
+        .results-error {
+            display: flex;
+            position: relative;
+            flex-direction: column;
+            gap: 15px;
+            border-radius: 8px;
+            justify-content: center;
+            align-items: center;
+            min-height: 120px;
+            transition: all 0.15s ease-in-out;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
         .results-container {
             display: flex;
             position: relative;
@@ -301,20 +360,21 @@
         .result-card {
             position: relative;
             margin-bottom: 15px;
-            overflow: visible; 
+            overflow: visible;
             display: flex;
             flex-direction: row;
             align-items: center;
             padding: 10px;
             border-radius: 8px;
             background-color: #fff;
-            min-height: 130px; 
+            min-height: 130px;
             transition: all 0.15s ease-in-out;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            z-index: 1; /* Lower than dropdown */
+            z-index: 1;
+            /* Lower than dropdown */
         }
 
-         .result-card:hover { 
+        .result-card:hover {
             box-shadow: 0 3px 4px rgba(0, 0, 0, 0.1);
         }
 
@@ -342,7 +402,7 @@
             margin: 5px 0;
         }
 
-        .content-section {     
+        .content-section {
             flex-grow: 1;
             overflow: hidden;
             margin-left: 15px;
@@ -359,6 +419,7 @@
             color: var(--light-text);
             color: #15121c;
             font-weight: 400;
+            z-index: 0;
         }
 
         .result-subreddit {
@@ -419,10 +480,10 @@
         }
 
         .error-card {
-        padding: 20px;
-        border-radius: 4px;
-        background-color: var(--card-color);
-        color: var(--text-color); 
+            padding: 20px;
+            border-radius: 4px;
+            background-color: var(--card-color);
+            color: var(--text-color);
         }
 
 
@@ -469,17 +530,20 @@
         }
 
         .comments-section:hover {
-            scrollbar-color: rgba(180, 180, 180, 0.5) transparent; /* For Firefox */
+            scrollbar-color: rgba(180, 180, 180, 0.5) transparent;
+            /* For Firefox */
         }
 
         .comments-section:hover::-webkit-scrollbar-thumb {
-            background-color: rgba(180, 180, 180, 0.5); /* Light gray with transparency */
+            background-color: rgba(180, 180, 180, 0.5);
+            /* Light gray with transparency */
         }
 
         /* When scrollbar is actively being used */
         .comments-section:hover::-webkit-scrollbar-thumb:hover,
         .comments-section:hover::-webkit-scrollbar-thumb:active {
-            background-color: rgba(160, 160, 160, 0.7); /* Darker when hovered/active */
+            background-color: rgba(160, 160, 160, 0.7);
+            /* Darker when hovered/active */
         }
 
         .comment {
@@ -554,7 +618,7 @@
 
         .see-more-comments:hover {
             text-decoration: underline;
-        }    
+        }
 
         .action-icon {
             vertical-align: middle;
@@ -643,8 +707,10 @@
         }
 
         .donate-btn {
-            display: inline-block;
-            margin-top: 10px;
+            display: block;
+            position: absolute;
+            margin-top: 25px;
+            right: 70px;
             background-color: var(--primary-color);
             color: white;
             padding: 8px 16px;
@@ -652,6 +718,7 @@
             text-decoration: none;
             font-weight: bold;
             transition: background-color 0.2s;
+            z-index: 5;
         }
 
         .donate-btn:hover {
@@ -698,12 +765,13 @@
             border-radius: 4px;
             object-fit: cover;
         }
-        
+
         .img-container .play-icon {
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
+            padding-left: 4px;
+            transform: translate(-48%, -50%);
             z-index: 10;
             pointer-events: none;
             background-color: rgba(0, 0, 0, 0.6);
@@ -714,155 +782,174 @@
             align-items: center;
             justify-content: center;
             color: white;
+            font-size: 20px;
         }
 
-.theme-toggle {
-  position: fixed;
-  top: 16px;
-  left: 20px;
-  right: unset;
-  width: 50px;
-  height: 50px;
-  padding: 4px;
-  background: transparent;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  z-index: 10000;
-}
-
-.theme-toggle img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  transition: filter 0.3s ease;
-}
-
-/* Dark mode base */
-body.dark-mode {
-  background-color: #121212;
-  color: #f5f5f5;
-}
-
-/* Light-dark cards */
-body.dark-mode .result-card,
-body.dark-mode .results-container,
-body.dark-mode .search-box,
-body.dark-mode .search-controls,
-body.dark-mode .error-card,
-body.dark-mode .comment-box,
-body.dark-mode .search-container,
-body.dark-mode .subreddit-suggestion,
-body.dark-mode .subreddit-suggestions .custom-spinner-wrapper,
-body.dark-mode .subreddit-suggestions::-webkit-scrollbar,
-body.dark-mode .subreddit-dropdown,
-body.dark-mode .spinner-container {
-  background-color: #1e1e1e; /* lighter dark grey */
-  color: #ffffff;
-  border-color: #333; /* optional border */
-}
-body.dark-mode .comment {
-  border-bottom: 1px solid #444;
-}
-
-body.dark-mode .result-card,
-body.dark-mode .result-title,
-body.dark-mode .result-title a,
-body.dark-mode .result-content,
-body.dark-mode .result-header,
-body.dark-mode .result-subreddit,
-body.dark-mode .result-actions,
-body.dark-mode .result-action {
-  color: white;
-}
-
-body.dark-mode .result-card:hover { 
-            box-shadow: 0 3px 5px black;
+        .theme-toggle {
+            position: fixed;
+            top: 16px;
+            left: 20px;
+            right: unset;
+            width: 50px;
+            height: 50px;
+            padding: 4px;
+            background: transparent;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10000;
         }
 
-body.dark-mode .result-title a:hover {
+        .theme-toggle img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transition: filter 0.3s ease;
+        }
+
+        /* Dark mode base */
+        body.dark-mode {
+            background-color: #141414;
+            color: #f5f5f5;
+            transition: all 0.15s ease-in-out;
+        }
+
+        /* Light-dark cards */
+        body.dark-mode .result-card,
+        body.dark-mode .search-box,
+        body.dark-mode .search-controls,
+        body.dark-mode .error-card,
+        body.dark-mode .comment-box,
+        body.dark-mode .search-container,
+        body.dark-mode .subreddit-suggestion,
+        body.dark-mode .subreddit-suggestions .custom-spinner-wrapper,
+        body.dark-mode .subreddit-suggestions::-webkit-scrollbar,
+        body.dark-mode .subreddit-dropdown,
+        body.dark-mode .spinner-container {
+            background-color: #222222;
+            /* lighter dark grey */
+            color: #ffffff;
+            border-color: #333;
+            /* optional border */
+        }
+
+        body.dark-mode .comment {
+            border-bottom: 1px solid #444;
+        }
+
+        body.dark-mode .result-card,
+        body.dark-mode .result-title,
+        body.dark-mode .result-title a,
+        body.dark-mode .result-content,
+        body.dark-mode .result-header,
+        body.dark-mode .result-subreddit,
+        body.dark-mode .result-actions,
+        body.dark-mode .result-action {
+            color: white;
+        }
+
+        body.dark-mode .search-input,
+        body.dark-mode #subreddit-input {
+            background-color: #1e1e1e;
+            color: white;
+        }
+
+        body.dark-mode .results-error {
+            background-color: #222222;
+        }
+
+        body.dark-mode .results-container {
+            background-color: #141414;
+        }
+
+        body.dark-mode .result-card:hover {
+            box-shadow: 0 3px 5px #0e0e0e;
+        }
+
+        body.dark-mode .result-title a:hover {
             color: var(--secondary-color);
         }
 
-body.dark-mode .image-placeholder {
-  background-color: #333;
-}
+        body.dark-mode .image-placeholder,
+        body.dark-mode .pagination-button {
+            background-color: #222222;
+            border-color: #333;
+            color: white;
+        }
 
-body.dark-mode .shimmer::before {
-background: linear-gradient(
-    to right,
-    transparent 0%,
-    rgba(255, 255, 255, 0.08) 50%,
-    transparent 100%
-  );
-}
+        body.dark-mode .shimmer::before {
+            background: linear-gradient(to right,
+                    transparent 0%,
+                    rgba(255, 255, 255, 0.08) 50%,
+                    transparent 100%);
+        }
 
-/* Inputs and dropdowns */
-body.dark-mode input,
-body.dark-mode select,
-body.dark-mode .filter-chip-container,
-body.dark-mode textarea {
-  background-color:  #333 ;
-  color: #fff;
-  border-color: #444;
-}
+        /* Inputs and dropdowns */
+        body.dark-mode input,
+        body.dark-mode select,
+        body.dark-mode .filter-chip-container,
+        body.dark-mode textarea {
+            background-color: #333;
+            color: #fff;
+            border-color: #444;
+        }
 
-body.dark-mode .results-container {
-  background-color: #121212;
-  color: #f5f5f5;
-}
+        body.dark-mode .comments-section {
+            color: white;
+            background-color: #333;
+            border-color: #222;
+        }
 
-body.dark-mode .comments-section {
-  color: white;
-  background-color: #333;
-  border-color: #222;
-}
+        body .dark-mode .vote-count {
+            font-weight: bold;
+            margin: 5px 0;
+            color: white;
+        }
 
-body .dark-mode .vote-count {
-  font-weight: bold;
-  margin: 5px 0;
-  color: white;
-}
+        /* Scrollbar */
+        body.dark-mode .subreddit-suggestions::-webkit-scrollbar-thumb {
+            background-color: transparent;
+        }
 
-/* Scrollbar */
-body.dark-mode .subreddit-suggestions::-webkit-scrollbar-thumb {
-    background-color: transparent;
-}
+        body.dark-mode .subreddit-suggestion {
+            scrollbar-width: none;
+        }
 
-body.dark-mode .subreddit-suggestion {
-  scrollbar-width: none;
-}
+        body.dark-mode .subreddit-suggestion:hover {
+            scrollbar-color: #444;
+            scrollbar-width: thin;
+            background-color: #2a2a2a;
+        }
 
-body.dark-mode .subreddit-suggestion:hover {
-  scrollbar-color: #444;
-  scrollbar-width: thin;
-  background-color: #2a2a2a;
-}
-body.dark-mode .subreddit-suggestions-container {
-  scrollbar-width: none;
-  scrollbar-color: transparent transparent; /* For Firefox */
-  background-color: #1e1e1e;
-}
+        body.dark-mode .subreddit-suggestions-container {
+            scrollbar-width: none;
+            scrollbar-color: transparent transparent;
+            /* For Firefox */
+            background-color: #222222;
+        }
 
-body.dark-mode .subreddit-suggestions:hover {
-  scrollbar-width: thin;
-  scrollbar-color: #444 ;
-  background-color: #1e1e1e;
-}
-
+        body.dark-mode .subreddit-suggestions:hover {
+            scrollbar-width: thin;
+            scrollbar-color: #444;
+            background-color: #222222;
+        }
     </style>
 </head>
 
 <body>
+    <a href="donopage.html" class="donate-btn floating-button">Support the Site</a>
     <div class="container">
-        <header>
-            <div class="logo">KarmaFinder</div>
-            <div class="tagline">Find exactly what you're looking for on Reddit</div>
+        <header
+            style="display: flex; justify-content: center; align-items: center; position: relative; padding: 1rem 0;">
+            <div style="text-align: center;">
+                <div class="logo">KarmaFinder</div>
+                <div class="tagline">Find exactly what you're looking for on Reddit 🔎</div>
+            </div>
         </header>
 
-<button id="themeToggle" class="theme-toggle" aria-label="Toggle Dark Mode">
-    <img id="themeIcon" src="moon.png" alt="Toggle theme" />
-</button>
+        <button id="themeToggle" class="theme-toggle" aria-label="Toggle Dark Mode">
+            <img id="themeIcon" src="moon.png" alt="Toggle theme" />
+        </button>
 
         <div class="search-container">
             <div class="search-input-container">
@@ -891,6 +978,15 @@ body.dark-mode .subreddit-suggestions:hover {
                         <option value="week">Past Week</option>
                         <option value="day">Past 24 Hours</option>
                         <option value="hour">Past Hour</option>
+                    </select>
+
+                </div>
+
+                <div class="option-group">
+                    <label for="safesearch-select">SafeSearch</label>
+                    <select id="safesearch-select">
+                        <option value="on">On</option>
+                        <option value="off">Off</option>
                     </select>
                 </div>
 
@@ -927,13 +1023,16 @@ body.dark-mode .subreddit-suggestions:hover {
 
         <footer>
             <p>KarmaFinder helps you search Reddit content more effectively than Reddit's native search.</p>
-            <p>If you find this tool useful, please consider supporting its development.</p>
-            <p>KarmaFinder is an independent search utility and is not affiliated with Reddit Inc.</p>
-            <a href="#" class="donate-btn">Donate</a>
+            <p>If you find this tool useful, please consider supporting its development. KarmaFinder is an independent
+                search utility and is not affiliated with Reddit Inc.</p>
+            <a href="#" id="button">Github // Discord</a>
         </footer>
     </div>
 
     <script>
+        // Seven minutes. Seven minutes is all I can spare to play with you.
+        const CACHE_DURATION_MS = 7 * 60 * 1000;
+
         // Configuration 
         const API_ENDPOINT = 'http://localhost:3000/reddit';
 
@@ -998,6 +1097,8 @@ body.dark-mode .subreddit-suggestions:hover {
         const dropdown = document.getElementById('subreddit-suggestions');
 
         // State
+        let navigationHistory = [];
+        let currentPageIndex = 0;
         let currentQuery = '';
         let currentAfter = null;
         let currentBefore = null;
@@ -1010,23 +1111,39 @@ body.dark-mode .subreddit-suggestions:hover {
         };
 
         // Event Listeners
-        searchButton.addEventListener('click', () => performSearch());
+        searchButton.addEventListener('click', () => {
+            currentPageIndex = 0;
+            navigationHistory = [];
+            performSearch();
+        });
+
         searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
+                currentPageIndex = 0;
+                navigationHistory = [];
                 performSearch();
             }
         });
 
         sortSelect.addEventListener('change', () => {
             currentFilters.sort = sortSelect.value;
+            performSearch();
         });
 
         timeSelect.addEventListener('change', () => {
             currentFilters.time = timeSelect.value;
+            performSearch();
+        });
+
+        document.getElementById('safesearch-select').addEventListener('change', function () {
+            const enabled = this.value === 'on';
+            document.body.classList.toggle('safe-search-enabled', enabled);
+            console.log(`SafeSearch is now ${enabled ? 'ON' : 'OFF'}`);
         });
 
         contentSelect.addEventListener('change', () => {
             currentFilters.contentType = contentSelect.value;
+            performSearch();
         });
 
         // Remove subreddit filter when clicking X
@@ -1044,7 +1161,7 @@ body.dark-mode .subreddit-suggestions:hover {
             }
         });
 
-       // Handle typing in subreddit input
+        // Handle typing in subreddit input
         subredditInput.addEventListener('input', () => {
             const query = subredditInput.value.toLowerCase().trim();
 
@@ -1068,66 +1185,66 @@ body.dark-mode .subreddit-suggestions:hover {
             }, 200); // delay debounce here
         });
 
-    // Cubic-bezier easing 
-    function cubicBezier(p0, p1, p2, p3) {
-        return function (t) {
-            const cx = 3 * (p1 - p0);
-            const bx = 3 * (p2 - p1) - cx;
-            const ax = 1 - cx - bx;
+        // Cubic-bezier easing 
+        function cubicBezier(p0, p1, p2, p3) {
+            return function (t) {
+                const cx = 3 * (p1 - p0);
+                const bx = 3 * (p2 - p1) - cx;
+                const ax = 1 - cx - bx;
 
-            const cy = 3 * (p1 - p0);
-            const by = 3 * (p2 - p1) - cy;
-            const ay = 1 - cy - by;
+                const cy = 3 * (p1 - p0);
+                const by = 3 * (p2 - p1) - cy;
+                const ay = 1 - cy - by;
 
-            let x = t, t2 = t;
-            for (let i = 0; i < 5; i++) {
-                const f = ax * t2 * t2 * t2 + bx * t2 * t2 + cx * t2 - x;
-                const df = 3 * ax * t2 * t2 + 2 * bx * t2 + cx;
-                t2 = t2 - f / df;
-                t2 = Math.max(0, Math.min(t2, 1));
+                let x = t, t2 = t;
+                for (let i = 0; i < 5; i++) {
+                    const f = ax * t2 * t2 * t2 + bx * t2 * t2 + cx * t2 - x;
+                    const df = 3 * ax * t2 * t2 + 2 * bx * t2 + cx;
+                    t2 = t2 - f / df;
+                    t2 = Math.max(0, Math.min(t2, 1));
+                }
+
+                return ay * t2 * t2 * t2 + by * t2 * t2 + cy * t2;
+            };
+        }
+
+        // Begin animation
+        function startSpinnerAnimation(ctx) {
+            const easeCustom = cubicBezier(0.1, 0.83, 0.37, 1);
+            const cycleDuration = 700;
+            let startTime = null;
+
+            function animate(timestamp) {
+                if (!startTime) startTime = timestamp;
+
+                const elapsed = timestamp - startTime;
+                const t = (elapsed % cycleDuration) / cycleDuration;
+                const ramp = Math.pow(t, 0.8);
+                const eased = easeCustom(ramp);
+
+                const angle = (eased * 6.28 + 7.8) % 6.28;
+                const shrinkEase = easeCustom(t);
+                const sinePhase = Math.sin(shrinkEase * Math.PI);
+                const shrinkPhase = easeCustom(sinePhase);
+                const shrink = 0.5 + 0.5 * shrinkPhase;
+                const arcLength = Math.PI * 0.7 * shrink;
+
+                ctx.clearRect(0, 0, 50, 50);
+                ctx.beginPath();
+                const arcStart = angle - arcLength;
+                ctx.arc(25, 25, 18, arcStart, angle);
+                ctx.strokeStyle = "#C1C0C1";
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                requestAnimationFrame(animate);
             }
-
-            return ay * t2 * t2 * t2 + by * t2 * t2 + cy * t2;
-        };
-    }
-
- // Begin animation
-    function startSpinnerAnimation(ctx) {
-        const easeCustom = cubicBezier(0.1, 0.83, 0.37, 1);
-        const cycleDuration = 700;
-        let startTime = null;
-
-        function animate(timestamp) {
-            if (!startTime) startTime = timestamp;
-
-            const elapsed = timestamp - startTime;
-            const t = (elapsed % cycleDuration) / cycleDuration;
-            const ramp = Math.pow(t, 0.8);
-            const eased = easeCustom(ramp);
-
-            const angle = (eased * 6.28 + 7.8) % 6.28;
-            const shrinkEase = easeCustom(t);
-            const sinePhase = Math.sin(shrinkEase * Math.PI);
-            const shrinkPhase = easeCustom(sinePhase);
-            const shrink = 0.5 + 0.5 * shrinkPhase;
-            const arcLength = Math.PI * 0.7 * shrink;
-
-            ctx.clearRect(0, 0, 50, 50);
-            ctx.beginPath();
-            const arcStart = angle - arcLength;
-            ctx.arc(25, 25, 18, arcStart, angle);
-            ctx.strokeStyle = "#C1C0C1";
-            ctx.lineWidth = 4;
-            ctx.stroke();
 
             requestAnimationFrame(animate);
         }
 
-        requestAnimationFrame(animate);
-    }
-
-    // SPINNY
-    function createCanvasSpinner() {
+        // SPINNY
+        function createCanvasSpinner() {
             const wrapper = document.createElement('div');
             wrapper.className = 'custom-spinner-wrapper';
             wrapper.style.cssText = `
@@ -1152,43 +1269,43 @@ body.dark-mode .subreddit-suggestions:hover {
 
         // combine popular and other search results to same timing
         async function handleSubredditSuggestions(query) {
-                const localMatches = POPULAR_SUBREDDITS.filter(sub =>
-                    sub.name.toLowerCase().startsWith(query)
-                );
+            const localMatches = POPULAR_SUBREDDITS.filter(sub =>
+                sub.name.toLowerCase().startsWith(query)
+            );
 
-                let remoteMatches = [];
+            let remoteMatches = [];
 
-                try {
-                    const res = await fetch(`http://localhost:3000/reddit?url=https://www.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}`);
-                    const data = await res.json();
+            try {
+                const res = await fetch(`http://localhost:3000/reddit?url=https://www.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}`);
+                const data = await res.json();
 
-                    if (data?.data?.children?.length > 0) {
-                        remoteMatches = data.data.children
-                            .filter(child => child.data.display_name.toLowerCase().startsWith(query))
-                            .map(child => ({
-                                name: child.data.display_name,
-                                icon: child.data.icon_img || '/api/placeholder/20/20'
-                            }));
-                    }
-                } catch (err) {
-                    console.error("Subreddit fetch failed:", err);
+                if (data?.data?.children?.length > 0) {
+                    remoteMatches = data.data.children
+                        .filter(child => child.data.display_name.toLowerCase().startsWith(query))
+                        .map(child => ({
+                            name: child.data.display_name,
+                            icon: child.data.icon_img || '/api/placeholder/20/20'
+                        }));
                 }
+            } catch (err) {
+                console.error("Subreddit fetch failed:", err);
+            }
 
-                const merged = [...localMatches, ...remoteMatches].filter(
-                    (sub, index, self) =>
-                        index === self.findIndex(s => s.name === sub.name)
-                );
+            const merged = [...localMatches, ...remoteMatches].filter(
+                (sub, index, self) =>
+                    index === self.findIndex(s => s.name === sub.name)
+            );
 
-                subredditSuggestions.innerHTML = ''; // clear spinner
+            subredditSuggestions.innerHTML = ''; // clear spinner
 
-                if (merged.length === 0) {
+            if (merged.length === 0) {
                 subredditSuggestions.innerHTML = '<div class="no-results">No subreddits found</div>';
                 return;
             }
 
-                populateSubredditSuggestions(merged);
-                
-            }
+            populateSubredditSuggestions(merged);
+
+        }
 
         function fetchSubredditSuggestions(query) {
             console.log("Searching for subreddits containing:", query);
@@ -1348,371 +1465,541 @@ body.dark-mode .subreddit-suggestions:hover {
             subredditSuggestions.classList.remove('active');
         }
 
- // Error handler
-    function showError(err) {
-        console.error('🚨 Error fetching Reddit data:', err);
-        const resultsContainer = document.getElementById('results');
-        resultsContainer.innerHTML = `
+        // Error handler
+        function showError(err) {
+            console.error('🚨 Error fetching Reddit data:', err);
+            const resultsContainer = document.getElementById('results');
+            resultsContainer.innerHTML = `
         <div class="error-box">
             <strong>Error:</strong> ${err.message || 'Unknown error occurred.'}
         </div>
     `;
-    }
+        }
 
-            // Perform search
-            function performSearch(after = null, before = null) {
-                    console.log('🟢 performSearch() was called');
+        // Modified performSearch function with caching
+        function performSearch(after = null, before = null, navigateBack = false) {
+            console.log('🟢 performSearch() called with:', { after, before, navigateBack });
+            console.log('🔍 Current Index:', currentPageIndex, 'navigateBack:', navigateBack);
 
-                    const query = searchInput.value.trim();
-                    if (!query) return;
+            if (navigateBack) {
 
-                    // Update filters from UI
-                    currentFilters.query = query;
-                    currentFilters.time = document.getElementById('time-select').value;
-                    currentFilters.sort = document.getElementById('sort-select').value;
+                // First, get the target page data
+                const targetPageIndex = currentPageIndex - 1;
+                const targetPage = navigationHistory[targetPageIndex];
 
-                    // IMPORTANT FIX: Check for selected subreddit in the chip container
-                    // instead of directly from the input field
-                    if (subredditChipContainer.style.display === 'flex') {
-                        // Get the subreddit from the chip text (removing the 'r/' prefix)
-                        const chipText = subredditChipContainer.querySelector('.chip-text').textContent;
-                        currentFilters.subreddit = chipText.replace('r/', '');
-                    } else {
-                        // If no chip is displayed, use the input value as fallback
-                        currentFilters.subreddit = document.getElementById('subreddit-input').value.trim();
+                // Then log what we're doing
+                console.log('🔙 Going back to page:', targetPageIndex);
+                console.log('📍 Target page data:', targetPage);
+
+
+                if (targetPage) {
+                    // For going back, we need to use the tokens that got us to the previous page
+                    after = targetPage.after;
+                    before = targetPage.before;
+
+                    // Update current filters with the stored query
+                    currentFilters.query = targetPage.query;
+
+                    // UPDATE THE INDEX HERE
+                    currentPageIndex = targetPageIndex; // Sets the index to the decremented value
+                    console.log('↩️ Index decremented to:', currentPageIndex);
+
+                    const cacheKey = `kf_search_${targetPage.query}_${currentFilters.sort}_${currentFilters.time}_${currentFilters.subreddit}_${currentFilters.contentType}_${targetPage.after || ''}_${targetPage.before || ''}`;
+                    const cachedItem = localStorage.getItem(cacheKey);
+
+                    if (cachedItem) {
+                        try {
+                            const cachedData = JSON.parse(cachedItem);
+                            const now = Date.now();
+
+                            if (now - cachedData.timestamp < CACHE_DURATION_MS) {
+                                console.log('📦 Using cached results for previous page:', cacheKey);
+                                displayResults(cachedData.data);
+                                return;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing cached data:', e);
+                            localStorage.removeItem(cacheKey);
+                        }
                     }
-
-                    currentAfter = after;
-                    currentBefore = before;
-
-                    showLoading();
-
-                    // Begin constructing URL
-                    const encodedQuery = encodeURIComponent(query);
-                    const sort = currentFilters.sort;
-                    const time = currentFilters.time;
-                    const subreddit = currentFilters.subreddit;
-                    const limit = 25;
-
-                    let url = 'https://www.reddit.com';
-
-                    // IMPORTANT FIX: Only add the subreddit to the URL if it exists
-                    if (subreddit) {
-                        url += `/r/${subreddit}`;
-                    }
-
-                    url += `/search.json?q=${encodedQuery}&sort=${sort}&limit=${limit}`;
-
-                    if (sort === 'top' || sort === 'comments') {
-                        url += `&t=${time}`;
-                    }
-
-                    console.log('🔍 Filters applied:', currentFilters);
-                    console.log('🔗 Final Reddit API URL:', url);
-
-                    // Proxy fetch
-                    fetch(`http://localhost:3000/reddit?url=${encodeURIComponent(url)}`)
-                        .then(res => res.json())
-                        .then(data => displayResults(data))
-                        .catch(err => showError(err));
-
-}
-
-        function showLoading() {
-                isLoading = true;
-                resultsContainer.innerHTML = ''; // Clear previous content
-
-                const spinnerWrapper = createCanvasSpinner();
-                resultsContainer.appendChild(spinnerWrapper);
-
-                paginationContainer.innerHTML = '';
+                }
             }
 
+            const query = searchInput.value.trim();
+            if (!query) return;
+
+            // Update filters from UI
+            currentFilters.query = query;
+            currentFilters.time = document.getElementById('time-select').value;
+            currentFilters.sort = document.getElementById('sort-select').value;
+            currentFilters.contentType = document.getElementById('content-select').value;
+
+            // Get subreddit from chip container if visible, otherwise from input
+            if (subredditChipContainer.style.display === 'flex') {
+                // Get the subreddit from the chip text (removing the 'r/' prefix)
+                const chipText = subredditChipContainer.querySelector('.chip-text').textContent;
+                currentFilters.subreddit = chipText.replace('r/', '');
+            } else {
+                // If no chip is displayed, use the input value as fallback
+                currentFilters.subreddit = document.getElementById('subreddit-input').value.trim();
+            }
+
+            // Set pagination values
+            currentAfter = after;
+            currentBefore = before;
+
+            // Create a cache key based on all search parameters
+            const cacheKey = `kf_search_${query}_${currentFilters.sort}_${currentFilters.time}_${currentFilters.subreddit}_${currentFilters.contentType}_${after || ''}_${before || ''}`;
+
+            // Check if we have cached results for this search
+            const cachedItem = localStorage.getItem(cacheKey);
+
+            if (cachedItem) {
+                try {
+                    const cachedData = JSON.parse(cachedItem);
+                    const now = Date.now();
+
+                    // Only use cache if it's still fresh
+                    if (now - cachedData.timestamp < CACHE_DURATION_MS) {
+                        console.log('📦 Using cached results for:', cacheKey);
+                        displayResults(cachedData.data);
+                        return;
+                    } else {
+                        localStorage.removeItem(cacheKey);
+                    }
+                } catch (e) {
+                    console.error('Error parsing cached data:', e);
+                    // If there's an error parsing the cache, remove it
+                    localStorage.removeItem(cacheKey);
+                }
+            }
+
+            // If we reach here, we need to fetch fresh data
+            showLoading();
+
+            // Begin constructing URL
+            const encodedQuery = encodeURIComponent(query);
+            const sort = currentFilters.sort;
+            const time = currentFilters.time;
+            const subreddit = currentFilters.subreddit;
+            const limit = 10;
+
+            let url = 'https://www.reddit.com';
+
+            // Only add subreddit to URL if one is selected
+            if (subreddit) {
+                url += `/r/${subreddit}`;
+                // Add the restrict_sr=1 parameter to limit results to this subreddit only
+                url += `/search.json?q=${encodedQuery}&sort=${sort}&restrict_sr=1&limit=${limit}`;
+            } else {
+                url += `/search.json?q=${encodedQuery}&sort=${sort}&limit=${limit}`;
+            }
+
+            // Add time parameter for relevant sort types
+            if (sort === 'top' || sort === 'comments' || sort === 'hot') {
+                url += `&t=${time}`;
+            }
+
+            // Add pagination parameters
+            if (after) {
+                url += `&after=${after}`;
+            }
+            if (before) {
+                url += `&before=${before}`;
+            }
+
+            console.log('🔍 Filters applied:', currentFilters);
+            console.log('🔗 Final Reddit API URL:', url);
+
+            // Proxy fetch
+            fetch(`http://localhost:3000/reddit?url=${encodeURIComponent(url)}`)
+                .then(res => {
+                    if (!res.ok) {
+                        throw new Error('Failed to fetch results from Reddit');
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    // Cache the new results with timestamp
+                    const cacheData = {
+                        timestamp: Date.now(),
+                        data: data
+                    };
+                    localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+                    console.log('💾 Cached new results for:', cacheKey);
+
+                    if (!navigateBack) {
+                        // Ensure navigation history is correctly sized
+                        navigationHistory.length = currentPageIndex + 1;
+
+                        // Store the current page's state
+                        navigationHistory[currentPageIndex] = {
+                            query: currentFilters.query,  // Store the query used
+                            after: after,                 // The token used to get to this page
+                            before: before,               // The token used to get to this page
+                            nextAfter: data.data?.after || null,    // Token for next page
+                            nextBefore: data.data?.before || null   // Token for previous page
+                        };
+
+                        console.log("🔥 Debug:", {
+                            navigateBack,
+                            currentPageIndex,
+                            after: data.data?.after,
+                            savedState: navigationHistory[currentPageIndex]
+                        });
+
+                    }
+                    // Display the results
+                    displayResults(data);
+                    updatePagination();
+                })
+                .catch(err => showError(err));
+        }
+
+        // Add cache management utility function
+        function clearExpiredCaches() {
+            const now = Date.now();
+            const cachePrefix = 'kf_search_';
+
+            // Loop through all localStorage items
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+
+                // Only process our cache keys
+                if (key && key.startsWith(cachePrefix)) {
+                    try {
+                        const cachedData = JSON.parse(localStorage.getItem(key));
+
+                        // Remove if expired
+                        if (now - cachedData.timestamp >= CACHE_DURATION_MS) {
+                            localStorage.removeItem(key);
+                            console.log('🧹 Removed expired cache:', key);
+                        }
+                    } catch (e) {
+                        // If we can't parse it, remove it
+                        localStorage.removeItem(key);
+                    }
+                }
+            }
+        }
+
+        function showLoading() {
+            isLoading = true;
+            resultsContainer.innerHTML = ''; // Clear previous content
+
+            const spinnerWrapper = createCanvasSpinner();
+            resultsContainer.appendChild(spinnerWrapper);
+
+            paginationContainer.innerHTML = '';
+        }
+
         // Function to fetch comments for a post
-            function fetchComments(permalink, commentsContainer) {
-                commentsContainer.innerHTML = `
+        function fetchComments(permalink, commentsContainer) {
+            commentsContainer.innerHTML = `
     <div class="loading-comments">
         <div class="spinner" id="comment-spinner-placeholder"></div>
     </div>
 `;
-                const commentSpinner = document.querySelector('#comment-spinner-placeholder');
-                if (commentSpinner) commentSpinner.replaceWith(createCanvasSpinner());
+            const commentSpinner = document.querySelector('#comment-spinner-placeholder');
+            if (commentSpinner) commentSpinner.replaceWith(createCanvasSpinner());
 
-                // Reddit API URL for comments (no auth required)
-                const commentsUrl = `http://localhost:3000/reddit?url=https://www.reddit.com${permalink}.json`;
+            // Reddit API URL for comments (no auth required)
+            const commentsUrl = `http://localhost:3000/reddit?url=https://www.reddit.com${permalink}.json`;
 
-                fetch(commentsUrl)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Failed to fetch comments');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        // The comments are in the second element of the array
-                        const commentsData = data[1].data.children;
+            fetch(commentsUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch comments');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // The comments are in the second element of the array
+                    const commentsData = data[1].data.children;
 
-                        if (commentsData.length === 0) {
-                            commentsContainer.innerHTML = '<div class="loading-comments">No comments found</div>';
-                            return;
-                        }
-
-                        // Sort comments by score (highest first)
-                        commentsData.sort((a, b) => (b.data.score || 0) - (a.data.score || 0));
-
-                        // Clear the container
-                        commentsContainer.innerHTML = '';
-
-                        // Display top 5 comments
-                        const topComments = commentsData.slice(0, 5);
-                        topComments.forEach(comment => {
-                            if (comment.kind !== 't1') return; // Skip non-comment items
-
-                            const commentData = comment.data;
-
-                            // Create comment element
-                            const commentEl = document.createElement('div');
-                            commentEl.className = 'comment';
-
-                            // Author section
-                            const authorEl = document.createElement('div');
-                            authorEl.className = 'comment-author';
-
-                            const authorIconEl = document.createElement('div');
-                            authorIconEl.className = 'comment-author-icon';
-                            authorIconEl.textContent = commentData.author.charAt(0).toUpperCase();
-
-                            authorEl.appendChild(authorIconEl);
-                            authorEl.appendChild(document.createTextNode(commentData.author));
-
-                            // Comment text
-                            const textEl = document.createElement('div');
-                            textEl.className = 'comment-text';
-                            textEl.textContent = commentData.body.length > 150
-                                ? commentData.body.substring(0, 150) + '...'
-                                : commentData.body;
-
-                            // Comment metadata
-                            const metaEl = document.createElement('div');
-                            metaEl.className = 'comment-meta';
-
-                            const scoreEl = document.createElement('span');
-                            scoreEl.className = 'comment-score';
-                            scoreEl.textContent = formatNumber(commentData.score) + ' points';
-
-                            const timeEl = document.createElement('span');
-                            timeEl.className = 'comment-time';
-                            timeEl.textContent = formatTimestamp(commentData.created_utc);
-
-                            metaEl.appendChild(scoreEl);
-                            metaEl.appendChild(timeEl);
-
-                            // Add all elements to comment
-                            commentEl.appendChild(authorEl);
-                            commentEl.appendChild(textEl);
-                            commentEl.appendChild(metaEl);
-
-                            // Add comment to container
-                            commentsContainer.appendChild(commentEl);
-                        });
-
-                        // Add "See more comments" link if there are more than 5 comments
-                        if (commentsData.length > 5) {
-                            const seeMoreEl = document.createElement('div');
-                            seeMoreEl.className = 'see-more-comments';
-                            seeMoreEl.textContent = `See all ${commentsData.length} comments`;
-
-                            seeMoreEl.addEventListener('click', () => {
-                                window.open(`https://www.reddit.com${permalink}`, '_blank');
-                            });
-
-                            commentsContainer.appendChild(seeMoreEl);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching comments:', error);
-                        commentsContainer.innerHTML = '<div class="loading-comments">Failed to load comments</div>';
-                    });
-            }
-
-        function displayResults(data) {
-                resultsContainer.innerHTML = '';
-
-                // First, let's log the incoming data structure
-                console.log("📊 Data received:", data);
-
-                const posts = data.data?.children || [];
-
-                if (posts.length === 0) {
-                    resultsContainer.innerHTML = `
-            <div style="padding: 20px; background-color: var(--card-color); border-radius: 4px; text-align: center;">
-                <p>No results found for "${currentFilters.query}"</p>
-                <p>Try different search terms or filters.</p>
-            </div>
-        `;
-                    paginationContainer.innerHTML = '';
-                    return;
-                }
-
-                // Update pagination state
-                currentAfter = data.after || null;
-                currentBefore = data.before || null;
-
-                // Display results
-                data.data?.children?.forEach(item => {
-                    const post = item.data;
-
-                    // Display domain in url
-                    console.log({
-                        title: post.title,
-                        is_video: post.is_video,
-                        domain: post.domain,
-                        url: post.url
-                    });
-
-
-                    // Create result card
-                    const resultCard = document.createElement('div');
-                    resultCard.className = 'result-card';
-
-                    // Create comments section outer shell
-                    const commentsSection = document.createElement('div');
-                    commentsSection.className = 'comments-section';
-
-                    // Create inner scrollable area
-                    const commentsScroll = document.createElement('div');
-                    commentsScroll.className = 'comments-scroll';
-
-                    // Put a loading message in the scroll area
-                    commentsScroll.innerHTML = '<div class="loading-comments">Loading comments...</div>';
-
-                    // Append scrollable div inside the outer container
-                    commentsSection.appendChild(commentsScroll);
-
-                    // Fetch comments INTO the inner scrollable div
-                    fetchComments(post.permalink, commentsScroll);
-
-                    // Vote section
-                    const voteSection = document.createElement('div');
-                    voteSection.className = 'vote-section';
-
-                    const upvoteBtn = document.createElement('button');
-                    upvoteBtn.className = 'vote-button';
-                    upvoteBtn.innerHTML = `
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="18 15 12 9 6 15"></polyline>
-                    </svg>
-                `;
-
-                    const voteCount = document.createElement('div');
-                    voteCount.className = 'vote-count';
-                    voteCount.textContent = formatNumber(post.score);
-
-                    const downvoteBtn = document.createElement('button');
-                    downvoteBtn.className = 'vote-button';
-                    downvoteBtn.innerHTML = `
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                `;
-
-                    voteSection.appendChild(upvoteBtn);
-                    voteSection.appendChild(voteCount);
-                    voteSection.appendChild(downvoteBtn);
-
-                    // Content section
-                    const contentSection = document.createElement('div');
-                    contentSection.className = 'content-section';
-
-                    // Result header with subreddit, author, time
-                    const resultHeader = document.createElement('div');
-                    resultHeader.className = 'result-header';
-
-                    const subredditLink = document.createElement('a');
-                    subredditLink.className = 'result-subreddit';
-                    subredditLink.href = `https://www.reddit.com/r/${post.subreddit}`;
-                    subredditLink.target = '_blank';
-
-                    // Subreddit icon
-                    const subredditIcon = document.createElement('div');
-                    subredditIcon.className = 'subreddit-icon';
-                    subredditIcon.textContent = post.subreddit.charAt(0).toUpperCase();
-
-                    subredditLink.appendChild(subredditIcon);
-                    subredditLink.appendChild(document.createTextNode('r/' + post.subreddit));
-
-                    const authorSpan = document.createElement('span');
-                    authorSpan.className = 'result-author';
-                    authorSpan.textContent = 'Posted by u/' + post.author;
-
-                    const timeSpan = document.createElement('span');
-                    timeSpan.className = 'result-time';
-                    timeSpan.textContent = formatTimestamp(post.created_utc);
-
-                    resultHeader.appendChild(subredditLink);
-                    resultHeader.appendChild(authorSpan);
-                    resultHeader.appendChild(timeSpan);
-
-                    // Result title
-                    const resultTitle = document.createElement('div');
-                    resultTitle.className = 'result-title';
-
-                    const titleLink = document.createElement('a');
-                    titleLink.href = `https://www.reddit.com${post.permalink}`;
-                    titleLink.target = '_blank';
-                    titleLink.textContent = post.title || 'Comment in thread';
-
-                    resultTitle.appendChild(titleLink);
-
-                    // Result content (text or snippet)
-                    const resultContent = document.createElement('div');
-                    resultContent.className = 'result-content';
-
-                    let snippet = '';
-                    if (post.selftext) {
-                        snippet = post.selftext.length > 300
-                            ? post.selftext.substring(0, 300) + '...'
-                            : post.selftext;
-                    } else if (post.body) {
-                        snippet = post.body.length > 300
-                            ? post.body.substring(0, 300) + '...'
-                            : post.body;
+                    if (commentsData.length === 0) {
+                        commentsContainer.innerHTML = '<div class="loading-comments">No comments found</div>';
+                        return;
                     }
 
-                    resultContent.textContent = snippet;
+                    // Sort comments by score (highest first)
+                    commentsData.sort((a, b) => (b.data.score || 0) - (a.data.score || 0));
 
-                    // Result actions (comments, save, share)
-                    const resultActions = document.createElement('div');
-                    resultActions.className = 'result-actions';
+                    // Clear the container
+                    commentsContainer.innerHTML = '';
 
-                    const commentsAction = document.createElement('div');
-                    commentsAction.className = 'result-action';
-                    commentsAction.innerHTML = `
+                    // Display top 5 comments
+                    const topComments = commentsData.slice(0, 5);
+                    topComments.forEach(comment => {
+                        if (comment.kind !== 't1') return; // Skip non-comment items
+
+                        const commentData = comment.data;
+
+                        // Create comment element
+                        const commentEl = document.createElement('div');
+                        commentEl.className = 'comment';
+
+                        // Author section
+                        const authorEl = document.createElement('div');
+                        authorEl.className = 'comment-author';
+
+                        const authorIconEl = document.createElement('div');
+                        authorIconEl.className = 'comment-author-icon';
+                        authorIconEl.textContent = commentData.author.charAt(0).toUpperCase();
+
+                        authorEl.appendChild(authorIconEl);
+                        authorEl.appendChild(document.createTextNode(commentData.author));
+
+                        // Comment text
+                        const textEl = document.createElement('div');
+                        textEl.className = 'comment-text';
+                        const sanitizedBody = sanitizeHTML(commentData.body);
+                        textEl.textContent = sanitizedBody.length > 150
+                            ? sanitizedBody.substring(0, 150) + '...'
+                            : sanitizedBody;
+
+                        // Comment metadata
+                        const metaEl = document.createElement('div');
+                        metaEl.className = 'comment-meta';
+
+                        const scoreEl = document.createElement('span');
+                        scoreEl.className = 'comment-score';
+                        scoreEl.textContent = formatNumber(commentData.score) + ' points';
+
+                        const timeEl = document.createElement('span');
+                        timeEl.className = 'comment-time';
+                        timeEl.textContent = formatTimestamp(commentData.created_utc);
+
+                        metaEl.appendChild(scoreEl);
+                        metaEl.appendChild(timeEl);
+
+                        // Add all elements to comment
+                        commentEl.appendChild(authorEl);
+                        commentEl.appendChild(textEl);
+                        commentEl.appendChild(metaEl);
+
+                        // Add comment to container
+                        commentsContainer.appendChild(commentEl);
+                    });
+
+                    // Add "See more comments" link if there are more than 5 comments
+                    if (commentsData.length > 5) {
+                        const seeMoreEl = document.createElement('div');
+                        seeMoreEl.className = 'see-more-comments';
+                        seeMoreEl.textContent = `See all ${commentsData.length} comments`;
+
+                        seeMoreEl.addEventListener('click', () => {
+                            window.open(`https://www.reddit.com${permalink}`, '_blank');
+                        });
+
+                        commentsContainer.appendChild(seeMoreEl);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching comments:', error);
+                    commentsContainer.innerHTML = '<div class="loading-comments">Failed to load comments</div>';
+                });
+        }
+
+        function displayResults(data) {
+            resultsContainer.innerHTML = '';
+
+            // First, let's log the incoming data structure
+            console.log("📊 Data received:", data);
+
+            const posts = data.data?.children || [];
+
+            // Update pagination state checking if we have navigation history
+            if (currentPageIndex < navigationHistory.length && navigationHistory[currentPageIndex]) {
+
+                // Use tokens from navigation history if they exist  
+                currentAfter = navigationHistory[currentPageIndex].nextAfter;
+                currentBefore = navigationHistory[currentPageIndex].nextBefore;
+            } else {
+                // Otherwise use from API response
+                currentAfter = data.data?.after || null;
+                currentBefore = data.data?.before || null;
+            }
+
+            if (posts.length === 0) {
+                resultsContainer.innerHTML = `
+            <div class='results-error'>
+                <p>No results found for "${currentFilters.query}". Try different search terms or filters</p>
+            </div>
+        `;
+                paginationContainer.innerHTML = '';
+                return;
+            }
+
+            // Display results
+            data.data?.children?.forEach(item => {
+                const post = item.data;
+
+                // Display domain in url
+                console.log({
+                    title: post.title,
+                    is_video: post.is_video,
+                    domain: post.domain,
+                    url: post.url
+                });
+
+                // Create result card
+                const resultCard = document.createElement('div');
+                resultCard.className = 'result-card';
+
+                const title = item.data.title?.toLowerCase() || '';
+                const isProbablyNSFW = item.data.over_18 || /tits|titties|tiddies|nudes|onlyfans|boobs|cum|cock|cunt|pussy|porn|fuck/.test(title);
+
+                if (isProbablyNSFW) {
+                    resultCard.classList.add('nsfw');
+                }
+
+                // Create comments section outer shell
+                const commentsSection = document.createElement('div');
+                commentsSection.className = 'comments-section';
+
+                // Create inner scrollable area
+                const commentsScroll = document.createElement('div');
+                commentsScroll.className = 'comments-scroll';
+
+                // Put a loading message in the scroll area
+                commentsScroll.innerHTML = '<div class="loading-comments">Loading comments...</div>';
+
+                // Append scrollable div inside the outer container
+                commentsSection.appendChild(commentsScroll);
+
+                // Fetch comments INTO the inner scrollable div
+                fetchComments(post.permalink, commentsScroll);
+
+                // Vote section
+                const voteSection = document.createElement('div');
+                voteSection.className = 'vote-section';
+
+                const permalinkUrl = `https://www.reddit.com${post.permalink}`;
+
+                const upvoteBtn = document.createElement('a');
+                upvoteBtn.href = permalinkUrl;
+                upvoteBtn.target = '_blank';
+                upvoteBtn.className = 'vote-button';
+                upvoteBtn.innerHTML = `
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <polyline points="18 15 12 9 6 15"></polyline>
+</svg>
+`;
+
+                const voteCount = document.createElement('div');
+                voteCount.className = 'vote-count';
+                voteCount.textContent = formatNumber(post.score);
+
+                const downvoteBtn = document.createElement('a');
+                downvoteBtn.href = permalinkUrl;
+                downvoteBtn.target = '_blank';
+                downvoteBtn.className = 'vote-button';
+                downvoteBtn.innerHTML = `
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <polyline points="6 9 12 15 18 9"></polyline>
+</svg>
+`;
+
+                voteSection.appendChild(upvoteBtn);
+                voteSection.appendChild(voteCount);
+                voteSection.appendChild(downvoteBtn);
+
+                // Content section
+                const contentSection = document.createElement('div');
+                contentSection.className = 'content-section';
+
+                // Result header with subreddit, author, time
+                const resultHeader = document.createElement('div');
+                resultHeader.className = 'result-header';
+
+                const subredditLink = document.createElement('a');
+                subredditLink.className = 'result-subreddit';
+                subredditLink.href = `https://www.reddit.com/r/${post.subreddit}`;
+                subredditLink.target = '_blank';
+
+                // Subreddit icon
+                const subredditIcon = document.createElement('div');
+                subredditIcon.className = 'subreddit-icon';
+                subredditIcon.textContent = post.subreddit.charAt(0).toUpperCase();
+
+                subredditLink.appendChild(subredditIcon);
+                subredditLink.appendChild(document.createTextNode('r/' + post.subreddit));
+
+                const authorSpan = document.createElement('span');
+                authorSpan.className = 'result-author';
+                authorSpan.textContent = 'Posted by u/' + post.author;
+
+                const timeSpan = document.createElement('span');
+                timeSpan.className = 'result-time';
+                timeSpan.textContent = formatTimestamp(post.created_utc);
+
+                resultHeader.appendChild(subredditLink);
+                resultHeader.appendChild(authorSpan);
+                resultHeader.appendChild(timeSpan);
+
+                // Result title
+                const resultTitle = document.createElement('div');
+                resultTitle.className = 'result-title';
+
+                const titleLink = document.createElement('a');
+                titleLink.href = `https://www.reddit.com${post.permalink}`;
+                titleLink.target = '_blank';
+                titleLink.textContent = post.title || 'Comment in thread';
+
+                resultTitle.appendChild(titleLink);
+
+                // Result content (text or snippet)
+                const resultContent = document.createElement('div');
+                resultContent.className = 'result-content';
+
+                let snippet = '';
+                if (post.selftext) {
+                    snippet = post.selftext.length > 300
+                        ? post.selftext.substring(0, 300) + '...'
+                        : post.selftext;
+                } else if (post.body) {
+                    snippet = post.body.length > 300
+                        ? post.body.substring(0, 300) + '...'
+                        : post.body;
+                }
+                // Add sanitization:
+                if (snippet) {
+                    resultContent.textContent = sanitizeHTML(snippet);
+                }
+
+                // Result actions (comments, save, share)
+                const resultActions = document.createElement('div');
+                resultActions.className = 'result-actions';
+
+                const commentsAction = document.createElement('div');
+                commentsAction.className = 'result-action';
+                commentsAction.innerHTML = `
                 <svg class="action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                     </svg>
                     ${post.num_comments || 0} Comments
                 `;
 
-                    commentsAction.style.cursor = 'pointer';
+                commentsAction.style.cursor = 'pointer';
 
-                    commentsAction.addEventListener('click', () => {
-                        const url = 'https://www.reddit.com' + post.permalink;
-                        window.open(url, '_blank');
-                    });
+                commentsAction.addEventListener('click', () => {
+                    const url = 'https://www.reddit.com' + post.permalink;
+                    window.open(url, '_blank');
+                });
 
-                    const saveAction = document.createElement('div');
-                    saveAction.className = 'result-action';
-                    saveAction.innerHTML = `
+                const saveAction = document.createElement('div');
+                saveAction.className = 'result-action';
+                saveAction.innerHTML = `
                     <svg class="action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
                     </svg>
                     Save
                 `;
 
-                    const shareAction = document.createElement('div');
-                    shareAction.className = 'result-action';
-                    shareAction.innerHTML = `
+                const shareAction = document.createElement('div');
+                shareAction.className = 'result-action';
+                shareAction.innerHTML = `
                     <svg class="action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="18" cy="5" r="3"></circle>
                         <circle cx="6" cy="12" r="3"></circle>
@@ -1723,134 +2010,136 @@ body.dark-mode .subreddit-suggestions:hover {
                     Share
                 `;
 
-                    resultActions.appendChild(commentsAction);
-                    resultActions.appendChild(saveAction);
-                    resultActions.appendChild(shareAction);
+                resultActions.appendChild(commentsAction);
+                resultActions.appendChild(saveAction);
+                resultActions.appendChild(shareAction);
 
-                    // Add all sections to content area
-                    contentSection.appendChild(resultHeader);
-                    contentSection.appendChild(resultTitle);
+                // Add all sections to content area
+                contentSection.appendChild(resultHeader);
+                contentSection.appendChild(resultTitle);
 
-                    if (snippet) {
-                        contentSection.appendChild(resultContent);
-                    }
+                if (snippet) {
+                    contentSection.appendChild(resultContent);
+                }
 
-                    contentSection.appendChild(resultActions);
+                contentSection.appendChild(resultActions);
 
-                    // Add main sections to card
-                    resultCard.appendChild(voteSection);
-                    resultCard.appendChild(contentSection);
+                // Add main sections to card
+                resultCard.appendChild(voteSection);
+                resultCard.appendChild(contentSection);
 
-                    // Add thumbnail/preview image if available
-                    // Create container for image (always needed, even if empty)
-                    const imgContainer = document.createElement('div');
-                    imgContainer.className = 'img-container';
-                    imgContainer.style.width = '140px';
-                    imgContainer.style.height = '100px';
+                // Add thumbnail/preview image if available
+                // Create container for image (always needed, even if empty)
+                const imgContainer = document.createElement('div');
+                imgContainer.className = 'img-container';
+                imgContainer.style.width = '140px';
+                imgContainer.style.height = '100px';
 
-                    // Add thumbnail/preview image if available
-                    
-                    // Add thumbnail/preview image if available
-                    const previewImage = post.preview?.images?.[0]?.source?.url?.replace(/&amp;/g, '&');
+                // Add thumbnail/preview image if available
 
-                    if (previewImage) {
-                        const imageLink = document.createElement('a');
-                        imageLink.href = `https://www.reddit.com${post.permalink}`;
-                        imageLink.target = '_blank';
+                // Add thumbnail/preview image if available
+                const previewImage = post.preview?.images?.[0]?.source?.url?.replace(/&amp;/g, '&');
 
-                        // Create image wrapper
-                        const imageWrapper = document.createElement('div');
-                        imageWrapper.className = 'image-wrapper';
+                if (previewImage) {
+                    const imageLink = document.createElement('a');
+                    imageLink.href = `https://www.reddit.com${post.permalink}`;
+                    imageLink.target = '_blank';
 
-                        // Create shimmer placeholder
-                        const imagePlaceholder = document.createElement('div');
-                        imagePlaceholder.className = 'image-placeholder shimmer';
+                    // Create image wrapper
+                    const imageWrapper = document.createElement('div');
+                    imageWrapper.className = 'image-wrapper';
 
-                        // Create actual image
-                        const resultImage = document.createElement('img');
-                        resultImage.src = `https://karmafinder.onrender.com/image?url=${encodeURIComponent(previewImage)}`;
-                        resultImage.alt = 'Post thumbnail';
-                        resultImage.className = 'result-image';
+                    // Create shimmer placeholder
+                    const imagePlaceholder = document.createElement('div');
+                    imagePlaceholder.className = 'image-placeholder shimmer';
 
-                        // On load, swap in image and remove shimmer
-                        resultImage.addEventListener('load', () => {
-                            console.log('🖼️ Image loaded and visible:', resultImage.src);
-                            imagePlaceholder.style.display = 'none';
-                            resultImage.classList.add('show');
+                    // Create actual image
+                    const resultImage = document.createElement('img');
+                    resultImage.src = `https://karmafinder.onrender.com/image?url=${encodeURIComponent(previewImage)}`;
+                    resultImage.alt = 'Post thumbnail';
+                    resultImage.className = 'result-image';
 
-                        });
+                    // On load, swap in image and remove shimmer
+                    resultImage.addEventListener('load', () => {
+                        console.log('🖼️ Image loaded and visible:', resultImage.src);
+                        imagePlaceholder.style.display = 'none';
+                        resultImage.classList.add('show');
 
-                        imageWrapper.appendChild(imagePlaceholder);
-                        imageWrapper.appendChild(resultImage);
-                        imageLink.appendChild(imageWrapper);
-                        imgContainer.appendChild(imageLink);
-                    } else {
-                        // No image: make container invisible, but preserve layout
-                        imgContainer.style.visibility = 'hidden';
-                    }
+                    });
 
-                    // Add play icon for video content
-                    if (
-                        post.is_video ||
-                        (post.domain && post.domain.includes('youtu')) ||
-                        (post.url && post.url.includes('v.redd.it')) ||
-                        (post.domain && post.domain.includes('streamable')) ||
-                        (post.url && post.url.endsWith('.gifv'))
-                    ) {
-                        const playIcon = document.createElement('div');
-                        playIcon.className = 'play-icon';
-                        playIcon.innerHTML = '▶';
+                    imageWrapper.appendChild(imagePlaceholder);
+                    imageWrapper.appendChild(resultImage);
+                    imageLink.appendChild(imageWrapper);
+                    imgContainer.appendChild(imageLink);
+                } else {
+                    // No image: make container invisible, but preserve layout
+                    imgContainer.style.visibility = 'hidden';
+                }
 
-                        playIcon.style.position = 'absolute';
-                        playIcon.style.top = '50%';
-                        playIcon.style.left = '50%';
-                        playIcon.style.transform = 'translate(-50%, -50%)';
-                        playIcon.style.zIndex = '20';
+                // Add play icon for video content
+                if (
+                    post.is_video ||
+                    (post.domain && post.domain.includes('youtu')) ||
+                    (post.url && post.url.includes('v.redd.it')) ||
+                    (post.domain && post.domain.includes('streamable')) ||
+                    (post.url && post.url.endsWith('.gifv'))
+                ) {
+                    const playIcon = document.createElement('div');
+                    playIcon.className = 'play-icon';
+                    playIcon.innerHTML = '▶';
 
-                        imgContainer.appendChild(playIcon);
-                    }
+                    imgContainer.appendChild(playIcon);
+                }
 
-                    // Add comments section 
-                    resultCard.appendChild(commentsSection);
+                // Add comments section 
+                resultCard.appendChild(commentsSection);
 
-                    // Add container to result card
-                    resultCard.appendChild(imgContainer);
+                // Add container to result card
+                resultCard.appendChild(imgContainer);
 
-                    resultsContainer.appendChild(resultCard);
+                resultsContainer.appendChild(resultCard);
 
-                    // Update pagination
-                    updatePagination();
-                
-            }); // 👈 close this loop
-    }     // 👈 then close the function
-            
+            });
+            updatePagination();
+        }
+
+
+        // Filter NSFW after results load
+
+        const safeSearchSelect = document.getElementById('safesearch-select');
+        if (safeSearchSelect?.value === 'on') {
+            document.body.classList.add('safe-search-enabled');
+        } else {
+            document.body.classList.remove('safe-search-enabled');
+        }
+
         function updatePagination() {
             paginationContainer.innerHTML = '';
 
-            if (currentBefore || currentAfter) {
-                const prevButton = document.createElement('button');
-                prevButton.className = 'pagination-button';
-                prevButton.textContent = '← Previous';
-                prevButton.disabled = !currentBefore;
-                prevButton.addEventListener('click', () => {
-                    if (currentBefore) {
-                        performSearch(null, currentBefore);
-                        window.scrollTo(0, 0);
-                    }
-                });
+            const prevButton = document.createElement('button');
+            prevButton.className = 'pagination-button';
+            prevButton.textContent = '← Previous';
+            prevButton.disabled = currentPageIndex === 0;
+            prevButton.addEventListener('click', () => {
+                if (currentPageIndex > 0) {
+                    performSearch(null, null, true);
+                    window.scrollTo(0, 0);
+                }
+            });
+            paginationContainer.appendChild(prevButton);
 
+            if (currentAfter) {
                 const nextButton = document.createElement('button');
                 nextButton.className = 'pagination-button';
                 nextButton.textContent = 'Next →';
-                nextButton.disabled = !currentAfter;
+                nextButton.disabled = false;
                 nextButton.addEventListener('click', () => {
-                    if (currentAfter) {
-                        performSearch(currentAfter, null);
-                        window.scrollTo(0, 0);
-                    }
+                    currentPageIndex++;
+                    console.log('📈 Index incremented to:', currentPageIndex);
+                    performSearch(currentAfter, null, false);
+                    window.scrollTo(0, 0);
                 });
 
-                paginationContainer.appendChild(prevButton);
                 paginationContainer.appendChild(nextButton);
             }
         }
@@ -1906,50 +2195,47 @@ body.dark-mode .subreddit-suggestions:hover {
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-                const input = document.querySelector('#subreddit-input');
-                const dropdown = document.querySelector('.subreddit-suggestions');
+            const input = document.querySelector('#subreddit-input');
+            const dropdown = document.querySelector('.subreddit-suggestions');
 
-                if (input && dropdown) {
-                    // CLICKING OUTSIDE → closes dropdown
-                    document.addEventListener('mousedown', (e) => {
-                        if (!input.contains(e.target) && !dropdown.contains(e.target)) {
-                            dropdown.classList.remove('active');
-                        }
+            if (input && dropdown) {
+                // CLICKING OUTSIDE → closes dropdown
+                document.addEventListener('mousedown', (e) => {
+                    if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                        dropdown.classList.remove('active');
+                    }
 
-                    });
+                });
 
-                    // CLICKING ON A SUGGESTION → apply + close dropdown
-                    dropdown.addEventListener('click', (e) => {
-                        const clickedItem = e.target.closest('.subreddit-suggestion');
-                        if (clickedItem) {
-                            input.value = clickedItem.dataset.name || clickedItem.innerText;
-                            dropdown.classList.remove('active');
-                        }
-                    });
-                }
-            });
+                // CLICKING ON A SUGGESTION → apply + close dropdown
+                dropdown.addEventListener('click', (e) => {
+                    const clickedItem = e.target.closest('.subreddit-suggestion');
+                    if (clickedItem) {
+                        input.value = clickedItem.dataset.name || clickedItem.innerText;
+                        dropdown.classList.remove('active');
+                    }
+                });
+            }
+        });
 
+        const toggleBtn = document.getElementById('themeToggle');
+        const icon = document.getElementById('themeIcon');
+
+        // Apply theme on initial load
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-mode');
+            icon.src = 'sun.png';
+            icon.alt = 'Switch to light mode';
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            icon.src = isDark ? 'sun.png' : 'moon.png';
+            icon.alt = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+        });
     </script>
-
-<script>
-    const toggleBtn = document.getElementById('themeToggle');
-    const icon = document.getElementById('themeIcon');
-
-    // Apply theme on initial load
-    if (localStorage.getItem('theme') === 'dark') {
-        document.body.classList.add('dark-mode');
-        icon.src = 'sun.png';
-        icon.alt = 'Switch to light mode';
-    }
-
-    toggleBtn.addEventListener('click', () => {
-        document.body.classList.toggle('dark-mode');
-        const isDark = document.body.classList.contains('dark-mode');
-        localStorage.setItem('theme', isDark ? 'dark' : 'light');
-        icon.src = isDark ? 'sun.png' : 'moon.png';
-        icon.alt = isDark ? 'Switch to light mode' : 'Switch to dark mode';
-    });
-</script>
 
 </body>
 
