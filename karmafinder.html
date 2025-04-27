@@ -1,13 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 
+<body>
 <head>
+<script>
+    try {
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-mode');
+        }
+    } catch (e) { }
+</script>
+
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KarmaFinder - Better Reddit Search</title>
     <style>
+  
         html {
             font-size: 90%;
+            overflow-y: scroll;
         }
 
         :root {
@@ -27,7 +39,8 @@
             margin: 0;
             padding: 0;
             line-height: 1.6;
-            transition: all 0.15s ease-in-out;
+            /*transition: all 0.15s ease-in-out;*/
+            transition: none !important;
         }
 
         .container {
@@ -36,10 +49,24 @@
             padding: 20px;
         }
 
+        .link-container {
+            display: inline-block;
+            text-decoration: none;
+            color: inherit;
+            height: auto; /* Let it size to content */
+            padding: 0;
+            margin: 0;
+            vertical-align: top; /* This prevents it from floating above */
+            position: relative; /* Enable positioning */
+            top: 0; /* Anchor to the top */
+        }
+
         header {
             text-align: center;
-            margin-bottom: 30px;
-            padding: 20px 0;
+            margin-bottom: 20px;
+            padding: 0; /* Remove all padding */
+            position: relative; /* Enable positioning */
+            line-height: 1; /* Tight line height */
         }
 
         .logo {
@@ -109,7 +136,20 @@
 
         .search-input-container {
             display: flex;
-            width: 100%;
+            width: 80%;
+            justify-content: center;
+        }
+        
+        .search-top-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            width: fit-content;
+            margin: 0 auto 16px auto;
+            max-width: 1000px;     
+            width: 100%;          
+            margin: 0 auto 16px;  
         }
 
         .search-input {
@@ -157,12 +197,14 @@
             /* Reduced minimum width */
             margin-right: 10px;
             /* Add some spacing between groups */
+            transition: all 0.15s ease-in-out;
         }
 
         .option-group label {
             display: block;
             margin-bottom: 5px;
             font-weight: 500;
+            transition: all 0.15s ease-in-out;
         }
 
         .option-group select,
@@ -171,13 +213,15 @@
             padding: 8px 12px;
             border: 1px solid var(--border-color);
             border-radius: 6px;
+            transition: all 0.15s ease-in-out;
         }
 
         #subreddit-input {
             background-color: #f8f9fa;
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 0.5rem;
-            max-width: 259px;
+            transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out, border-color 0.15s ease-in-out;
         }
 
         #time-select {
@@ -192,6 +236,17 @@
             max-width: 165px;
         }
 
+        .option-group {
+  background-color: white;
+  color: black;
+}
+
+.option-group select {
+  background-color: white;
+  color: black;
+  transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+
         body.safe-search-enabled .nsfw img,
         body.safe-search-enabled .nsfw video,
         body.safe-search-enabled .nsfw .thumbnail {
@@ -202,9 +257,8 @@
 
         .subreddit-dropdown {
             position: relative;
-            z-index: 10000;
-            /* High stacking context to avoid being overlapped */
-            transition: all 0.15s ease-in-out;
+            background-color: #fff;
+            transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
         }
 
         .subreddit-suggestions {
@@ -218,23 +272,20 @@
             max-height: 300px;
             overflow-y: auto;
             display: none;
-            /* Hidden by default */
             scrollbar-width: none;
             scrollbar-color: rgba(150, 150, 150, 0.6);
             transition: scrollbar-color 0.3s ease;
-
         }
 
-        /**/
+        
         .subreddit-suggestions .custom-spinner-wrapper {
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 10px 0;
-
         }
 
-        /**/
+        
         .subreddit-suggestions-container {
             max-height: 300px;
             overflow-y: auto;
@@ -253,7 +304,7 @@
             border-radius: 4px;
         }
 
-        /**/
+        
         .subreddit-suggestions-container:hover {
             scrollbar-color: rgba(150, 150, 150, 0.6);
             scrollbar-width: thin;
@@ -355,6 +406,7 @@
             position: relative;
             flex-direction: column;
             gap: 3px;
+            transition: opacity 0.3s ease;
         }
 
         .result-card {
@@ -377,6 +429,50 @@
         .result-card:hover {
             box-shadow: 0 3px 4px rgba(0, 0, 0, 0.1);
         }
+
+        /* COMFY MODE */
+body.comfy-mode .result-card {
+  padding: 18px;
+  min-height: 270px;
+  overflow: hidden; 
+}
+
+body.comfy-mode .img-container {
+  height: 150px;
+  width: 200px; 
+  transition: all 0.15s ease-in-out;
+}
+
+body.comfy-mode .img-container img {
+  height: 100%;
+  max-height: 270px;
+  max-width: 200px;
+  object-fit: cover; 
+  transition: all 0.15s ease-in-out;
+}
+
+body.comfy-mode .image-wrapper {
+  height: 100%;
+  width: 100%;
+  transition: all 0.15s ease-in-out;
+}
+
+body.comfy-mode .result-image {
+  height: 100%;
+  width: 100%; 
+  object-fit: cover; 
+  max-width: 100%; 
+  max-height: 100%; 
+}
+
+body.comfy-mode .result-card + .result-card {
+  margin-top: 16px;
+}
+
+body.comfy-mode .content-section {
+  line-height: 1.6;
+  font-size: 1.05em;
+}
 
         .vote-section {
             display: flex;
@@ -499,6 +595,7 @@
             padding: 8px;
             margin-left: 15px;
             margin-right: 25px;
+            transition: opacity 0.3s ease;
         }
 
         .comments-scroll {
@@ -602,8 +699,20 @@
 
         .loading-comments {
             color: var(--light-text);
-            text-align: center;
-            font-style: italic;
+
+            width: 300px;
+            max-width: 300px;
+            font-size: small;
+            flex-shrink: 0;
+            max-height: 100px;
+            height: 100px;
+            overflow-y: hidden;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+            padding: 8px;
+            margin-right: 5px;
+            margin-top: 20px;
+            transition: opacity 0.3s ease;
         }
 
         .see-more-comments {
@@ -760,8 +869,6 @@
         .img-container img {
             width: 100%;
             position: relative;
-            max-width: 140px;
-            max-height: 100px;
             border-radius: 4px;
             object-fit: cover;
         }
@@ -784,6 +891,58 @@
             color: white;
             font-size: 20px;
         }
+
+        #comfy-toggle {
+  background: none;
+  position: absolute;
+  border: none;
+  padding: 0;
+  top: 14px;
+  right: 35px;
+  cursor: pointer;
+  width: 105px;
+  height: 40px;
+}
+
+#comfy-toggle img {
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  transition: filter 0.1s ease-in-out;
+}
+
+     #compact-toggle {
+  background: none;
+  position: absolute;
+  border: none;
+  padding: 0;
+  top: 45px;
+  right: 35px;
+  cursor: pointer;
+  width: 105px;
+  height: 40px;
+}
+
+#compact-toggle img {
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  transition: filter 0.1s ease-in-out;
+}
+
+#filter-icon {
+  position: absolute;
+  top: 35px;   
+  right: 152px; 
+  width: 25px;
+  height: 25px;
+  pointer-events: none;
+  user-select: none;
+  filter: brightness(1.3);
+  z-index: 10;
+}
 
         .theme-toggle {
             position: fixed;
@@ -813,6 +972,16 @@
             color: #f5f5f5;
             transition: all 0.15s ease-in-out;
         }
+        body.dark-mode .option-group {
+  background-color: #1e1e1e;
+  color: white;
+}
+
+body.dark-mode .option-group select {
+  background-color: #333;
+  color: white;
+  border-color: #444;
+}
 
         /* Light-dark cards */
         body.dark-mode .result-card,
@@ -821,10 +990,10 @@
         body.dark-mode .error-card,
         body.dark-mode .comment-box,
         body.dark-mode .search-container,
+        body.dark-mode .option-group,
         body.dark-mode .subreddit-suggestion,
         body.dark-mode .subreddit-suggestions .custom-spinner-wrapper,
         body.dark-mode .subreddit-suggestions::-webkit-scrollbar,
-        body.dark-mode .subreddit-dropdown,
         body.dark-mode .spinner-container {
             background-color: #222222;
             /* lighter dark grey */
@@ -832,6 +1001,11 @@
             border-color: #333;
             /* optional border */
         }
+
+        body.dark-mode .subreddit-dropdown {
+            background-color: #222222;
+        }
+
 
         body.dark-mode .comment {
             border-bottom: 1px solid #444;
@@ -852,6 +1026,7 @@
         body.dark-mode #subreddit-input {
             background-color: #1e1e1e;
             color: white;
+            transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out, border-color 0.15s ease-in-out;
         }
 
         body.dark-mode .results-error {
@@ -870,7 +1045,10 @@
             color: var(--secondary-color);
         }
 
-        body.dark-mode .image-placeholder,
+        body.dark-mode .image-placeholder {
+            background-color: #333;
+        }
+
         body.dark-mode .pagination-button {
             background-color: #222222;
             border-color: #333;
@@ -894,6 +1072,7 @@
             border-color: #444;
         }
 
+        body.dark-mode .loading-comments,
         body.dark-mode .comments-section {
             color: white;
             background-color: #333;
@@ -937,12 +1116,15 @@
 </head>
 
 <body>
+
     <a href="donopage.html" class="donate-btn floating-button">Support the Site</a>
     <div class="container">
         <header
             style="display: flex; justify-content: center; align-items: center; position: relative; padding: 1rem 0;">
             <div style="text-align: center;">
+            <a href="karmafinder.html" class="link-container">
                 <div class="logo">KarmaFinder</div>
+                </a>
                 <div class="tagline">Find exactly what you're looking for on Reddit 🔎</div>
             </div>
         </header>
@@ -951,21 +1133,41 @@
             <img id="themeIcon" src="moon.png" alt="Toggle theme" />
         </button>
 
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const icon = document.getElementById('themeIcon');
+                const isDark = document.documentElement.classList.contains('dark-mode');
+
+                if (icon) {
+                    icon.src = isDark ? 'sun.png' : 'moon.png';
+                    icon.alt = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+                }
+            });
+        </script>
+
         <div class="search-container">
+          <div class="search-top-row">
             <div class="search-input-container">
                 <input type="text" id="search-input" class="search-input" placeholder="Search Reddit..." autofocus>
                 <button id="search-button" class="search-button">Search</button>
+                </div>
+                <img src="iconny thingy.png" alt="filter icon" id="filter-icon" />
+                <button id="comfy-toggle" aria-label="Toggle Comfy Mode">
+                    <img src="comfy-default.png" alt="Toggle comfy layout" />
+                </button>
+                <button id="compact-toggle" aria-label="Toggle Compact Mode">
+                    <img src="compact-default.png" alt="Toggle compact layout" />
+                </button>
             </div>
 
             <div class="advanced-options">
                 <div class="option-group">
                     <label for="sort-select">Sort By</label>
                     <select id="sort-select">
-                        <option value="relevance">Relevance</option>
                         <option value="hot">Hot</option>
                         <option value="top">Top</option>
+                        <option value="relevance">Relevance</option>
                         <option value="new">New</option>
-                        <option value="comments">Comments</option>
                     </select>
                 </div>
 
@@ -1146,6 +1348,57 @@
             performSearch();
         });
 
+        const comfyToggle = document.getElementById('comfy-toggle');
+        const compactToggle = document.getElementById('compact-toggle');
+
+        let isComfyActive = false;
+        let isCompactActive = true;
+
+        comfyToggle.querySelector('img').src = 'comfy-default.png';
+        compactToggle.querySelector('img').src = 'compact-default.png';
+
+            comfyToggle.addEventListener('click', () => {
+                    if (isComfyActive) {
+                        if (hasClickedOnce && !isCompactActive) return; // prevent both off
+                        isComfyActive = false;
+                        comfyToggle.querySelector('img').src = 'comfy-default.png';
+                    } else {
+                        isComfyActive = true;
+                        comfyToggle.querySelector('img').src = 'comfy-pressed.png';
+
+                        isCompactActive = false;
+                        compactToggle.querySelector('img').src = 'compact-default.png';
+                    }
+
+                    hasClickedOnce = true;
+                
+                    if (isComfyActive) {
+                    document.body.classList.add('comfy-mode');
+                } else {
+                    document.body.classList.remove('comfy-mode');
+                }
+
+                });
+
+
+           compactToggle.addEventListener('click', () => {
+                if (isCompactActive) {
+                    if (hasClickedOnce && !isComfyActive) return; // prevent both off
+                    isCompactActive = false;
+                    compactToggle.querySelector('img').src = 'compact-default.png';
+                } else {
+                    isCompactActive = true;
+                    compactToggle.querySelector('img').src = 'compact-pressed.png';
+                    document.body.classList.remove('comfy-mode');
+
+                    isComfyActive = false;
+                    comfyToggle.querySelector('img').src = 'comfy-default.png';
+                }
+
+                hasClickedOnce = true;
+            });
+
+
         // Remove subreddit filter when clicking X
         subredditChipContainer.querySelector('.remove-chip').addEventListener('click', () => {
             currentFilters.subreddit = '';
@@ -1247,13 +1500,6 @@
         function createCanvasSpinner() {
             const wrapper = document.createElement('div');
             wrapper.className = 'custom-spinner-wrapper';
-            wrapper.style.cssText = `
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 100%;
-        height: 80px;
-    `;
 
             const canvas = document.createElement('canvas');
             canvas.width = 50;
@@ -1262,12 +1508,12 @@
             wrapper.appendChild(canvas);
 
             const ctx = canvas.getContext('2d');
-            startSpinnerAnimation(ctx); // 🧠 THIS is now reusable and safe
+            startSpinnerAnimation(ctx); 
 
             return wrapper;
         }
 
-        // combine popular and other search results to same timing
+        // Combine popular and other search results to same timing
         async function handleSubredditSuggestions(query) {
             const localMatches = POPULAR_SUBREDDITS.filter(sub =>
                 sub.name.toLowerCase().startsWith(query)
@@ -1476,186 +1722,276 @@
     `;
         }
 
-        // Modified performSearch function with caching
-        function performSearch(after = null, before = null, navigateBack = false) {
-            console.log('🟢 performSearch() called with:', { after, before, navigateBack });
-            console.log('🔍 Current Index:', currentPageIndex, 'navigateBack:', navigateBack);
+        function tryUseCachedResults(cacheKey, navigateBack = false) {
+                const cachedItem = localStorage.getItem(cacheKey);
 
-            if (navigateBack) {
+                if (!cachedItem) return false;
 
-                // First, get the target page data
-                const targetPageIndex = currentPageIndex - 1;
-                const targetPage = navigationHistory[targetPageIndex];
-
-                // Then log what we're doing
-                console.log('🔙 Going back to page:', targetPageIndex);
-                console.log('📍 Target page data:', targetPage);
-
-
-                if (targetPage) {
-                    // For going back, we need to use the tokens that got us to the previous page
-                    after = targetPage.after;
-                    before = targetPage.before;
-
-                    // Update current filters with the stored query
-                    currentFilters.query = targetPage.query;
-
-                    // UPDATE THE INDEX HERE
-                    currentPageIndex = targetPageIndex; // Sets the index to the decremented value
-                    console.log('↩️ Index decremented to:', currentPageIndex);
-
-                    const cacheKey = `kf_search_${targetPage.query}_${currentFilters.sort}_${currentFilters.time}_${currentFilters.subreddit}_${currentFilters.contentType}_${targetPage.after || ''}_${targetPage.before || ''}`;
-                    const cachedItem = localStorage.getItem(cacheKey);
-
-                    if (cachedItem) {
-                        try {
-                            const cachedData = JSON.parse(cachedItem);
-                            const now = Date.now();
-
-                            if (now - cachedData.timestamp < CACHE_DURATION_MS) {
-                                console.log('📦 Using cached results for previous page:', cacheKey);
-                                displayResults(cachedData.data);
-                                return;
-                            }
-                        } catch (e) {
-                            console.error('Error parsing cached data:', e);
-                            localStorage.removeItem(cacheKey);
-                        }
-                    }
-                }
-            }
-
-            const query = searchInput.value.trim();
-            if (!query) return;
-
-            // Update filters from UI
-            currentFilters.query = query;
-            currentFilters.time = document.getElementById('time-select').value;
-            currentFilters.sort = document.getElementById('sort-select').value;
-            currentFilters.contentType = document.getElementById('content-select').value;
-
-            // Get subreddit from chip container if visible, otherwise from input
-            if (subredditChipContainer.style.display === 'flex') {
-                // Get the subreddit from the chip text (removing the 'r/' prefix)
-                const chipText = subredditChipContainer.querySelector('.chip-text').textContent;
-                currentFilters.subreddit = chipText.replace('r/', '');
-            } else {
-                // If no chip is displayed, use the input value as fallback
-                currentFilters.subreddit = document.getElementById('subreddit-input').value.trim();
-            }
-
-            // Set pagination values
-            currentAfter = after;
-            currentBefore = before;
-
-            // Create a cache key based on all search parameters
-            const cacheKey = `kf_search_${query}_${currentFilters.sort}_${currentFilters.time}_${currentFilters.subreddit}_${currentFilters.contentType}_${after || ''}_${before || ''}`;
-
-            // Check if we have cached results for this search
-            const cachedItem = localStorage.getItem(cacheKey);
-
-            if (cachedItem) {
                 try {
                     const cachedData = JSON.parse(cachedItem);
-                    const now = Date.now();
+                    const isFresh = Date.now() - cachedData.timestamp < CACHE_DURATION_MS;
 
-                    // Only use cache if it's still fresh
-                    if (now - cachedData.timestamp < CACHE_DURATION_MS) {
-                        console.log('📦 Using cached results for:', cacheKey);
+                    // If it's a pagination/backload, we want to allow expired cache too
+                    const allowStale = navigateBack;
+
+                    if (isFresh || allowStale) {
+                        // Refresh the tokens here
+                        currentAfter = cachedData.after || null;  // Update currentAfter with the cached value
+                        currentBefore = cachedData.before || null;  // Update currentBefore with the cached value
+
+                           // ✅ Store page in navigation history
+                        navigationHistory[currentPageIndex] = {
+                            query: currentFilters.query,
+                            after: currentAfter,
+                            before: currentBefore,
+                            nextAfter: cachedData.after || null,
+                            nextBefore: cachedData.before || null,
+                            results: cachedData.data
+                        };
+
+                        // Display the results from cache
                         displayResults(cachedData.data);
-                        return;
+                        window.scrollTo(0, 0);
+                        updatePagination();
+
+                        console.log(`🔥 DEBUG (cache hit):`, {
+                            context: navigateBack ? 'navigateBack' : 'regular',
+                            cacheKey,
+                            cachedAfter: cachedData.after,
+                            cachedBefore: cachedData.before,
+                            cachedData: cachedData.data
+                        });
+
+                        return true; // ✅ used cache
                     } else {
                         localStorage.removeItem(cacheKey);
                     }
                 } catch (e) {
-                    console.error('Error parsing cached data:', e);
-                    // If there's an error parsing the cache, remove it
                     localStorage.removeItem(cacheKey);
                 }
+
+                return false; // ❌ cache miss or invalid
             }
 
-            // If we reach here, we need to fetch fresh data
-            showLoading();
+        // Modified performSearch function with caching
+        function performSearch(after = null, before = null, navigateBack = false, isInitialLoad = false) {
+        let cacheKey = '';
+            console.log('🟢 performSearch() called with:', { after, before, navigateBack, isInitialLoad });
+            console.log('🔍 Current Index:', currentPageIndex, 'navigateBack:', navigateBack);
+
+        // Setting filters before cache
+        const query = searchInput.value.trim();
+        const subredditTyped = document.getElementById('subreddit-input').value.trim();
+        const chipVisible = subredditChipContainer.style.display === 'flex';
+        const hasSubreddit = chipVisible || subredditTyped;
+
+        // Update filters from UI
+        currentFilters.query = query;
+        currentFilters.time = document.getElementById('time-select').value;
+        currentFilters.sort = document.getElementById('sort-select').value;
+        currentFilters.contentType = document.getElementById('content-select').value;
+
+        // Get subreddit from chip container if visible, otherwise from input
+        if (subredditChipContainer.style.display === 'flex') {
+            // Get the subreddit from the chip text (removing the 'r/' prefix)
+            const chipText = subredditChipContainer.querySelector('.chip-text').textContent;
+            currentFilters.subreddit = chipText.replace('r/', '');
+        } else {
+            // Fallback to input value
+            currentFilters.subreddit = document.getElementById('subreddit-input').value.trim() || 'all';
+        }
+
+             // 🔑 Generate the cache key using current filters and tokens
+            cacheKey = `kf_search_${currentFilters.query || ''}_${currentFilters.sort || 'hot'}_${currentFilters.time || 'all'}_${currentFilters.subreddit || ''}_${currentFilters.contentType || 'all'}`;
+
+            if (tryUseCachedResults(cacheKey)) {
+                console.log('✅ Loaded from cache successfully:', cacheKey);
+                return;
+            }
+
+            if (navigateBack) {
+                const targetPage = navigationHistory[currentPageIndex];
+
+                if (targetPage?.results?.length) {
+                    currentFilters.query = targetPage.query;
+
+                    // 🛠 Restore tokens too
+                    currentAfter = targetPage.after || null;
+                    currentBefore = targetPage.before || null;
+
+                    console.log("⬅️ Navigating back to page:", currentPageIndex);
+                    displayResults(targetPage.results);
+                    updatePagination();
+                    window.scrollTo(0, 0);
+                    return;
+                }
+
+                console.warn("⚠️ No cached results for previous page.");
+                return;
+            }
 
             // Begin constructing URL
             const encodedQuery = encodeURIComponent(query);
-            const sort = currentFilters.sort;
+            let sort = currentFilters.sort;
             const time = currentFilters.time;
             const subreddit = currentFilters.subreddit;
             const limit = 10;
 
-            let url = 'https://www.reddit.com';
+            // If there's no query, and user chose 'relevance', fallback to 'hot'
+            const isQuerying = query.length > 0;
+            if (!isQuerying && sort === 'relevance') {
+                sort = 'hot';
+            }
 
-            // Only add subreddit to URL if one is selected
-            if (subreddit) {
-                url += `/r/${subreddit}`;
-                // Add the restrict_sr=1 parameter to limit results to this subreddit only
-                url += `/search.json?q=${encodedQuery}&sort=${sort}&restrict_sr=1&limit=${limit}`;
+            if (isQuerying) {
+                finalUrl = `https://www.reddit.com${subreddit ? `/r/${subreddit}` : ''}/search.json?q=${encodedQuery}&sort=${sort}&restrict_sr=1&limit=${limit}&t=${time}`;
+            } else if (subreddit) {
+                finalUrl = `https://www.reddit.com/r/${subreddit}/${sort}.json?limit=${limit}&t=${time}`;
             } else {
-                url += `/search.json?q=${encodedQuery}&sort=${sort}&limit=${limit}`;
+                finalUrl = `https://www.reddit.com/r/all/${sort}.json?limit=${limit}&t=${time}`;
             }
 
-            // Add time parameter for relevant sort types
-            if (sort === 'top' || sort === 'comments' || sort === 'hot') {
-                url += `&t=${time}`;
-            }
-
-            // Add pagination parameters
-            if (after) {
-                url += `&after=${after}`;
-            }
-            if (before) {
-                url += `&before=${before}`;
-            }
+            if (after) finalUrl += `&after=${after}`;
+            if (before) finalUrl += `&before=${before}`;
 
             console.log('🔍 Filters applied:', currentFilters);
-            console.log('🔗 Final Reddit API URL:', url);
+            console.log('🔗 Final Reddit API URL:', finalUrl);
 
             // Proxy fetch
-            fetch(`http://localhost:3000/reddit?url=${encodeURIComponent(url)}`)
+            fetch(`http://localhost:3000/reddit?url=${encodeURIComponent(finalUrl)}`)
                 .then(res => {
                     if (!res.ok) {
                         throw new Error('Failed to fetch results from Reddit');
                     }
                     return res.json();
                 })
+                
                 .then(data => {
-                    // Cache the new results with timestamp
-                    const cacheData = {
-                        timestamp: Date.now(),
-                        data: data
+                    // Store the new tokens from Reddit's response     
+
+                    currentAfter = data.data?.after || null;
+                    currentBefore = data.data?.before || null;
+
+                    console.log("🔁 After setting, currentAfter is:", currentAfter);
+
+                    const trimmedData = data.data.children.map(post => ({
+                        title: post.data.title,
+                        url: post.data.url,
+                        permalink: post.data.permalink,
+                        subreddit: post.data.subreddit,
+                        score: post.data.score,
+                        is_video: post.data.is_video,
+                        domain: post.data.domain,
+                        author: post.data.author,
+                        created_utc: post.data.created_utc,
+                        num_comments: post.data.num_comments,
+                        over_18: post.data.over_18,
+                        preview: post.data.preview,
+                        selftext: post.data.selftext,
+                        body: post.data.body
+                    }));
+
+                    // Store the page state in navigationHistory for future pages
+                    navigationHistory[currentPageIndex] = {
+                        query: currentFilters.query,
+                        after: currentAfter,
+                        before: currentBefore,
+                        nextAfter: data.data?.after || null,  
+                        nextBefore: data.data?.before || null, 
+                        results: trimmedData
                     };
-                    localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-                    console.log('💾 Cached new results for:', cacheKey);
+
+                    console.log('Data from API for ' + currentFilters.sort + ' sorting:', trimmedData);
+
+                    // 💾 Store in localStorage cache
+                    if (trimmedData.length > 0) {
+                        const cacheData = {
+                            timestamp: Date.now(),
+                            data: trimmedData,
+                            after: currentAfter,
+                            before: currentBefore   
+                        };
+                        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+                        console.log('💾 Cached new results for:', cacheKey);
+                    } else {
+                        console.warn('⚠️ Not caching empty results for:', cacheKey);
+                    }
 
                     if (!navigateBack) {
-                        // Ensure navigation history is correctly sized
+                        // 🧼 Clean up forward history if user had previously gone back
                         navigationHistory.length = currentPageIndex + 1;
+
+                        // 💾 Try to load from localStorage or memory cache
+                        if (tryUseCachedResults(cacheKey)) {
+                            console.log("✅ Loaded results from cache for", cacheKey);
+                            return;
+                        }
+
+                        // 🧠 Only run this if cache MISS
+                        showLoading();
 
                         // Store the current page's state
                         navigationHistory[currentPageIndex] = {
-                            query: currentFilters.query,  // Store the query used
-                            after: after,                 // The token used to get to this page
-                            before: before,               // The token used to get to this page
-                            nextAfter: data.data?.after || null,    // Token for next page
-                            nextBefore: data.data?.before || null   // Token for previous page
+                            query: currentFilters.query,
+                            after: currentAfter,
+                            before: currentBefore,
+                            nextAfter: data.data?.after || null,
+                            nextBefore: data.data?.before || null, 
+                            results: trimmedData                   
                         };
 
                         console.log("🔥 Debug:", {
-                            navigateBack,
                             currentPageIndex,
-                            after: data.data?.after,
-                            savedState: navigationHistory[currentPageIndex]
-                        });
-
+                            navigateBack,
+                            afterParam: after,
+                            beforeParam: before,
+                            receivedAfterFromReddit: data.data?.after || null,
+                            receivedBeforeFromReddit: data.data?.before || null,
+                            currentAfter,
+                            currentBefore,
+                            navigationHistorySlot: navigationHistory[currentPageIndex],
+                            fullHistory: [...navigationHistory]
+                        });  
                     }
                     // Display the results
-                    displayResults(data);
+
+                    const now = Math.floor(Date.now() / 1000);
+                    let timeCutoff = 0;
+
+                    switch (currentFilters.time) {
+                        case "hour":
+                            timeCutoff = now - (60 * 60); // 1 hour
+                            break;
+                        case "day":
+                            timeCutoff = now - (24 * 60 * 60); // 1 day
+                            break;
+                        case "week":
+                            timeCutoff = now - (7 * 24 * 60 * 60); // 1 week
+                            break;
+                        case "month":
+                            timeCutoff = now - (30 * 24 * 60 * 60); // ~1 month
+                            break;
+                        case "year":
+                            timeCutoff = now - (365 * 24 * 60 * 60); // ~1 year
+                            break;
+                        case "all":
+                        default:
+                            timeCutoff = 0; // No cutoff, show everything
+                            break;
+                    }
+
+                    const filteredData = trimmedData.filter(post => {
+        
+                        return post.created_utc && post.created_utc >= timeCutoff;
+                    });
+
+                    displayResults(filteredData);
+                    window.scrollTo(0, 0);
                     updatePagination();
                 })
                 .catch(err => showError(err));
         }
-
+    
         // Add cache management utility function
         function clearExpiredCaches() {
             const now = Date.now();
@@ -1695,131 +2031,121 @@
 
         // Function to fetch comments for a post
         function fetchComments(permalink, commentsContainer) {
-            commentsContainer.innerHTML = `
-    <div class="loading-comments">
-        <div class="spinner" id="comment-spinner-placeholder"></div>
-    </div>
-`;
-            const commentSpinner = document.querySelector('#comment-spinner-placeholder');
-            if (commentSpinner) commentSpinner.replaceWith(createCanvasSpinner());
 
-            // Reddit API URL for comments (no auth required)
-            const commentsUrl = `http://localhost:3000/reddit?url=https://www.reddit.com${permalink}.json`;
+                // Otherwise, fetch from Reddit via your proxy
+                const commentsUrl = `http://localhost:3000/reddit?url=https://www.reddit.com${permalink}.json`;
 
-            fetch(commentsUrl)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Failed to fetch comments');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    // The comments are in the second element of the array
-                    const commentsData = data[1].data.children;
-
-                    if (commentsData.length === 0) {
+                fetch(commentsUrl)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Failed to fetch comments');
+                        return response.json();
+                    })
+                    .then(data => {
+                        renderComments(data, commentsContainer, permalink);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching comments:', error);
                         commentsContainer.innerHTML = '<div class="loading-comments">No comments found</div>';
-                        return;
-                    }
-
-                    // Sort comments by score (highest first)
-                    commentsData.sort((a, b) => (b.data.score || 0) - (a.data.score || 0));
-
-                    // Clear the container
-                    commentsContainer.innerHTML = '';
-
-                    // Display top 5 comments
-                    const topComments = commentsData.slice(0, 5);
-                    topComments.forEach(comment => {
-                        if (comment.kind !== 't1') return; // Skip non-comment items
-
-                        const commentData = comment.data;
-
-                        // Create comment element
-                        const commentEl = document.createElement('div');
-                        commentEl.className = 'comment';
-
-                        // Author section
-                        const authorEl = document.createElement('div');
-                        authorEl.className = 'comment-author';
-
-                        const authorIconEl = document.createElement('div');
-                        authorIconEl.className = 'comment-author-icon';
-                        authorIconEl.textContent = commentData.author.charAt(0).toUpperCase();
-
-                        authorEl.appendChild(authorIconEl);
-                        authorEl.appendChild(document.createTextNode(commentData.author));
-
-                        // Comment text
-                        const textEl = document.createElement('div');
-                        textEl.className = 'comment-text';
-                        const sanitizedBody = sanitizeHTML(commentData.body);
-                        textEl.textContent = sanitizedBody.length > 150
-                            ? sanitizedBody.substring(0, 150) + '...'
-                            : sanitizedBody;
-
-                        // Comment metadata
-                        const metaEl = document.createElement('div');
-                        metaEl.className = 'comment-meta';
-
-                        const scoreEl = document.createElement('span');
-                        scoreEl.className = 'comment-score';
-                        scoreEl.textContent = formatNumber(commentData.score) + ' points';
-
-                        const timeEl = document.createElement('span');
-                        timeEl.className = 'comment-time';
-                        timeEl.textContent = formatTimestamp(commentData.created_utc);
-
-                        metaEl.appendChild(scoreEl);
-                        metaEl.appendChild(timeEl);
-
-                        // Add all elements to comment
-                        commentEl.appendChild(authorEl);
-                        commentEl.appendChild(textEl);
-                        commentEl.appendChild(metaEl);
-
-                        // Add comment to container
-                        commentsContainer.appendChild(commentEl);
                     });
+            }
 
-                    // Add "See more comments" link if there are more than 5 comments
-                    if (commentsData.length > 5) {
-                        const seeMoreEl = document.createElement('div');
-                        seeMoreEl.className = 'see-more-comments';
-                        seeMoreEl.textContent = `See all ${commentsData.length} comments`;
+        function renderComments(data, commentsContainer, permalink) {
+                const commentsData = data[1].data.children;
 
-                        seeMoreEl.addEventListener('click', () => {
-                            window.open(`https://www.reddit.com${permalink}`, '_blank');
-                        });
+                if (commentsData.length === 0) {
+                    commentsContainer.innerHTML = '<div class="loading-comments">No comments found</div>';
+                    return;
+                }
 
-                        commentsContainer.appendChild(seeMoreEl);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching comments:', error);
-                    commentsContainer.innerHTML = '<div class="loading-comments">Failed to load comments</div>';
+                // Sort comments by score (highest first)
+                commentsData.sort((a, b) => (b.data.score || 0) - (a.data.score || 0));
+                commentsContainer.innerHTML = '';
+
+                const topComments = commentsData.slice(0, 5);
+                topComments.forEach(comment => {
+                    if (comment.kind !== 't1') return;
+                    const c = comment.data;
+
+                    const commentEl = document.createElement('div');
+                    commentEl.className = 'comment';
+
+                    const authorEl = document.createElement('div');
+                    authorEl.className = 'comment-author';
+                    const authorIconEl = document.createElement('div');
+                    authorIconEl.className = 'comment-author-icon';
+                    authorIconEl.textContent = c.author.charAt(0).toUpperCase();
+                    authorEl.appendChild(authorIconEl);
+                    authorEl.appendChild(document.createTextNode(c.author));
+
+                    const textEl = document.createElement('div');
+                    textEl.className = 'comment-text';
+                    const sanitizedBody = sanitizeHTML(c.body);
+                    textEl.textContent = sanitizedBody.length > 150 ? sanitizedBody.slice(0, 150) + '...' : sanitizedBody;
+
+                    const metaEl = document.createElement('div');
+                    metaEl.className = 'comment-meta';
+                    const scoreEl = document.createElement('span');
+                    scoreEl.className = 'comment-score';
+                    scoreEl.textContent = formatNumber(c.score) + ' points';
+                    const timeEl = document.createElement('span');
+                    timeEl.className = 'comment-time';
+                    timeEl.textContent = formatTimestamp(c.created_utc);
+                    metaEl.appendChild(scoreEl);
+                    metaEl.appendChild(timeEl);
+
+                    commentEl.appendChild(authorEl);
+                    commentEl.appendChild(textEl);
+                    commentEl.appendChild(metaEl);
+                    commentsContainer.appendChild(commentEl);
                 });
-        }
+
+                if (commentsData.length > 5) {
+                    const seeMoreEl = document.createElement('div');
+                    seeMoreEl.className = 'see-more-comments';
+                    seeMoreEl.textContent = `See all ${commentsData.length} comments`;
+                    seeMoreEl.addEventListener('click', () => {
+                        window.open(`https://www.reddit.com${permalink}`, '_blank');
+                    });
+                    commentsContainer.appendChild(seeMoreEl);
+                }
+            }
 
         function displayResults(data) {
-            resultsContainer.innerHTML = '';
+            resultsContainer.style.opacity = 0;
+                resultsContainer.innerHTML = '';
 
-            // First, let's log the incoming data structure
-            console.log("📊 Data received:", data);
+                // Check if we're dealing with cached data (an array) or API response
+                const isFromCache = Array.isArray(data);
 
-            const posts = data.data?.children || [];
+                const posts = isFromCache
+                    ? data  // cached data is already processed
+                    : data.data?.children.map(item => item.data) || [];
 
-            // Update pagination state checking if we have navigation history
-            if (currentPageIndex < navigationHistory.length && navigationHistory[currentPageIndex]) {
+                // Update pagination tokens based on data source
+                if (isFromCache) {
 
-                // Use tokens from navigation history if they exist  
-                currentAfter = navigationHistory[currentPageIndex].nextAfter;
-                currentBefore = navigationHistory[currentPageIndex].nextBefore;
-            } else {
-                // Otherwise use from API response
-                currentAfter = data.data?.after || null;
-                currentBefore = data.data?.before || null;
-            }
+                    const cacheKey = `kf_search_${currentFilters.query || ''}_${currentFilters.sort || 'hot'}_${currentFilters.time || 'all'}_${currentFilters.subreddit || ''}_${currentFilters.contentType || 'all'}_${currentAfter || ''}_${currentBefore || ''}`;
+
+                    // For cached data, we need to load the tokens from cache too
+
+                    const cachedItem = localStorage.getItem(cacheKey);
+
+                    if (cachedItem) {
+                        try {
+                            const cachedData = JSON.parse(cachedItem);
+                            currentAfter = cachedData.after;
+                            currentBefore = cachedData.before;
+                            console.log("🔄 Loaded pagination tokens from cache:", { currentAfter, currentBefore });
+                        } catch (e) {
+                            console.error("Error loading pagination tokens from cache:", e);
+                        }
+                    }
+                } else {
+                    // For fresh API data, use the tokens from the response
+                    currentAfter = data.data?.after || null;
+                    currentBefore = data.data?.before || null;
+                    console.log("🔄 Updated pagination tokens from API:", { currentAfter, currentBefore });
+                }
 
             if (posts.length === 0) {
                 resultsContainer.innerHTML = `
@@ -1828,12 +2154,12 @@
             </div>
         `;
                 paginationContainer.innerHTML = '';
+                resultsContainer.style.opacity = 1;
                 return;
             }
 
             // Display results
-            data.data?.children?.forEach(item => {
-                const post = item.data;
+            posts.forEach(post => {
 
                 // Display domain in url
                 console.log({
@@ -1847,8 +2173,8 @@
                 const resultCard = document.createElement('div');
                 resultCard.className = 'result-card';
 
-                const title = item.data.title?.toLowerCase() || '';
-                const isProbablyNSFW = item.data.over_18 || /tits|titties|tiddies|nudes|onlyfans|boobs|cum|cock|cunt|pussy|porn|fuck/.test(title);
+                const title = post.title?.toLowerCase() || '';
+                const isProbablyNSFW = post.over_18 || /tits|titties|tiddies|nudes|onlyfans|boobs|cum|cock|cunt|pussy|porn|fuck/.test(title);
 
                 if (isProbablyNSFW) {
                     resultCard.classList.add('nsfw');
@@ -2032,8 +2358,6 @@
                 // Create container for image (always needed, even if empty)
                 const imgContainer = document.createElement('div');
                 imgContainer.className = 'img-container';
-                imgContainer.style.width = '140px';
-                imgContainer.style.height = '100px';
 
                 // Add thumbnail/preview image if available
 
@@ -2055,16 +2379,35 @@
 
                     // Create actual image
                     const resultImage = document.createElement('img');
-                    resultImage.src = `https://karmafinder.onrender.com/image?url=${encodeURIComponent(previewImage)}`;
+                    const uniqueTimestamp = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+                    resultImage.src = `https://karmafinder.onrender.com/image?url=${encodeURIComponent(previewImage)}&t=${uniqueTimestamp}`;
                     resultImage.alt = 'Post thumbnail';
                     resultImage.className = 'result-image';
 
-                    // On load, swap in image and remove shimmer
-                    resultImage.addEventListener('load', () => {
-                        console.log('🖼️ Image loaded and visible:', resultImage.src);
-                        imagePlaceholder.style.display = 'none';
-                        resultImage.classList.add('show');
+                    // Add cache-preventing attributes
+                    resultImage.setAttribute('loading', 'lazy');
+                    resultImage.setAttribute('decoding', 'async');
+                    resultImage.setAttribute('fetchpriority', 'low');
+                    resultImage.setAttribute('crossorigin', 'anonymous');
 
+                    // 🧠 Error and silent fail handling with retry
+                    resultImage.addEventListener('error', () => {
+                        console.error('❌ Image failed to load at all:', resultImage.src);
+                        // Retry with a new timestamp after a short delay
+                        setTimeout(() => {
+                            const newTimestamp = Date.now();
+                            resultImage.src = `https://karmafinder.onrender.com/image?url=${encodeURIComponent(previewImage)}&t=${newTimestamp}`;
+                        }, 500);
+                    });
+
+                    resultImage.addEventListener('load', () => {
+                        if (resultImage.naturalWidth === 0 || resultImage.naturalHeight === 0) {
+                            console.warn('⚠️ Silent image fail — no visible data loaded:', resultImage.src);
+                        } else {
+                            console.log('🖼️ Image loaded and visible:', resultImage.src);
+                            imagePlaceholder.style.display = 'none';
+                            resultImage.classList.add('show');
+                        }
                     });
 
                     imageWrapper.appendChild(imagePlaceholder);
@@ -2100,6 +2443,9 @@
                 resultsContainer.appendChild(resultCard);
 
             });
+
+            console.log("Current After:", currentAfter)
+            resultsContainer.style.opacity = 1; // 🔥 Fade new results back in
             updatePagination();
         }
 
@@ -2121,11 +2467,19 @@
             prevButton.textContent = '← Previous';
             prevButton.disabled = currentPageIndex === 0;
             prevButton.addEventListener('click', () => {
-                if (currentPageIndex > 0) {
-                    performSearch(null, null, true);
-                    window.scrollTo(0, 0);
+                if (currentPageIndex === 0) {
+                    console.warn("⚠️ Already on the first page. Can't go back.");
+                    return;
                 }
+
+                currentPageIndex--; // ✅ Decrement BEFORE calling performSearch()
+
+                const targetPage = navigationHistory[currentPageIndex];
+                const prevToken = targetPage.before; // ✅ optional, could be null
+
+                performSearch(null, prevToken, true, targetPage.query); // ✅ passes in token but it's ignored inside performSearch()
             });
+            
             paginationContainer.appendChild(prevButton);
 
             if (currentAfter) {
@@ -2134,10 +2488,17 @@
                 nextButton.textContent = 'Next →';
                 nextButton.disabled = false;
                 nextButton.addEventListener('click', () => {
-                    currentPageIndex++;
-                    console.log('📈 Index incremented to:', currentPageIndex);
-                    performSearch(currentAfter, null, false);
-                    window.scrollTo(0, 0);
+                    const currentPage = navigationHistory[currentPageIndex];
+                    const nextToken = currentPage?.nextAfter;
+
+                    if (nextToken) {
+                        currentPageIndex++;
+                        console.log("📈 Next -> currentPageIndex has been incremented by:", currentPageIndex);
+
+                        performSearch(nextToken, null, false, currentPage.query);
+                    } else {
+                        console.warn("No token to go forward.");
+                    }
                 });
 
                 paginationContainer.appendChild(nextButton);
@@ -2217,24 +2578,49 @@
                 });
             }
         });
+    
+                const themeToggle = document.getElementById('themeToggle');
+                const icon = document.getElementById('themeIcon');
 
-        const toggleBtn = document.getElementById('themeToggle');
-        const icon = document.getElementById('themeIcon');
+  // Update icon to match stored theme on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    const isDark = document.body.classList.contains('dark-mode');
+                if (icon) {
+                    icon.src = isDark ? 'sun.png' : 'moon.png';
+                icon.alt = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+    }
+  });
 
-        // Apply theme on initial load
-        if (localStorage.getItem('theme') === 'dark') {
-            document.body.classList.add('dark-mode');
-            icon.src = 'sun.png';
-            icon.alt = 'Switch to light mode';
-        }
+  // Toggle logic
+  themeToggle.addEventListener('click', () => {
+                    document.body.classList.add('theme-transition');
 
-        toggleBtn.addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
-            const isDark = document.body.classList.contains('dark-mode');
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
-            icon.src = isDark ? 'sun.png' : 'moon.png';
-            icon.alt = isDark ? 'Switch to light mode' : 'Switch to dark mode';
-        });
+                const isDark = document.body.classList.toggle('dark-mode');
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+
+                if (icon) {
+                    icon.src = isDark ? 'sun.png' : 'moon.png';
+                icon.alt = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+    }
+
+    setTimeout(() => {
+                    document.body.classList.remove('theme-transition');
+    }, 300);
+   });
+
+   // Initialize default search on page load
+    setTimeout(() => {
+            console.log("🌅 Triggering default r/all search after short delay...");
+            currentFilters.sort = 'hot';
+            currentFilters.time = 'all';
+            currentFilters.subreddit = '';
+            currentFilters.query = '';
+            currentFilters.contentType = 'all';
+            currentAfter = null;
+            currentBefore = null;
+            performSearch(null, null, false, true);
+        }, 500);
+
     </script>
 
 </body>

@@ -99,7 +99,7 @@ app.get('/image', async (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) return res.status(400).send('No image URL provided.');
 
-    // More comprehensive validation for Reddit image domains
+    // ✅ Allowed domains
     const allowedDomains = [
         'i.redd.it',
         'preview.redd.it',
@@ -110,35 +110,77 @@ app.get('/image', async (req, res) => {
         'redditstatic.com'
     ];
 
-    // Check if URL is from an allowed domain
-    const isAllowedDomain = allowedDomains.some(domain =>
-        imageUrl.includes(domain)
-    );
+    try {
+        const urlObj = new URL(imageUrl);
+        const hostname = urlObj.hostname;
 
-    if (!isAllowedDomain) {
-        console.log(`🚫 Blocked request to non-Reddit image: ${imageUrl}`);
-        return res.status(403).send('Only Reddit image domains are allowed');
+        const isAllowed = allowedDomains.some(domain => hostname.endsWith(domain));
+        if (!isAllowed) {
+            console.warn(`[🚫] Blocked domain: ${hostname}`);
+            return res.status(403).send('Domain not allowed.');
+        }
+    } catch (err) {
+        console.error('[❌] Invalid URL:', err.message);
+        return res.status(400).send('Invalid image URL.');
     }
 
     try {
-        // Use dogFetch here too
-        const response = await dogFetch(imageUrl, {
+        const response = await fetch(imageUrl, {
             headers: {
-                'User-Agent': 'Mozilla/5.0'
+                'User-Agent': 'Mozilla/5.0 (compatible; KarmaFinder/1.0; +https://karmapath)'
             }
         });
 
         const contentType = response.headers.get('content-type');
+
+        // 🛑 If the server returned something weird, stop here
         if (!contentType || !contentType.startsWith('image/')) {
-            return res.status(400).send('Invalid image content');
+            console.error('[⚠️] Invalid image content:', contentType);
+            return res.status(400).send('Invalid image content.');
         }
 
-        res.setHeader('Content-Type', contentType);
-        response.body.pipe(res);
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Surrogate-Control', 'no-store');
+        // Add a unique timestamp to prevent browser caching
+        res.setHeader('ETag', `"${Date.now()}"`);
+
+        let hasData = false;
+
+        response.on('data', (chunk) => {
+            hasData = true;
+        });
+
+        response.on('end', () => {
+            if (!hasData) {
+                console.warn('⚠️ No data received from image URL:', imageUrl);
+                return res.status(500).send('Empty image data received from source.');
+            }
+        });
+
+        // Pipe image to client
+        response.pipe(res);
+
+        response.on('error', (err) => {
+            console.error('🔥 PIPE ERROR (Response -> Client):', err);
+        });
+
+        res.on('error', (err) => {
+            console.error('🔥 PIPE ERROR (Client Response):', err);
+        });
+
     } catch (err) {
-        res.status(500).send('Error fetching image: ' + err.message);
+        console.error('[🔥] Error fetching image:', err);
+        res.status(500).send('Error fetching image: ' + err);
     }
 });
+
+app.use((err, req, res, next) => {
+    console.error('🛑 Uncaught server error:', err);
+    res.status(500).send('Internal server error.');
+});
+
 
 app.listen(PORT, () => {
     console.log(`✅ Proxy server running on http://localhost:${PORT}`);
