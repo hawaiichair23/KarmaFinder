@@ -99,6 +99,9 @@ app.get('/image', async (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) return res.status(400).send('No image URL provided.');
 
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
     // ✅ Allowed domains
     const allowedDomains = [
         'i.redd.it',
@@ -124,6 +127,7 @@ app.get('/image', async (req, res) => {
         return res.status(400).send('Invalid image URL.');
     }
 
+    // In the /image route, replace the problematic part with this:
     try {
         const response = await fetch(imageUrl, {
             headers: {
@@ -131,48 +135,52 @@ app.get('/image', async (req, res) => {
             }
         });
 
+        if (!response.ok) {
+            console.error(`[⚠️] Image source returned status ${response.status}: ${imageUrl}`);
+            return res.status(response.status).send(`Source returned ${response.status}`);
+        }
+
         const contentType = response.headers.get('content-type');
 
-        // 🛑 If the server returned something weird, stop here
-        if (!contentType || !contentType.startsWith('image/')) {
+        // More flexible content type checking
+        if (!contentType || !(contentType.startsWith('image/') || contentType.includes('jpeg') || contentType.includes('png') || contentType.includes('gif'))) {
             console.error('[⚠️] Invalid image content:', contentType);
             return res.status(400).send('Invalid image content.');
         }
 
+        // Set cache prevention headers
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
         res.setHeader('Surrogate-Control', 'no-store');
-        // Add a unique timestamp to prevent browser caching
         res.setHeader('ETag', `"${Date.now()}"`);
 
-        let hasData = false;
+        // Set content type to match the original
+        if (contentType) {
+            res.setHeader('Content-Type', contentType);
+        }
 
-        response.on('data', (chunk) => {
-            hasData = true;
-        });
+        // Get full image data with more explicit error handling
+        let imageBuffer;
+        try {
+            imageBuffer = await response.arrayBuffer();
+        } catch (bufferError) {
+            console.error('[🔥] Error processing image response:', bufferError.message);
+            return res.status(500).send('Error processing image data: ' + bufferError.message);
+        }
 
-        response.on('end', () => {
-            if (!hasData) {
-                console.warn('⚠️ No data received from image URL:', imageUrl);
-                return res.status(500).send('Empty image data received from source.');
-            }
-        });
+        // Check if we got data
+        if (!imageBuffer || imageBuffer.byteLength === 0) {
+            console.warn('⚠️ Empty data received from image URL:', imageUrl);
+            return res.status(500).send('Empty image data received from source.');
+        }
 
-        // Pipe image to client
-        response.pipe(res);
-
-        response.on('error', (err) => {
-            console.error('🔥 PIPE ERROR (Response -> Client):', err);
-        });
-
-        res.on('error', (err) => {
-            console.error('🔥 PIPE ERROR (Client Response):', err);
-        });
+        // Send the buffer as response
+        res.send(Buffer.from(imageBuffer));
 
     } catch (err) {
-        console.error('[🔥] Error fetching image:', err);
-        res.status(500).send('Error fetching image: ' + err);
+        console.error('[🔥] Error fetching image:', err.message);
+        res.status(500).send('Error fetching image: ' + err.message);
     }
 });
 
