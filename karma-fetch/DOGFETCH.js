@@ -3,6 +3,43 @@ const fetch = require('node-fetch');
 const app = express();
 const PORT = 3000;
 
+require('dotenv').config();
+
+const REDDIT_ANDROID_CLIENT_ID = process.env.REDDIT_CLIENT_ID;
+const REDDIT_CLIENT_SECRET = process.env.REDDIT_CLIENT_SECRET;
+
+let redditToken = null;
+let redditTokenExpiry = 0;
+
+async function getRedditAppToken() {
+    const now = Date.now();
+    if (redditToken && now < redditTokenExpiry) return redditToken;
+
+    const basicAuth = Buffer.from(`${REDDIT_ANDROID_CLIENT_ID}:${REDDIT_CLIENT_SECRET}`).toString('base64');
+
+    const res = await fetch('https://www.reddit.com/api/v1/access_token', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Basic ${basicAuth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
+        },
+        body: 'grant_type=client_credentials'
+    });
+
+    const data = await res.json();
+
+    if (data.access_token) {
+        redditToken = data.access_token;
+        redditTokenExpiry = now + (data.expires_in || 3600) * 1000;
+        console.log("🔐 Got Reddit app token:", redditToken.slice(0, 16) + '...');
+        return redditToken;
+    } else {
+        console.error("❌ Failed to get Reddit app token:", data);
+        throw new Error("Could not fetch token");
+    }
+}
+
 // Add the rate logging counter at the top level
 let rateLogCounter = 0;
 
@@ -67,18 +104,26 @@ app.use((req, res, next) => {
 
 app.get('/reddit', async (req, res) => {
     const encodedUrl = req.query.url;
-    const decodedUrl = decodeURIComponent(encodedUrl);
+    let decodedUrl = decodeURIComponent(encodedUrl);
 
-    // URL validation 
+    // Ensure it’s a Reddit URL
     if (!decodedUrl.startsWith('https://www.reddit.com/')) {
         return res.status(403).send('Only Reddit URLs are allowed');
     }
 
+    // Rewrite www to oauth
+    decodedUrl = decodedUrl.replace('https://www.reddit.com', 'https://oauth.reddit.com');
+
+    // Strip trailing .json or .json/ since OAuth API doesn't need them
+    decodedUrl = decodedUrl.replace(/\.json\/?$/, '');
+
     try {
-        // Use the dogFetch function instead of fetch
+        const token = await getRedditAppToken();
+
         const response = await dogFetch(decodedUrl, {
             headers: {
-                'User-Agent': 'KarmaFinder/1.0 (by u/YourUsername)'
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
             }
         });
 
@@ -99,97 +144,59 @@ app.get('/image', async (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) return res.status(400).send('No image URL provided.');
 
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-
-    // ✅ Allowed domains
-    const allowedDomains = [
-        'i.redd.it',
-        'preview.redd.it',
-        'external-preview.redd.it',
-        'v.redd.it',
-        'i.imgur.com',
-        'imgur.com',
-        'redditstatic.com'
-    ];
-
     try {
-        const urlObj = new URL(imageUrl);
-        const hostname = urlObj.hostname;
+        const token = await getRedditAppToken();
 
-        const isAllowed = allowedDomains.some(domain => hostname.endsWith(domain));
-        if (!isAllowed) {
-            console.warn(`[🚫] Blocked domain: ${hostname}`);
-            return res.status(403).send('Domain not allowed.');
-        }
-    } catch (err) {
-        console.error('[❌] Invalid URL:', err.message);
-        return res.status(400).send('Invalid image URL.');
-    }
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)',
+            'Accept': 'image/*'
+        };
 
-    // In the /image route, replace the problematic part with this:
-    try {
-        const response = await fetch(imageUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (compatible; KarmaFinder/1.0; +https://karmapath)'
-            }
-        });
+        const response = await fetch(imageUrl, { headers });
 
         if (!response.ok) {
             console.error(`[⚠️] Image source returned status ${response.status}: ${imageUrl}`);
+            const body = await response.text();
+            console.error('❌ Response body:', body.slice(0, 300));
             return res.status(response.status).send(`Source returned ${response.status}`);
         }
 
-        const contentType = response.headers.get('content-type');
-
-        // More flexible content type checking
-        if (!contentType || !(contentType.startsWith('image/') || contentType.includes('jpeg') || contentType.includes('png') || contentType.includes('gif'))) {
-            console.error('[⚠️] Invalid image content:', contentType);
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.startsWith('image/')) {
+            console.error('[⚠️] Not image content:', contentType, '| URL:', imageUrl);
             return res.status(400).send('Invalid image content.');
         }
 
-        // Set cache prevention headers
+        const imageBuffer = await response.arrayBuffer();
+        if (!imageBuffer || imageBuffer.byteLength === 0) {
+            console.warn('⚠️ Empty image buffer:', imageUrl);
+            return res.status(500).send('Empty image data.');
+        }
+
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', imageBuffer.byteLength);
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
         res.setHeader('Surrogate-Control', 'no-store');
         res.setHeader('ETag', `"${Date.now()}"`);
 
-        // Set content type to match the original
-        if (contentType) {
-            res.setHeader('Content-Type', contentType);
-        }
-
-        // Get full image data with more explicit error handling
-        let imageBuffer;
-        try {
-            imageBuffer = await response.arrayBuffer();
-        } catch (bufferError) {
-            console.error('[🔥] Error processing image response:', bufferError.message);
-            return res.status(500).send('Error processing image data: ' + bufferError.message);
-        }
-
-        // Check if we got data
-        if (!imageBuffer || imageBuffer.byteLength === 0) {
-            console.warn('⚠️ Empty data received from image URL:', imageUrl);
-            return res.status(500).send('Empty image data received from source.');
-        }
-
-        // Send the buffer as response
         res.send(Buffer.from(imageBuffer));
-
     } catch (err) {
         console.error('[🔥] Error fetching image:', err.message);
         res.status(500).send('Error fetching image: ' + err.message);
     }
 });
 
-app.use((err, req, res, next) => {
-    console.error('🛑 Uncaught server error:', err);
-    res.status(500).send('Internal server error.');
-});
+// 🔁 START SERVER LOGIC
+async function startServer() {
+    const token = await getRedditAppToken();
+    console.log('✅ Reddit app token fetched:', token.slice(0, 12), '...');
 
+    app.listen(PORT, () => {
+        console.log(`🚀 FETCH server running at http://localhost:${PORT}`);
+    });
+}
 
-app.listen(PORT, () => {
-    console.log(`✅ Proxy server running on http://localhost:${PORT}`);
-});
+startServer();
