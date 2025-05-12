@@ -1,12 +1,41 @@
 const express = require('express');
+const cors = require('cors');
 const fetch = require('node-fetch');
+const client = require('./db');
 const app = express();
 const PORT = 3000;
 
+const axios = require('axios');
+const cheerio = require('cheerio');
+
+app.use(cors());         
+app.use(express.json());
+
 require('dotenv').config();
+require('./cron-cleanup');
 
 const REDDIT_ANDROID_CLIENT_ID = process.env.REDDIT_CLIENT_ID;
 const REDDIT_CLIENT_SECRET = process.env.REDDIT_CLIENT_SECRET;
+
+const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/113.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Referer': 'https://www.google.com/',
+    'Connection': 'keep-alive',
+};
+
+async function getOGImage(url) {
+    try {
+        const { data: html } = await axios.get(url, { headers });
+        const $ = cheerio.load(html);
+        const ogImage = $('meta[property="og:image"]').attr('content');
+        return ogImage || null;
+    } catch (err) {
+        console.error('🛑 OG fetch failed:', err.message);
+        return null;
+    }
+}
 
 let redditToken = null;
 let redditTokenExpiry = 0;
@@ -97,6 +126,68 @@ async function dogFetch(url, options = {}) {
     }
 }
 
+app.post('/api/save-image', async (req, res) => {
+    const { reddit_post_id, subreddit, title, url, thumbnail } = req.body;
+
+    // Normalize thumbnail value to lowercase string (if it exists)
+    const normalizedThumb = (thumbnail || '').toLowerCase();
+
+    // List of bad/default thumbnails Reddit sometimes gives
+    const badThumbs = new Set(['self', 'default', 'nsfw', 'spoiler', 'image', '']);
+
+    let finalThumbnail = thumbnail;
+
+    // If no thumbnail or it's clearly a placeholder, try scraping OG image
+    if (!thumbnail || badThumbs.has(normalizedThumb)) {
+        console.log(`🧪 OG fetch triggered for: ${url}`);
+        try {
+            finalThumbnail = await getOGImage(url);
+            console.log(`🔍 OG image result: ${finalThumbnail}`);
+        } catch (err) {
+            console.error(`❌ Failed to fetch OG image: ${err.message}`);
+            finalThumbnail = null; // Fallback
+        }
+    }
+
+    // Insert to DB
+    try {
+        const query = `
+            INSERT INTO image_news_cache (reddit_post_id, subreddit, title, url, thumbnail)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (reddit_post_id) DO NOTHING
+        `;
+
+        const values = [reddit_post_id, subreddit, title, url, finalThumbnail];
+        await client.query(query, values);
+
+        res.status(200).json({
+            success: true,
+            message: 'Saved!',
+            data: {
+                reddit_post_id,
+                subreddit,
+                title,
+                url,
+                thumbnail: finalThumbnail
+            }
+        });
+
+    } catch (err) {
+        console.error('❌ DB Insert error:', err.message);
+        res.status(500).json({ success: false, message: 'Insert failed' });
+    }
+});
+
+app.get('/api/get-cached-posts', async (req, res) => {
+    try {
+        const result = await client.query('SELECT * FROM image_news_cache');
+        res.json(result.rows);
+    } catch (err) {
+        console.error('❌ DB fetch error:', err.message);
+        res.status(500).json({ error: 'Failed to fetch cached posts' });
+    }
+});
+
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     next();
@@ -111,6 +202,36 @@ app.get('/reddit', async (req, res) => {
         return res.status(403).send('Only Reddit URLs are allowed');
     }
 
+    // Check if this is a subreddit search request
+    if (decodedUrl.includes('subreddits/search.json')) {
+        // Extract the search query
+        const urlParams = new URL(decodedUrl, 'https://example.com').searchParams;
+        const query = urlParams.get('q');
+
+        if (query) {
+            try {
+                // Check if we have a fresh cached result
+                const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+                const cachedResult = await client.query(
+                    "SELECT results, last_fetched FROM subreddit_search_cache WHERE query_term = $1",
+                    [query]
+                );
+
+                const isCacheFresh = cachedResult.rows.length > 0 &&
+                    (new Date() - new Date(cachedResult.rows[0].last_fetched)) < CACHE_DURATION;
+
+                if (isCacheFresh) {
+                    console.log(`🚀 Cache hit for query: ${query}`);
+                    return res.json(cachedResult.rows[0].results);
+                }
+            } catch (error) {
+                console.error('Error checking cache:', error);
+                // Continue to fetch from Reddit if there's an error
+            }
+        }
+    }
+
     // Rewrite www to oauth
     decodedUrl = decodedUrl.replace('https://www.reddit.com', 'https://oauth.reddit.com');
 
@@ -122,6 +243,7 @@ app.get('/reddit', async (req, res) => {
 
         const response = await dogFetch(decodedUrl, {
             headers: {
+                ...headers,
                 'Authorization': `Bearer ${token}`,
                 'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
             }
@@ -133,27 +255,130 @@ app.get('/reddit', async (req, res) => {
         }
 
         const data = await response.json();
+
+        // 🔁 Inject icon_url into each post from subreddit_icons
+        if (data?.data?.children) {
+            for (let post of data.data.children) {
+                const subreddit = post.data.subreddit;
+
+                try {
+                    const iconRes = await client.query(
+                        'SELECT icon_url FROM subreddit_icons WHERE subreddit = $1',
+                        [subreddit]
+                    );
+
+                    // Flatten the icon_url so it's directly on the post
+                    post.icon_url = iconRes.rows[0]?.icon_url || null;
+                } catch (err) {
+                    console.error(`❌ Failed to fetch icon for r/${subreddit}:`, err.message);
+                    post.icon_url = null;
+                }
+            }
+        }
+        
+        // Cache subreddit search results
+        if (encodedUrl.includes('subreddits/search.json')) {
+            const urlParams = new URL(decodeURIComponent(encodedUrl), 'https://example.com').searchParams;
+            const query = urlParams.get('q');
+
+            if (query && data) {
+                try {
+                    // Clean the data before storing
+                    const cleanedData = {
+                        data: {
+                            children: data.data.children.map(child => ({
+                                data: {
+                                    // Keep only these essential fields
+                                    id: child.data.id,
+                                    display_name: child.data.display_name,
+                                    url: child.data.url,
+                                    name: child.data.name,
+
+                                    // Only the image fields you're actually using
+                                    community_icon: child.data.community_icon || null,
+                                    mobile_banner_image: child.data.mobile_banner_image || null,
+                                    icon_img: child.data.icon_img || null,
+                                    header_img: child.data.header_img || null,
+                                    banner_img: child.data.banner_img || null
+                                }
+                            }))
+                        }
+                    };
+
+                    // STORE QUERIES IN DB
+                    await client.query(
+                        `INSERT INTO subreddit_search_cache (query_term, results) 
+                         VALUES ($1, $2) 
+                         ON CONFLICT (query_term) DO UPDATE 
+                         SET results = $2, last_fetched = NOW()`,
+                        [query, JSON.stringify(data)]
+                    );
+                } catch (error) {
+                    console.error('Error caching results:', error);
+                }
+            }
+        }
+
         res.json(data);
+
+        // ICON CACHING
+        if (decodedUrl.includes('/about')) {
+            const match = decodedUrl.match(/\/r\/([^/]+)\/about/);
+            const subreddit = match ? match[1] : null;
+
+            if (subreddit && data?.data) {
+                const rawIcon = (
+                    data.data.community_icon ||
+                    data.data.mobile_banner_image ||
+                    data.data.icon_img ||
+                    data.data.header_img ||
+                    data.data.banner_img ||
+                    ''
+                ).replace(/&amp;/g, '&').trim();
+
+                const iconUrl = rawIcon || null;
+
+                try {
+                    await client.query(`
+                        INSERT INTO subreddit_icons (subreddit, icon_url, created_at)
+                        VALUES ($1, $2, NOW())
+                        ON CONFLICT (subreddit)
+                        DO UPDATE SET icon_url = EXCLUDED.icon_url, created_at = NOW()
+                    `, [subreddit, iconUrl]);
+
+                    console.log(`💾 Saved icon for r/${subreddit} from /about.json`);
+                } catch (err) {
+                    console.error(`❌ DB insert failed for r/${subreddit}:`, err.message);
+                }
+            }
+        }
+
     } catch (err) {
         console.error('❌ Reddit proxy error:', err.message);
+        res.setHeader('Access-Control-Allow-Origin', '*');
         res.status(500).json({ error: 'Failed to fetch Reddit content. ' + err.message });
     }
+    
 });
 
 app.get('/image', async (req, res) => {
-    const imageUrl = req.query.url;
+    const imageUrl = decodeURIComponent(req.query.url);
     if (!imageUrl) return res.status(400).send('No image URL provided.');
 
     try {
-        const token = await getRedditAppToken();
 
-        const headers = {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)',
-            'Accept': 'image/*'
+        const imageHeaders = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/113.0.0.0 Safari/537.36',
+            'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.google.com/',
+            'Connection': 'keep-alive',
         };
 
-        const response = await fetch(imageUrl, { headers });
+        const response = await fetch(imageUrl, {
+            headers: imageHeaders,
+            redirect: 'follow'
+        });
 
         if (!response.ok) {
             console.error(`[⚠️] Image source returned status ${response.status}: ${imageUrl}`);
@@ -188,6 +413,20 @@ app.get('/image', async (req, res) => {
         res.status(500).send('Error fetching image: ' + err.message);
     }
 });
+
+const deleteOldEntries = async () => {
+    try {
+        const result = await client.query(`
+            DELETE FROM image_news_cache
+            WHERE created_at < NOW() - INTERVAL '7 minutes'
+        `);
+        console.log(`🧹 Deleted ${result.rowCount} entries older than 7 minutes`);
+    } catch (err) {
+        console.error('❌ Error cleaning entries:', err.message);
+    }
+};
+
+setInterval(deleteOldEntries, 7 * 60 * 1000); // Run every 7 minutes
 
 // 🔁 START SERVER LOGIC
 async function startServer() {

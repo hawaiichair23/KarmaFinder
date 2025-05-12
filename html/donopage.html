@@ -6,17 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Support KarmaFinder</title>
     <style>
+    
         :root {
-            --primary-color: #ff4500;
-            --secondary-color: #0079d3;
-            --background-color: #141414;
-            --card-color: #222222;
-            --text-color: #ffffff;
-            --light-text: #b0b0b0;
-            --border-color: #333333;
-        }
+    --primary-color: #ff4500;
+    --secondary-color: #0079d3;
+    --background-color: #f8f9fa;
+    --card-color: #ffffff;
+    --text-color: #1a1a1b;
+    --light-text: #787c7e;
+    --border-color: #edeff1;
+}
 
         body {
+            overflow-y: scroll;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             background-color: var(--background-color);
             color: var(--text-color);
@@ -28,36 +30,135 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            transition: none !important;
+            opacity: 0;
         }
+
+        body.is-loaded {
+            opacity: 1;
+        }
+
+        .fade-in {
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .fade-in.visible {
+            opacity: 1;
+        }
+/* DARK MODE */
+
+body.dark-mode {
+    background-color: #141414;
+    color: #f5f5f5;
+    transition: all 0.15s ease-in-out;
+}
+
+body.dark-mode .donation-card {
+    background-color: #222222;
+    color: #ffffff;
+    box-shadow: inset 0 0 1px rgba(86, 86, 86, 0.4);
+    border-color: #333;
+    border-style: solid;
+    border-width: 1.5px;
+    transition: all 0.15s ease-in-out;
+}
+
+body.dark-mode .amount-option {
+    background-color: #161616;
+    border: 1px solid;
+    box-shadow: inset 0 0 1px rgba(86, 86, 86, 0.4);
+    border-color: #333;
+    transition: all 0.15s ease-in-out;
+}
+
+body.dark-mode .amount-option:hover {
+    border-color: #7b7b7b;
+}
+
+body.dark-mode .custom-amount input {
+    background-color: #161616;
+    color: white;
+    transition: all 0.15s ease-in-out;
+}
+
+body.dark-mode .amount-option.selected {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    color: white;
+}
 
         .container {
             max-width: 600px;
             width: 100%;
-            padding: 20px;
+            padding: 0px;
         }
 
         .logo {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 0px;
+            line-height: 2px;
         }
 
         .logo h1 {
-            font-size: 2.5rem;
+            height: 46px;
+            margin-top: 18px;
+            font-size: 40.2px;
             color: var(--primary-color);
-            margin-bottom: 10px;
+            margin-bottom: 3px;
+        }
+
+.theme-toggle {
+    position: fixed;
+    top: 16px;
+    left: 20px;
+    right: unset;
+    width: 50px;
+    height: 50px;
+    padding: 4px;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+}
+
+.theme-toggle img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: filter 0.3s ease;
+}
+
+        .donation-card h2 {
+            margin-top: 5px;
+            margin-bottom: 5px;
+            transition: all 0.15s ease-in-out;
         }
 
         .tagline {
             color: var(--light-text);
             text-align: center;
             margin-bottom: 30px;
+            margin-top: 0px;
         }
 
         .donation-card {
-            background-color: var(--card-color);
+            background-color: #fff;
             border-radius: 8px;
             padding: 30px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            line-height: 1.5;
+            border-style: solid;
+            border-width: 1.5px;
+            border-color: rgba(0, 0, 0, 0.25);
+            box-shadow: inset 0 0 1px rgba(0, 0, 0, 0.4);
+            transition: all 0.15s ease-in-out;
+            transform: translateY(10px);
+            opacity: 0;
+        }
+        .donation-card.visible {
+            opacity: 1;
+            transform: translateY(0);
         }
 
         .amount-options {
@@ -96,7 +197,7 @@
         .custom-amount input {
             width: 100%;
             padding: 12px;
-            border: 1px solid var(--border-color);
+            border: 1.5px solid #d9d9d9;
             border-radius: 6px;
             background-color: var(--background-color);
             color: var(--text-color);
@@ -140,6 +241,22 @@
             margin-right: 8px;
         }
 
+        .link-container {
+    display: inline-block;
+    text-decoration: none;
+    color: inherit;
+    height: auto;
+    /* Let it size to content */
+    padding: 0;
+    margin: 0;
+    vertical-align: top;
+    /* This prevents it from floating above */
+    position: relative;
+    /* Enable positioning */
+    top: 0;
+    /* Anchor to the top */
+}
+
         .back-link {
             display: block;
             text-align: center;
@@ -165,14 +282,29 @@
 </head>
 
 <body>
+
+<script>
+
+    try {
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-mode');
+        }
+    } catch (e) { }
+
+</script>
+
     <div class="container">
         <div class="logo">
+        <a href="karmafinder.html" class="link-container">
             <h1>KarmaFinder</h1>
+            </a>
                     <div class="tagline">
                         Support the development of better Reddit search
                     </div>
         </div>
-
+    <button id="themeToggle" class="theme-toggle" aria-label="Toggle Dark Mode">
+        <img id="themeIcon" alt="Toggle theme" />
+    </button>
         <div class="donation-card">
             <h2>Support KarmaFinder</h2>
 
@@ -191,7 +323,7 @@
 
             <div class="info-text">
                 <p>KarmaFinder is an independent search utility and is not affiliated with Reddit Inc.</p>
-                <p style="text-align: center;">Your support directly funds the development and server costs.</p>
+                <p style="text-align: center;">Your support directly funds development and server costs.</p>
             </div>
 
             <button class="payment-button">Donate Now</button>
@@ -204,14 +336,21 @@
                 Secure payment via Stripe
             </div>
         </div>
-
-        <a href="#" class="back-link">← Return to KarmaFinder</a>
+        <a href="karmafinder.html" class="back-link">← Return to KarmaFinder</a>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const amountOptions = document.querySelectorAll('.amount-option');
             const customAmountInput = document.querySelector('.custom-amount input');
+
+            const donationCards = document.querySelectorAll('.donation-card');
+
+            donationCards.forEach(card => {
+                requestAnimationFrame(() => {
+                    card.classList.add('visible');
+                });
+            });
 
             // Handle amount option selection
             amountOptions.forEach(option => {
@@ -235,6 +374,9 @@
             });
         });
     </script>
+
+    <script src="themetoggle.js" defer></script>
+
 </body>
 
 </html>
