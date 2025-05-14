@@ -6,7 +6,7 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KarmaFinder - Reddit Search Engine</title>
+    <title>KarmaFinder - Better Reddit Search</title>
 
 </head>
 
@@ -116,12 +116,19 @@
         <div id="pagination" class="pagination">
             <!-- Pagination will be added here -->
         </div>
-
         <footer>
-            <p>KarmaFinder helps you search Reddit content more effectively than Reddit's native search.</p>
-            <p>If you find this tool useful, please consider supporting its development. KarmaFinder is an independent
-                search utility and is not affiliated with Reddit Inc.</p>
-            <a href="#" id="button">Github // Discord</a>
+            <p>KarmaFinder is an independent search utility and is not affiliated with Reddit Inc.</p>
+            <br>
+            <a href="https://github.com/hawaiichair23/KarmaFinder" class="github-button" id="button" target="_blank" 
+   rel="noopener noreferrer">
+            <svg width="24" height="24" viewBox="0 0 16 16" fill="white" alt="Github">
+                <path
+                    d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+            </svg>
+                    Github</a>
+                    <br>
+                    <br>
+            <p class="footie">Made by hawaiichair23</p>
         </footer>
     </div>
 
@@ -251,6 +258,11 @@
             currentPageIndex = 0;
             navigationHistory = [];
 
+            // Clear the subreddit chip immediately when search is clicked
+            currentFilters.subreddit = '';
+            subredditChipContainer.style.display = 'none';
+            
+
             if (currentFilters.sort === 'relevance' && (!searchInput.value || searchInput.value.trim() === '')) {
                 showError("No search terms detected. 🔎");
                 return;
@@ -262,7 +274,7 @@
                 // 🌐 Check if the subreddit exists using about.json
                 try {
                     const res = await fetch(`https://www.reddit.com/r/${subreddit}/about.json`);
-                    if (!res.ok) throw new Error("Couldn't find a valid subreddit. 🔎");
+                    if (!res.ok) throw new showError("Couldn't find a valid subreddit. 🔎");
                     const json = await res.json();
 
                     if (!json || !json.data || json.data.subreddit_type === 'private') {
@@ -282,8 +294,10 @@
 [subredditInput, searchInput].forEach(input => {
     input.addEventListener('keydown', async (e) => {
         if (e.key === 'Enter') {
-                console.log(`Enter pressed from: ${input.id || 'unnamed input'}`);
-            if (e.key === 'Enter') {
+                // Clear the subreddit chip immediately when search is clicked
+                currentFilters.subreddit = '';
+                subredditChipContainer.style.display = 'none';
+
                 currentPageIndex = 0;
                 navigationHistory = [];
                 
@@ -298,7 +312,7 @@
                     // 🌐 Check if the subreddit exists using about.json
                     try {
                         const res = await fetch(`https://www.reddit.com/r/${subreddit}/about.json`);
-                        if (!res.ok) throw new Error("Couldn't find a valid subreddit. 🔎");
+                        if (!res.ok) throw new showError("Couldn't find a valid subreddit. 🔎");
                         const json = await res.json();
 
                         if (!json || !json.data || json.data.subreddit_type === 'private') {
@@ -309,7 +323,6 @@
                         showError("Couldn't find a valid subreddit. 🔎");
                         return;
                     }
-                }
 
                 // ✅ Passed all checks
                 performSearch();
@@ -390,6 +403,20 @@
 
             });
 
+            // Put this in console to test
+                document.addEventListener('click', function (e) {
+                        if (e.target.matches('.comment-body img')) {
+                            let currentWidth = e.target.offsetWidth;
+                            e.target.style.transition = 'width 0.07s ease';
+
+                            if (e.target.style.width) {
+                                e.target.style.width = '';
+                            } else {
+                                e.target.style.width = (currentWidth * 1.7) + 'px';
+                            }
+                        }
+                    });
+                    
         // Remove subreddit filter when clicking X
         subredditChipContainer.querySelector('.remove-chip').addEventListener('click', () => {
             currentFilters.subreddit = '';
@@ -1144,60 +1171,55 @@
     }
 
     async function displayResults(data) {
-   
-        resultsContainer.style.opacity = 0;
-        resultsContainer.innerHTML = '';
+            resultsContainer.style.opacity = 0;
+            resultsContainer.innerHTML = '';
+            
+                console.log('Number of posts:', data.length);
+                console.log('First post:', data[0]);
 
-        // Check if we're dealing with cached data (an array) or API response
-        const isFromCache = Array.isArray(data);
+            // Check if we're dealing with cached data (an array) or API response
+            const isFromCache = Array.isArray(data);
+            const posts = isFromCache
+                ? data  // cached data is already processed
+                : data.data?.children.map(item => item.data) || [];
 
-        const posts = isFromCache
-            ? data  // cached data is already processed
-            : data.data?.children.map(item => item.data) || [];
+            // Update pagination tokens based on data source
+            if (isFromCache) {
+                const cacheKey = `kf_search_${currentFilters.query || ''}_${currentFilters.sort || 'hot'}_${currentFilters.time || 'all'}_${currentFilters.subreddit || ''}_${currentFilters.contentType || 'all'}_${currentAfter || ''}_${currentBefore || ''}`;
+                const cachedItem = localStorage.getItem(cacheKey);
 
-        // Update pagination tokens based on data source
-        if (isFromCache) {
-
-            const cacheKey = `kf_search_${currentFilters.query || ''}_${currentFilters.sort || 'hot'}_${currentFilters.time || 'all'}_${currentFilters.subreddit || ''}_${currentFilters.contentType || 'all'}_${currentAfter || ''}_${currentBefore || ''}`;
-
-            // For cached data, we need to load the tokens from cache too
-
-            const cachedItem = localStorage.getItem(cacheKey);
-
-            if (cachedItem) {
-                try {
-                    const cachedData = JSON.parse(cachedItem);
-                    currentAfter = cachedData.after;
-                    currentBefore = cachedData.before;
-                    console.log("🔄 Loaded pagination tokens from cache:", { currentAfter, currentBefore });
-                } catch (e) {
-                    console.error("Error loading pagination tokens from cache:", e);
+                if (cachedItem) {
+                    try {
+                        const cachedData = JSON.parse(cachedItem);
+                        currentAfter = cachedData.after;
+                        currentBefore = cachedData.before;
+                        console.log("🔄 Loaded pagination tokens from cache:", { currentAfter, currentBefore });
+                    } catch (e) {
+                        console.error("Error loading pagination tokens from cache:", e);
+                    }
                 }
+            } else {
+                currentAfter = data.data?.after || null;
+                currentBefore = data.data?.before || null;
+                console.log("🔄 Updated pagination tokens from API:", { currentAfter, currentBefore });
             }
-        } else {
-            // For fresh API data, use the tokens from the response
-            currentAfter = data.data?.after || null;
-            currentBefore = data.data?.before || null;
-            console.log("🔄 Updated pagination tokens from API:", { currentAfter, currentBefore });
-        }
 
-        if (posts.length === 0) {
-            resultsContainer.innerHTML = `
+            if (posts.length === 0) {
+                resultsContainer.innerHTML = `
             <div class='results-error'>
                 <p>No results found. Try different search terms or filters.</p>
             </div>
         `;
-            paginationContainer.innerHTML = '';
-            resultsContainer.style.opacity = 1;
-            return;
-        }
-
+                paginationContainer.innerHTML = '';
+                resultsContainer.style.opacity = 1;
+                return;
+            }
+        
         // Display results
         for (const post of posts) {
-          
-        const postId = post.id || (post.permalink?.split("/")[4] ?? "unknown_id");
-                
-        console.log('🧪 Raw post object:', post);
+            const postId = post.id || (post.permalink?.split("/")[4] ?? "unknown_id");
+
+            console.log('🧪 Raw post object:', post);
 
             // Display domain in url
             console.log({
@@ -1208,7 +1230,7 @@
             });
 
             const title = decodeEntities(post.title?.toLowerCase() || '');
-            const isProbablyNSFW = post.over_18 || /tits|titties|tiddies|nudes|onlyfans|boobs|cum|cock|cunt|gape|gooning|gooner|goon|pussy|porn|fuck/.test(title);
+            const isProbablyNSFW = post.over_18 || /\b(tits|titties|rape|raped|tiddies|nudes|onlyfans|boobs|cum|cock|cocks|cunt|gape|gooning|gooner|goon|pussy)\b/i.test(title);
 
             const resultCard = document.createElement('div');
             resultCard.className = 'result-card';
@@ -1221,7 +1243,7 @@
             // Create comments section outer shell
             const commentsSection = document.createElement('div');
             commentsSection.className = 'comments-section';
-
+        
             // Create inner scrollable area
             const commentsScroll = document.createElement('div');
             commentsScroll.className = 'comments-scroll';
@@ -1246,10 +1268,9 @@
             upvoteBtn.target = '_blank';
             upvoteBtn.className = 'vote-button';
             upvoteBtn.innerHTML = `
-<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-    <polyline points="18 15 12 9 6 15"></polyline>
-</svg>
-`;
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>`;
 
             const voteCount = document.createElement('div');
             voteCount.className = 'vote-count';
@@ -1260,10 +1281,9 @@
             downvoteBtn.target = '_blank';
             downvoteBtn.className = 'vote-button';
             downvoteBtn.innerHTML = `
-<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-    <polyline points="6 9 12 15 18 9"></polyline>
-</svg>
-`;
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>`;
 
             voteSection.appendChild(upvoteBtn);
             voteSection.appendChild(voteCount);
@@ -1282,10 +1302,37 @@
             subredditLink.href = `https://www.reddit.com/r/${post.subreddit}`;
             subredditLink.target = '_blank';
 
+            // Add this after creating the subredditLink (around line 211)
+            subredditLink.addEventListener('click', (e) => {
+                e.preventDefault(); // Stop it from going to Reddit
+
+                // Get the subreddit name from the post data
+                const subredditName = post.subreddit;
+
+                // Clear any existing search term (for hot posts behavior)
+                searchInput.value = '';
+
+                // Set the subreddit in the input
+                subredditInput.value = subredditName;
+                currentFilters.contentType = contentSelect.value;
+
+                // Update the chip to show this subreddit
+                if (subredditChipContainer) {
+                    subredditChipContainer.querySelector('.chip-text').textContent = `r/${subredditName}`;
+                    subredditChipContainer.style.display = 'flex';
+                }
+
+                // Reset page index and history for new search
+                currentPageIndex = 0;
+                navigationHistory = [];
+
+                // Perform the search
+                performSearch();
+            });
+
             // Subreddit icon
             const subredditIcon = document.createElement('div');
             subredditIcon.className = 'subreddit-icon';
-            console.log(`🌏 Checking icon for r/${post.subreddit}:`, post.icon_url);
 
             // Always show letter immediately
             subredditIcon.textContent = post.subreddit.charAt(0).toUpperCase();
@@ -1293,13 +1340,16 @@
             // Fire async fetch AFTER render
             if (!post.icon_url) {
                 getSubredditIcon(post.subreddit).then(iconUrl => {
-                    if (iconUrl) {
+                    if (iconUrl && iconUrl !== '/api/placeholder/20/20') {
+
+                        console.log(`🌏 Checking icon for r/${post.subreddit}:`, iconUrl);
+
                         const img = document.createElement('img');
                         img.src = iconUrl;
                         img.alt = `Icon for r/${post.subreddit}`;
                         img.className = 'subreddit-icon-img';
 
-                        subredditIcon.textContent = ''; 
+                        subredditIcon.textContent = '';
                         subredditIcon.appendChild(img);
 
                         // Update in-memory cache
@@ -1320,7 +1370,7 @@
             timeSpan.textContent = formatTimestamp(post.created_utc);
 
             const metaRow = document.createElement('div');
-            metaRow.className = 'result-meta'; // 💡 this is your wrapper
+            metaRow.className = 'result-meta';
 
             metaRow.appendChild(subredditLink);
             metaRow.appendChild(authorSpan);
@@ -1337,6 +1387,11 @@
             titleLink.target = '_blank';
             titleLink.textContent = decodeEntities(post.title || 'Comment in thread');
 
+            // Detect long title length for CSS
+            if (post.title.length > 100) {
+                resultTitle.classList.add('long-title');
+            }
+
             resultTitle.appendChild(titleLink);
 
             // Result content (text or snippet)
@@ -1347,37 +1402,43 @@
             let isFromCrosspost = false;
 
             if (post.selftext && post.selftext.trim() !== '') {
-                snippet = post.selftext.length > 300
-                    ? post.selftext.substring(0, 300) + '...'
-                    : post.selftext;
+                const decodedText = decodeEntities(post.selftext);
+                snippet = decodedText.length > 300
+                    ? decodedText.substring(0, 300) + '...'
+                    : decodedText;
             } else if (post.body && post.body.trim() !== '') {
-                snippet = post.body.length > 300
-                    ? post.body.substring(0, 300) + '...'
-                    : post.body;
+                const decodedBody = decodeEntities(post.body);
+                snippet = decodedBody.length > 300
+                    ? decodedBody.substring(0, 300) + '...'
+                    : decodedBody;
             } else if (
                 post.crosspost_parent_list?.[0]?.selftext &&
                 post.crosspost_parent_list[0].selftext !== ''
             ) {
                 // Set flag for crossposted content
                 isFromCrosspost = true;
-                snippet = post.crosspost_parent_list[0].selftext;
+                const decodedCrosspostText = decodeEntities(post.crosspost_parent_list[0].selftext);
+                snippet = decodedCrosspostText.length > 300
+                    ? decodedCrosspostText.substring(0, 300) + '...'
+                    : decodedCrosspostText;
             }
-
-            // Sanitize the content
-            snippet = sanitizeHTML(decodeEntities(snippet));
 
             // Clear the content area
             resultContent.innerHTML = '';
 
             if (isFromCrosspost) {
-                // Create the el-quote styling for crossposted content
                 const quoteEl = document.createElement('div');
                 quoteEl.className = 'el-quote';
-                quoteEl.textContent = snippet;
+                quoteEl.innerHTML = parseMarkdown(snippet);
                 resultContent.appendChild(quoteEl);
             } else {
-                // Display regular post content directly without el-quote styling
-                resultContent.textContent = snippet;
+                resultContent.innerHTML = parseMarkdown(snippet);
+            }
+
+            // After creating your snippet, clean up incomplete links
+            if (snippet.match(/\[[^\]]+\]\([^)]*$/)) {
+                // Remove the incomplete link syntax at the end
+                snippet = snippet.replace(/\[[^\]]+\]\([^)]*$/, '...');
             }
 
             // Result actions (comments, save, share)
@@ -1387,11 +1448,10 @@
             const commentsAction = document.createElement('div');
             commentsAction.className = 'result-action';
             commentsAction.innerHTML = `
-                <svg class="action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                    ${post.num_comments || 0} Comments
-                `;
+        <svg class="action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        ${post.num_comments || 0} Comments`;
 
             commentsAction.style.cursor = 'pointer';
 
@@ -1403,24 +1463,22 @@
             const saveAction = document.createElement('div');
             saveAction.className = 'result-action';
             saveAction.innerHTML = `
-                    <svg class="action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                    Save
-                `;
+        <svg class="action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+        </svg>
+        Save`;
 
             const shareAction = document.createElement('div');
             shareAction.className = 'result-action';
             shareAction.innerHTML = `
-                    <svg class="action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="18" cy="5" r="3"></circle>
-                        <circle cx="6" cy="12" r="3"></circle>
-                        <circle cx="18" cy="19" r="3"></circle>
-                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                    </svg>
-                    Share
-                `;
+        <svg class="action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+        </svg>
+        Share`;
 
             resultActions.appendChild(commentsAction);
             resultActions.appendChild(saveAction);
@@ -1435,12 +1493,9 @@
             }
 
             contentSection.appendChild(resultActions);
-
-            // Create the outer card element
-            resultCard.className = 'result-card';
-            resultCard.dataset.permalink = post.permalink;
-
-           const knownNewsDomains = new Set([
+            
+            // Domain and thumbnail checks
+            const knownNewsDomains = new Set([
                 "nytimes.com", "apnews.com", "reuters.com", "cnn.com", "bbc.com",
                 "cnbc.com", "abcnews.go.com", "aljazeera.com", "nbcnews.com", "independent.co.uk",
                 "kstp.com", "nbcnews.to", "nzherald.co.nz", "cnet.com", "latimes.com", "cbsnews.com",
@@ -1448,6 +1503,7 @@
                 "wbez.org", "rawstory.com", "abc15.com", "npr.org", "foxnews.com",
                 "washingtonpost.com", "theguardian.com", "wired.com", "bloomberg.com", "politico.com"
             ]);
+
             const badThumbs = new Set(['self', 'default', 'nsfw', 'spoiler', 'image', '']);
             const normalizedThumb = (post.thumbnail || '').toLowerCase();
             const isGarbageThumb = badThumbs.has(normalizedThumb);
@@ -1459,34 +1515,29 @@
             ];
 
             const isKnownMediaDomain = knownMediaDomains.includes(domain);
-
             const isSelfPost = post.is_self || (post.domain || '').startsWith('self.');
             const isLinkPost = !isSelfPost;
             const isBareLink = post.selftext === "";
 
-            // ✅ Save if: it's a link post, has no selftext, has a garbage thumb, and isn't a media domain
-            const shouldSaveToBackend =
-                isLinkPost &&
-                isBareLink &&
-                isGarbageThumb &&
-                !isKnownMediaDomain;
+            const shouldSaveToBackend = isLinkPost && isBareLink && isGarbageThumb && (!isKnownMediaDomain || domain === 'youtube.com');
 
             console.log('🔍 Post check:', {
                 url: post.url,
                 domain,
                 isLinkPost,
                 isBareLink,
-                isGarbageThumb, 
+                isGarbageThumb,
                 isKnownMediaDomain
             });
 
+            // Backend save logic
             if (shouldSaveToBackend) {
                 console.log(`🆔 Using post ID: ${postId}`);
-                
+
                 if (cachedPostsById[postId] && isGarbageThumb) {
                     post.thumbnail = cachedPostsById[postId].thumbnail;
                 }
-                
+
                 // Create a promise for the fetch operation
                 const saveImagePromise = fetch('http://localhost:3000/api/save-image', {
                     method: 'POST',
@@ -1504,33 +1555,66 @@
                         try {
                             const json = JSON.parse(text);
                             console.log('✅ Image save response:', json);
-                            return json; // Return the parsed JSON to be used in the next then block
+                            return json;
                         } catch (err) {
                             console.error('❌ Could not parse JSON:', text);
-                            throw err; // Propagate the error
+                            throw err;
                         }
                     });
 
                 // Wait for the saveImagePromise to resolve before updating the cache
                 saveImagePromise.then(json => {
-                    // Update the cache with new data
                     if (json.success) {
                         console.log("📟Cache update initiated after successful response");
 
                         // Update the cache
                         window.cachedPostsById = window.cachedPostsById || {};
                         window.cachedPostsById[postId] = json;
-                         console.log("🔍 Looking for card matching postId:", postId);
+                        console.log("🔍 Looking for card matching postId:", postId);
+
                         // ✅ Grab the matching card for this postId directly
                         const card = document.querySelector(`.result-card[data-permalink*="${postId}"]`);
-       
-                            if (card) {
+
+                        if (card) {
+                            // Create link preview card for all shouldSaveToBackend posts
+                            const createLinkPreview = () => {
+                                // Check if link preview already exists
+                                if (card.querySelector('.link-preview-card')) return;
+
+                                // Extract domain from URL
+                                const urlObj = new URL(post.url);
+                                const domain = urlObj.hostname.replace('www.', '');
+
+                                // Create link preview element
+                                const linkPreview = document.createElement('div');
+                                linkPreview.className = 'link-preview-card';
+                                linkPreview.style.position = 'absolute'; 
+                                linkPreview.innerHTML = `
+                                <div class="link-preview-container">
+                                <span class="link-domain">${domain}</span>
+                                <a href="${post.url}" target="_blank" rel="noopener noreferrer" class="link-preview-btn">
+                                Open
+                                </a>
+                                </div>
+                                `;
+                                
+                                // 1. Position relative to result actions
+                                const resultAction = card.querySelector('.result-actions');
+                                if (resultAction) {
+                                    resultAction.after(linkPreview);
+                                }
+                            };
+
+                            // Always create link preview for shouldSaveToBackend posts
+                            createLinkPreview();
+
                             const image = card.querySelector('img.result-image');
                             console.log("✅ Matching card found:", card);
-                            console.log("IMAGE:", image)
+                            console.log("IMAGE:", image);
                             console.log('📸 json.thumbnail is:', json.data?.thumbnail);
 
                             if (image && json.data?.thumbnail) {
+                                // Image was found - update the src
                                 const newSrc = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(json.data.thumbnail)}&t=${Date.now()}`;
                                 console.log('🔁 Updating image src to:', newSrc);
                                 image.src = newSrc;
@@ -1538,34 +1622,41 @@
                                 image.addEventListener('load', () => {
                                     const shimmer = card.querySelector('.image-placeholder');
                                     if (shimmer) shimmer.style.display = 'none';
-
                                     const container = card.querySelector('.img-container');
                                     if (container) {
                                         container.style.visibility = 'visible';
-                                        container.style.display = 'block';
                                     }
-
                                     image.classList.add('show');
                                 });
+                            } else if (!json.data?.thumbnail) {
+                                // No image was found - hide everything
+                                console.log('🚫 No image found, hiding placeholder');
+
+                                const shimmer = card.querySelector('.image-placeholder');
+                                if (shimmer) {
+                                        // Add the hide class to trigger fade animation
+                                    shimmer.classList.add('hide');
+
+                                    // After animation completes, fully hide it
+                                    setTimeout(() => {
+                                        shimmer.style.display = 'none';
+                                    }, 300);
+                                }
+
+                                const container = card.querySelector('image-placeholder shimmer');
+                                if (container) {
+                                    shimmer.style.display = 'none';
+                                }
                             }
                         } else {
                             console.warn('⚠️ No matching card found for postId:', postId);
                         }
-
-                                // Make sure the container is visible
-                                const container = card.querySelector('.img-container');
-                                if (container) {
-                                    container.style.visibility = 'visible';
-                                    container.style.display = 'block';
-                                }
-
                     }
                 })
                     .catch(err => console.log('❌ Operation failed:', err));
             }
 
             // ✅ Thumbnail logic
-
             let thumbnailURL = post.thumbnail;
 
             // Check if it's garbage
@@ -1578,6 +1669,45 @@
                 thumbnailURL = post.real_thumbnail;
             }
 
+            if (!thumbnailURL && post.url) {
+                // Check if the URL is a direct link to media
+                const mediaExtensions = [
+                    // Images
+                    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg',
+                    // Videos
+                    '.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v',
+                    // Reddit-specific
+                    'i.redd.it', 'v.redd.it', 'preview.redd.it'
+                ];
+
+                const mediaHosts = [
+                    'i.redd.it', 'v.redd.it', 'preview.redd.it',
+                    'i.imgur.com', 'media.giphy.com', 'gfycat.com',
+                    'streamable.com'
+                ];
+
+                const urlLower = post.url.toLowerCase();
+
+                // Check if URL ends with media extension OR is from a media host
+                const isDirectMedia = mediaExtensions.some(ext => urlLower.endsWith(ext)) ||
+                    mediaHosts.some(host => urlLower.includes(host));
+
+                if (isDirectMedia) {
+                    thumbnailURL = post.url;
+                    console.log('🖼️ Using direct media URL as thumbnail:', post.url);
+                }
+            }
+                            // YOUTUBE THUMBNAIL LOGIC 
+            if ((domain === 'youtube.com' || domain === 'youtu.be')) {
+                console.log('🔍 YouTube URL:', post.url);
+                const youtubeThumb = getYouTubeThumbnail(post.url);
+                console.log('📺 getYouTubeThumbnail returned:', youtubeThumb);
+                if (youtubeThumb) {
+                    thumbnailURL = youtubeThumb;
+                    console.log('📺 Using YouTube thumbnail:', youtubeThumb);
+                }
+            }
+
             const hasPreviewImage = post.preview?.images?.[0]?.source?.url;
             const isVideo = post.is_video ||
                 (post.domain && post.domain.includes('youtu')) ||
@@ -1588,118 +1718,85 @@
             const isTextPost = post.content_type === "textposts";
 
             const isGarbage = !thumbnailURL || ['self', 'default', 'nsfw', 'spoiler', 'image'].includes(thumbnailURL.toLowerCase());
+            const hasVisualMedia = !isGarbage || isGalleryWithData || isVideo || shouldSaveToBackend ||
+                hasPreviewImage || domain === "i.redd.it";
 
-           const hasVisualMedia = !isGarbage || isGalleryWithData || isVideo || shouldSaveToBackend;
-            
-    imgContainer = document.createElement('div');
-    imageWrapper = document.createElement('div');
-    imagePlaceholder = document.createElement('div');
+            // Create image elements with proper declarations
+            const imgContainer = document.createElement('div');
+            const imageWrapper = document.createElement('div');
+            let imagePlaceholder = document.createElement('div');
 
-     imgContainer.className = 'img-container';
-     imageWrapper.className = 'image-wrapper';
-     
-        imagePlaceholder = document.createElement('div');
-        imagePlaceholder.className = 'image-placeholder shimmer';
-
-        if (imgContainer && hasVisualMedia) {
-
-            imgContainer.style.visibility = 'visible';
-        } else {
-            imgContainer.style.visibility = 'hidden';
-        }
-            const resultImage = document.createElement('img');
-            resultImage.className = 'result-image';
-            resultImage.alt = 'Post thumbnail';
-            resultImage.setAttribute('loading', 'lazy');
-            resultImage.setAttribute('decoding', 'async');
-            resultImage.setAttribute('fetchpriority', 'low');
-            resultImage.setAttribute('crossorigin', 'anonymous');
+            imgContainer.className = 'img-container';
+            imageWrapper.className = 'image-wrapper';
+            imagePlaceholder.className = 'image-placeholder shimmer';
 
             let needsPatch = false;
-            let previewImage = thumbnailURL?.replace(/&amp;/g, '&');
 
-            if (previewImage) {
-                const uniqueTimestamp = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-                resultImage.src = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(previewImage)}&t=${uniqueTimestamp}`;
+            if (hasVisualMedia) {
+                const resultImage = document.createElement('img');
+                resultImage.className = 'result-image';
+                resultImage.alt = 'Post thumbnail';
+                resultImage.setAttribute('loading', 'lazy');
+                resultImage.setAttribute('decoding', 'async');
+                resultImage.setAttribute('fetchpriority', 'low');
+                resultImage.setAttribute('crossorigin', 'anonymous');
 
-                console.log('🔍 Decoded previewImage:', previewImage);
+                let previewImage = thumbnailURL?.replace(/&amp;/g, '&');
 
-                let hasRetriedProxy = false;
-                let hasFallbackTried = false;
-
-                resultImage.addEventListener('error', () => {
-                    if (!hasRetriedProxy) {
-                        hasRetriedProxy = true;
-                        const retryTimestamp = Date.now();
-                        console.error('❌ Image failed to load:', resultImage.src);
-                        resultImage.src = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(previewImage)}&t=${retryTimestamp}`;
-                    } else if (!hasFallbackTried) {
-                        hasFallbackTried = true;
-                        console.error('❌ Proxy retry failed, falling back to direct thumbnail:', previewImage);
+                if (previewImage) {
+                    const uniqueTimestamp = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+                    // Check if it's a YouTube thumbnail
+                    if ((domain === 'youtube.com' || domain === 'youtu.be')) {
+                        // Use YouTube thumbnail directly, no proxy needed
                         resultImage.src = previewImage;
                     } else {
-                        console.error('❌ Final fallback failed, giving up on image:', previewImage);
-                        // Stop further retries, don't change src again
+                        resultImage.src = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(previewImage)}&t=${uniqueTimestamp}`;
+                        console.log('🔍 Decoded previewImage:', previewImage);
                     }
-                });
 
-                resultImage.addEventListener('load', () => {
-                    if (resultImage.naturalWidth === 0 || resultImage.naturalHeight === 0) {
-                        console.warn('⚠️ Image loaded but invisible:', resultImage.src);
+                    let hasRetriedProxy = false;
+                    let hasFallbackTried = false;
+
+                    resultImage.addEventListener('error', () => {
+                        if (!hasRetriedProxy) {
+                            hasRetriedProxy = true;
+                            const retryTimestamp = Date.now();
+                            console.error('❌ Image failed to load:', resultImage.src);
+                            resultImage.src = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(previewImage)}&t=${retryTimestamp}`;
+                        } else if (!hasFallbackTried) {
+                            hasFallbackTried = true;
+                            console.error('❌ Proxy retry failed, falling back to direct thumbnail:', previewImage);
+                            resultImage.src = previewImage;
+                        } else {
+                            console.error('❌ Final fallback failed, giving up on image:', previewImage);
+                        }
+                    });
+
+                    resultImage.addEventListener('load', () => {
+                        if (resultImage.naturalWidth === 0 || resultImage.naturalHeight === 0) {
+                            console.warn('⚠️ Image loaded but invisible:', resultImage.src);
+                        } else {
+                            imagePlaceholder.style.display = 'none';
+                            resultImage.classList.add('show');
+                        }
+                    });
+                } else if (post.is_gallery) {
+                    console.log('📸 GALLERY DETECTED — checking if it has gallery data');
+
+                    if (post.gallery_data) {
+                        console.log('✅ Valid gallery data found, setting up for patch');
+                        needsPatch = true;
+                        imgContainer.style.visibility = 'visible';
+                        resultImage.style.opacity = '0';
                     } else {
-                        imagePlaceholder.style.display = 'none';
-                        resultImage.classList.add('show');
+                        console.log('❌ Post marked as gallery but missing data, treating as normal post');
+                        imgContainer.style.visibility = 'hidden';
                     }
-                });
-            } else if (post.is_gallery) {
-                console.log('📸 GALLERY DETECTED — checking if it has gallery data');
-
-                // Only set needsPatch if the post ACTUALLY has gallery data
-                if (post.gallery_data) {
-                    console.log('✅ Valid gallery data found, setting up for patch');
-                    needsPatch = true;
-
-                    // Ensure container is visible
-                    imgContainer.style.visibility = 'visible';
-
-                    // Make sure resultImage is ready for patching
-                    resultImage.style.opacity = '0';
-                } else {
-                    console.log('❌ Post marked as gallery but missing data, treating as normal post');
-                    // Handle as if it's not a gallery
-                    imgContainer.style.visibility = 'hidden';
                 }
-            }
-            // Append sections
-            resultCard.appendChild(voteSection);
-            resultCard.appendChild(contentSection);
-            resultCard.appendChild(commentsSection);
-            resultCard.appendChild(imgContainer);
 
-            // Add resultCard to the main results container
-            resultsContainer.appendChild(resultCard);
-
-            // Gallery post check
-            if (post.is_gallery && post.gallery_data && post.media_metadata) {
-                tryGalleryPatch(post, post.permalink, resultCard);
-            }
-
-            // Append image+shimmer for preview or gallery
-         
+                // Append image+shimmer for preview or gallery
                 imageWrapper.appendChild(imagePlaceholder);
                 imageWrapper.appendChild(resultImage);
-
-                resultImage.addEventListener('load', () => {
-                if (resultImage.naturalWidth === 0 || resultImage.naturalHeight === 0) {
-                    console.warn('⚠️ Image loaded but invisible:', resultImage.src);
-                } else {
-                    const shimmer = resultImage.closest('.result-card')?.querySelector('.image-placeholder');
-                    if (shimmer) shimmer.style.display = 'none';
-
-                    imagePlaceholder.style.display = 'none';
-                    resultImage.classList.add('show');
-                }
-            });
 
                 const imageLink = document.createElement('a');
                 imageLink.href = `https://www.reddit.com${post.permalink}`;
@@ -1708,7 +1805,24 @@
 
                 imageLink.appendChild(imageWrapper);
                 imgContainer.appendChild(imageLink);
-      
+            } // END OF hasVisualMedia
+
+            // Append sections (THIS IS OUTSIDE hasVisualMedia)
+            resultCard.appendChild(voteSection);
+            resultCard.appendChild(contentSection);
+            resultCard.appendChild(commentsSection);
+            resultCard.appendChild(imgContainer);
+
+            // Add resultCard to the main results container
+            console.log('About to append card:', resultCard);
+            resultsContainer.appendChild(resultCard);
+            console.log('Card appended, total children:', resultsContainer.children.length);
+
+            // Gallery post check
+            if (post.is_gallery && post.gallery_data && post.media_metadata) {
+                tryGalleryPatch(post, post.permalink, resultCard);
+            }
+
             // Add play icon for video or gif links
             if (
                 post.is_video ||
@@ -1729,35 +1843,56 @@
                 console.log('📎 Permalink on card:', resultCard.dataset.permalink);
 
                 setTimeout(() => {
-                    tryGalleryPatch(post, post.permalink, resultCard); // ← pass the actual element
+                    tryGalleryPatch(post, post.permalink, resultCard);
                 }, 0);
-            }    
-        }
+            }
 
-  applyStaggeredAnimation('.result-card', 'visible', 40); 
-
-        console.log("Current After:", currentAfter)
-        resultsContainer.style.opacity = 1; // 🔥 Fade new results back in
+        // Visibility code 
+        applyStaggeredAnimation('.result-card', 'visible', 40);
+        console.log("Current After:", currentAfter);
+        resultsContainer.style.opacity = 1;
         updatePagination();
-    }
 
-    // Filter NSFW after results load
-
-    const safeSearchSelect = document.getElementById('safesearch-select');
-    if (safeSearchSelect?.value === 'on') {
-        document.body.classList.add('safe-search-enabled');
-    } else {
-        document.body.classList.remove('safe-search-enabled');
-    }
-
+        // Filter NSFW after results load
+        const safeSearchSelect = document.getElementById('safesearch-select');
+        if (safeSearchSelect?.value === 'on') {
+            document.body.classList.add('safe-search-enabled');
+        } else {
+            document.body.classList.remove('safe-search-enabled');
+        }
+     }
+ }
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         // Function to filter posts by content type
-            function filterByContentType(posts, contentType) {
+        function filterByContentType(posts, contentType) {
                     // If 'all', don't filter anything
                     if (!contentType || contentType === 'all') return posts;
 
                     // Only show posts matching the precomputed type
                     return posts.filter(post => post.content_type === contentType);
                 }
+
+
 
         // Add cache management utility function
         function clearExpiredCaches() {
@@ -1847,6 +1982,18 @@
                     }
                 }, commentsContainer, permalink);
 
+                   // Force a paint first — delay after .comment elements exist
+                    requestAnimationFrame(() => {
+                        const comments = commentsContainer.querySelectorAll('.comment');
+                        comments.forEach((el, i) => {
+                            // Just to be safe, reset first
+                            el.classList.remove('visible');
+                            setTimeout(() => {
+                                el.classList.add('visible');
+                            }, i * 60); // stagger
+                        });
+                    });
+
                     // Always try to patch gallery image with .json fallback                   
                     fetch(`https://karmafinder.onrender.com/reddit?url=https://www.reddit.com${permalink}.json`)
                         .then(res => res.json())
@@ -1920,13 +2067,26 @@
                 } else {
                     console.warn('⚠️ commentCache too large, not saved');
                 }
-
+        
                 renderComments({
                         data: {
                         children: commentCache[postId].comments,
                         totalCount: commentCache[postId].totalCount 
                     }
                 }, commentsContainer, permalink);
+
+                // Force a paint first — delay after .comment elements exist
+                    requestAnimationFrame(() => {
+                        const comments = commentsContainer.querySelectorAll('.comment');
+                        comments.forEach((el, i) => {
+                            // Just to be safe, reset first
+                            el.classList.remove('visible');
+                            setTimeout(() => {
+                                el.classList.add('visible');
+                            }, i * 60); // stagger
+                        });
+                    });
+                
             } catch (error) {
                 console.error('❌ Fetch error for', permalink, error);
 
@@ -1939,10 +2099,12 @@
             <p>${message}</p>
         </div>
     `;
+
+    applyStaggeredAnimation('.results-error', 'visible', 60);
+
                 paginationContainer.innerHTML = '';
                 resultsContainer.style.opacity = 1;
             }
-
       
 
        function renderComments(data, commentsContainer, permalink) {
@@ -2157,27 +2319,38 @@
        async function getSubredditIcon(subreddit) {
             try {
                 const response = await fetch(`http://localhost:3000/reddit?url=https://www.reddit.com/r/${subreddit}/about.json`);
-                const data = await response.json();             
+                const data = await response.json();
 
-                let iconUrl = (
-                    data.data?.community_icon ||
-                    data.data?.mobile_banner_image ||
-                    data.data?.icon_img ||
-                    data.data?.header_img ||
-                    data.data?.banner_img ||
-                    ''
-                ).replace(/&amp;/g, '&').trim();
+                // Check each icon type in priority order
+                const iconSources = [
+                    data.data?.community_icon,     // First priority
+                    data.data?.icon_img,           // Second priority
+                    data.data?.mobile_banner_image, // Third priority
+                    data.data?.header_img,         // Fourth priority
+                    data.data?.banner_img          // Last resort
+                ];
+
+                // Find the first valid icon
+                let iconUrl = null;
+                for (const icon of iconSources) {
+                    if (icon) {
+                        iconUrl = icon.replace(/&amp;/g, '&').trim();
+                        if (iconUrl) {
+                            break; // Found a valid icon, stop looking
+                        }
+                    }
+                }
 
                 if (!iconUrl) {
                     console.log(`⚠️ Falling back to placeholder for r/${subreddit}`);
-                    return '/api/placeholder/20/20';
+                    return `/api/placeholder/20/20`;
                 }
 
-                console.log(`📦 iconUrl for r/${subreddit}:`, iconUrl);
+                console.log(`🟦 iconUrl for r/${subreddit}:`, iconUrl);
                 return iconUrl;
             } catch (err) {
                 console.error(`❌ Failed to fetch icon for r/${subreddit}:`, err);
-                return '/api/placeholder/20/20';
+                return `/api/placeholder/20/20`;
             }
         }
 
@@ -2227,85 +2400,131 @@
             }
         });
 
+function getYouTubeThumbnail(url) {
+    // Extract video ID from various YouTube URL formats
+    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
+    
+    if (match && match[1]) {
+        const videoId = match[1];
+        return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+    }
+    
+    return null;
+}
+
  function decodeEntities(input) {
         const txt = document.createElement('textarea');
         txt.innerHTML = input;
         return txt.value;
     }
 
+    function parseMarkdown(text) {
+            let processed = text;
+
+        // Headers (h1-h6) - ADD THIS HERE, FIRST!
+        processed = processed.replace(/^#{1,6}\s*(.+)$/gm, (match, content) => {
+            const level = match.match(/^#+/)[0].length;
+            return `<h${level}>${content}</h${level}>`;
+        });
+
+        // Bold
+        processed = processed.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        processed = processed.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+        // Italic - use word boundaries
+        processed = processed.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+        processed = processed.replace(/\b_(.+?)_\b/g, '<em>$1</em>');
+        
+            // Strikethrough (~~text~~)
+            processed = processed.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+
+            // Inline code (`code`)
+            processed = processed.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+            // Reddit spoilers (>!text!<)
+            processed = processed.replace(/>!([^!]+)!</g, '<span class="spoiler">$1</span>');
+
+            // Quotes (lines starting with >)
+            processed = processed.replace(/^>\s?(.+)$/gm, '<blockquote>$1</blockquote>');
+
+            // Links with text [text](url)
+            processed = processed.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+                '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+            
+            // Line breaks (Reddit uses two spaces at end of line or double newline)
+                  if (processed.match(/[\[\(][^\]\)]*$/)) {
+            processed = processed.replace(/[\[\(][^\]\)]*$/, '...');
+        }
+            
+            processed = processed.replace(/  \n/g, '<br>');
+            processed = processed.replace(/\n\n/g, '<br><br>');
+
+            return processed;
+        }
+
     function renderCommentBody(rawBody) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'comment-body';
+            const wrapper = document.createElement('div');
+            wrapper.className = 'comment-body';
 
-        // Decode HTML entities
-        const txt = document.createElement("textarea");
-        txt.innerHTML = rawBody.trim();
-        const decoded = txt.value;
+            // Decode HTML entities
+            const txt = document.createElement("textarea");
+            txt.innerHTML = rawBody.trim();
+            let decoded = txt.value;
 
-        // Regex for Reddit-hosted images
-        const imageRegex = /(https:\/\/preview\.redd\.it\/[^\s]+?\.(jpeg|jpg|png|gif|webp)(\?[^\s]*)?)/i;
-        const match = decoded.match(imageRegex);
+            // Check for Reddit images first (these aren't affected by markdown)
+            const imageRegex = /(https:\/\/preview\.redd\.it\/[^\s]+?\.(jpeg|jpg|png|gif|webp)(\?[^\s]*)?)/i;
+            const imageMatch = decoded.match(imageRegex);
 
-        // Regex for markdown GIF syntax e.g. ![gif](giphy|<id>|downsized)
-        const gifRegex = /!\[gif\]\((giphy)\|([^\|]+)(?:\|[^\)]+)?\)/i;
-        const gifMatch = decoded.match(gifRegex);
+            // Check for GIF syntax BEFORE parsing markdown
+            const gifRegex = /!\[gif\]\(giphy\|([^\)]+)\)/i;
+            const gifMatch = decoded.match(gifRegex);
 
-        if (match) {
-            const img = document.createElement('img');
-            img.src = match[1];
-            img.alt = 'Image from comment';
-            img.loading = 'lazy';
-            img.style.maxWidth = '100%';
-            img.style.borderRadius = '8px';
-            wrapper.appendChild(img);
-        } else if (gifMatch) {
-            const provider = gifMatch[1];
-            const gifId = gifMatch[2];
-
-            if (provider.toLowerCase() === 'giphy') {
-                const gifUrl = `https://media.giphy.com/media/${gifId}/giphy.gif`;
+            if (imageMatch) {
+                // Handle Reddit images
                 const img = document.createElement('img');
-                img.src = gifUrl;
+                img.src = imageMatch[1];
+                img.alt = 'Image from comment';
+                img.loading = 'lazy';
+                img.style.maxWidth = '100%';
+                img.style.borderRadius = '8px';
+                wrapper.appendChild(img);
+            } else if (gifMatch) {
+                // Handle Giphy GIFs
+                const gifId = gifMatch[1];
+                const img = document.createElement('img');
+                img.src = `https://media.giphy.com/media/${gifId}/giphy.gif`;
                 img.alt = 'GIF from comment';
                 img.loading = 'lazy';
                 img.style.maxWidth = '100%';
                 img.style.borderRadius = '8px';
                 wrapper.appendChild(img);
+            } else {
+                // Parse markdown ONLY for non-image content
+                decoded = parseMarkdown(decoded);
+
+                // Handle text content
+                const urlRegex = /(https?:\/\/[^\s<]+)/g;
+                const lines = decoded.split('\n');
+                lines.forEach(line => {
+                    const lineEl = document.createElement('div');
+                    if (line.trim().startsWith('>')) {
+                        lineEl.className = 'quote';
+                        lineEl.textContent = line.replace(/^>\s?/, '');
+                    } else {
+                        // Only process plain URLs if no anchor tags exist
+                        if (!line.includes('<a href=')) {
+                            line = line.replace(urlRegex, url => {
+                                return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+                            });
+                        }
+                        lineEl.innerHTML = line;
+                    }
+                    wrapper.appendChild(lineEl);
+                });
             }
-        } else {
-            const urlRegex = /(https?:\/\/[^\s]+)/g;
-            const lines = decoded.split('\n');
 
-            lines.forEach(line => {
-                const lineEl = document.createElement('div');
-
-                if (line.trim().startsWith('>')) {
-                    lineEl.className = 'quote';
-                    lineEl.textContent = line.replace(/^>\s?/, '');
-                } else {
-                    const clean = sanitizeHTML(line);
-                    const withLinks = clean.replace(urlRegex, url => {
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.target = '_blank';
-                        a.rel = 'noopener noreferrer';
-                        a.textContent = url;
-
-                        const temp = document.createElement('span');
-                        temp.appendChild(a);
-                        return temp.innerHTML;
-                    });
-
-                    lineEl.innerHTML = withLinks;
-                }
-
-                wrapper.appendChild(lineEl);
-            });
+            return wrapper;
         }
-
-        return wrapper;
-    }
-
     </script>
 
 <script src="themetoggle.js" defer></script>
