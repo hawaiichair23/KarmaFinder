@@ -214,12 +214,12 @@ app.get('/reddit', async (req, res) => {
                 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
                 const cachedResult = await client.query(
-                    "SELECT results, created_at FROM subreddit_search_cache WHERE query_term = $1",
+                    "SELECT results, last_fetched FROM subreddit_search_cache WHERE query_term = $1",
                     [query]
                 );
 
                 const isCacheFresh = cachedResult.rows.length > 0 &&
-                    (new Date() - new Date(cachedResult.rows[0].created_at)) < CACHE_DURATION;
+                    (new Date() - new Date(cachedResult.rows[0].last_fetched)) < CACHE_DURATION;
 
                 if (isCacheFresh) {
                     console.log(`🚀 Cache hit for query: ${query}`);
@@ -241,37 +241,13 @@ app.get('/reddit', async (req, res) => {
     try {
         const token = await getRedditAppToken();
 
-        // Only retry for ECONNRESET errors
-        let response;
-        let lastError;
-
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-                response = await dogFetch(decodedUrl, {
-                    headers: {
-                        ...headers,
-                        'Authorization': `Bearer ${token}`,
-                        'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
-                    }
-                });
-
-                // If it worked, break out of the loop
-                break;
-
-            } catch (error) {
-                lastError = error;
-
-                // ONLY retry if it's ECONNRESET
-                if (error.code === 'ECONNRESET' && attempt < 3) {
-                    console.log(`ECONNRESET on attempt ${attempt}, retrying...`);
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    continue;
-                }
-
-                // For any other error, or if we've hit max attempts, throw immediately
-                throw error;
+        const response = await dogFetch(decodedUrl, {
+            headers: {
+                ...headers,
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
             }
-        }
+        });
 
         if (response.status === 429) {
             console.log('🚫 429 TOO MANY REQUESTS');
@@ -331,11 +307,11 @@ app.get('/reddit', async (req, res) => {
 
                     // STORE QUERIES IN DB
                     await client.query(
-                        `INSERT INTO subreddit_search_cache (query_term, results, created_at) 
-                        VALUES ($1, $2, NOW()) 
-                        ON CONFLICT (query_term) DO UPDATE 
-                        SET results = $2, created_at = NOW()`,
-                        [query, JSON.stringify(cleanedData)]  
+                        `INSERT INTO subreddit_search_cache (query_term, results) 
+                         VALUES ($1, $2) 
+                         ON CONFLICT (query_term) DO UPDATE 
+                         SET results = $2, last_fetched = NOW()`,
+                        [query, JSON.stringify(data)]
                     );
                 } catch (error) {
                     console.error('Error caching results:', error);
@@ -378,18 +354,11 @@ app.get('/reddit', async (req, res) => {
         }
 
     } catch (err) {
-        // Handle ECONNRESET first, BEFORE sending any other response
-        if (err.code === 'ECONNRESET') {
-            console.error('❌ Reddit closed the connection after 3 attempts');
-            return res.status(503).json({ error: 'Reddit connection lost. Please try again.' });
-        }
-
-        // Handle all other errors
         console.error('❌ Reddit proxy error:', err.message);
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.status(500).json({ error: 'Failed to fetch Reddit content. ' + err.message });
     }
-
+    
 });
 
 app.get('/image', async (req, res) => {
