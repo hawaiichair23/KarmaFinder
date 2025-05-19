@@ -1,0 +1,38 @@
+/* BOOKMARKS PAGE */
+
+.tab-container {
+    display: flex;
+    margin-bottom: 20px;
+}
+
+.tab {
+    padding-top: 9px;
+    padding-bottom: 9px;
+    padding-right: 27px;
+    padding-left: 27px;
+    max-width: 100px;
+    text-overflow: ellipse;
+    text-align: center;
+    cursor: pointer;
+    background: #2a2a2a;
+    color: #888;
+    font-weight: 600;
+    font-size: medium;
+    border-radius: 8px 8px 0 0;
+}
+
+.tab.active {
+    background: #00467b;
+    color: white;
+}
+
+.tab-line {
+    position: absolute;
+    width: 1200px;
+    top: 464px;
+    left: 160px;
+    right: 0;
+    height: 1.5px;
+    background: #2e2e2e;
+    z-index: 10;
+}

@@ -1,15 +1,24 @@
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
-const client = require('./db');
+const pool = require('./db');
 const app = express();
 const PORT = 3000;
 
 const axios = require('axios');
 const cheerio = require('cheerio');
-
-app.use(cors());         
+        
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use(cors({
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: '*',
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.options('*', cors());
 
 require('dotenv').config();
 require('./cron-cleanup');
@@ -24,6 +33,18 @@ const headers = {
     'Referer': 'https://www.google.com/',
     'Connection': 'keep-alive',
 };
+
+function buildCacheKey(baseToken, filters) {
+    const encode = str => encodeURIComponent(str || '');
+
+    const query = encode(filters.query);
+    const subreddit = encode(filters.subreddit || 'all');
+    const contentType = encode(filters.contentType || 'all');
+    const sort = encode(filters.sort || 'hot');
+    const time = encode(filters.time || 'all');
+
+    return `${baseToken}__${subreddit}__${sort}__${query}__${time}`;
+}
 
 async function getOGImage(url) {
     try {
@@ -158,7 +179,7 @@ app.post('/api/save-image', async (req, res) => {
         `;
 
         const values = [reddit_post_id, subreddit, title, url, finalThumbnail];
-        await client.query(query, values);
+        await pool.query(query, values);
 
         res.status(200).json({
             success: true,
@@ -180,17 +201,12 @@ app.post('/api/save-image', async (req, res) => {
 
 app.get('/api/get-cached-posts', async (req, res) => {
     try {
-        const result = await client.query('SELECT * FROM image_news_cache');
+        const result = await pool.query('SELECT * FROM image_news_cache');
         res.json(result.rows);
     } catch (err) {
         console.error('❌ DB fetch error:', err.message);
         res.status(500).json({ error: 'Failed to fetch cached posts' });
     }
-});
-
-app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    next();
 });
 
 app.get('/reddit', async (req, res) => {
@@ -213,7 +229,7 @@ app.get('/reddit', async (req, res) => {
                 // Check if we have a fresh cached result
                 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
-                const cachedResult = await client.query(
+                const cachedResult = await pool.query(
                     "SELECT results, created_at FROM subreddit_search_cache WHERE query_term = $1",
                     [query]
                 );
@@ -279,6 +295,9 @@ app.get('/reddit', async (req, res) => {
         }
 
         const data = await response.json();
+        if (data?.data?.children?.length > 10) {
+            data.data.children = data.data.children.slice(0, 10);
+        }
 
         // 🔁 Inject icon_url into each post from subreddit_icons
         if (data?.data?.children) {
@@ -286,7 +305,7 @@ app.get('/reddit', async (req, res) => {
                 const subreddit = post.data.subreddit;
 
                 try {
-                    const iconRes = await client.query(
+                    const iconRes = await pool.query(
                         'SELECT icon_url FROM subreddit_icons WHERE subreddit = $1',
                         [subreddit]
                     );
@@ -330,7 +349,7 @@ app.get('/reddit', async (req, res) => {
                     };
 
                     // STORE QUERIES IN DB
-                    await client.query(
+                    await pool.query(
                         `INSERT INTO subreddit_search_cache (query_term, results, created_at) 
                         VALUES ($1, $2, NOW()) 
                         ON CONFLICT (query_term) DO UPDATE 
@@ -363,7 +382,7 @@ app.get('/reddit', async (req, res) => {
                 const iconUrl = rawIcon || null;
 
                 try {
-                    await client.query(`
+                    await pool.query(`
                         INSERT INTO subreddit_icons (subreddit, icon_url, created_at)
                         VALUES ($1, $2, NOW())
                         ON CONFLICT (subreddit)
@@ -445,19 +464,297 @@ app.get('/image', async (req, res) => {
     }
 });
 
-const deleteOldEntries = async () => {
+// Endpoint to save posts from Reddit API
+app.post('/api/save-posts', async (req, res) => {
     try {
-        const result = await client.query(`
-            DELETE FROM image_news_cache
-            WHERE created_at < NOW() - INTERVAL '7 minutes'
-        `);
-        console.log(`🧹 Deleted ${result.rowCount} entries older than 7 minutes`);
-    } catch (err) {
-        console.error('❌ Error cleaning entries:', err.message);
-    }
-};
+  
+        // Validate request has posts array
+        const posts = req.body.posts;
+        const pageGroup = req.body.page_group; // Get the page group token
 
-setInterval(deleteOldEntries, 7 * 60 * 1000); // Run every 7 minutes
+        if (!posts || !Array.isArray(posts)) {
+            console.error("Invalid posts data received:", req.body);
+            return res.status(400).json({
+                success: false,
+                error: "Invalid request: posts array required"
+            });
+        }
+
+        console.log(`Processing ${posts.length} posts for page group ${pageGroup}`);
+        const savedIds = [];
+
+        const connection = await pool.connect();
+        try {
+
+            await pool.query('DELETE FROM posts WHERE page_group = $1', [pageGroup]);
+            await connection.query('BEGIN');
+
+            for (let i = 0; i < posts.length; i++) {
+                const post = posts[i];
+                // Skip posts without data
+                if (!post.data) {
+                    console.log("Skipping post with no data");
+                    continue;
+                }
+
+                const reddit_post_id = post.data.id;
+                const position = i;
+          
+                // Safely stringify JSON objects - this is the key fix
+                const galleryData = post.data.gallery_data ? JSON.stringify(post.data.gallery_data) : null;
+                const mediaMetadata = post.data.media_metadata ? JSON.stringify(post.data.media_metadata) : null;
+                const crosspostList = post.data.crosspost_parent_list ? JSON.stringify(post.data.crosspost_parent_list) : null;
+                const preview = post.data.preview ? JSON.stringify(post.data.preview) : null;
+
+                // Add page_group to your query
+                const query = `
+                    INSERT INTO posts (
+                        reddit_post_id, title, url, permalink, subreddit, score,
+                        is_video, domain, author, created_utc, num_comments,
+                        over_18, selftext, body, is_gallery, gallery_data,
+                        media_metadata, crosspost_parent_list, content_type,
+                        icon_url, locked, stickied, preview, page_group, position
+                    )
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+                    ON CONFLICT (reddit_post_id)
+                    DO UPDATE SET
+                        score = $6,
+                        num_comments = $11,
+                        indexed_at = CURRENT_TIMESTAMP,
+                        position = $25,
+                        page_group = $24,
+                        content_type = $19
+                    RETURNING reddit_post_id
+                `;
+
+                const values = [
+                    reddit_post_id,
+                    post.data.title,
+                    post.data.url,
+                    post.data.permalink,
+                    post.data.subreddit,
+                    post.data.score,
+                    post.data.is_video,
+                    post.data.domain,
+                    post.data.author,
+                    post.data.created_utc,
+                    post.data.num_comments,
+                    post.data.over_18,
+                    post.data.selftext,
+                    post.data.body,
+                    post.data.is_gallery,
+                    galleryData,
+                    mediaMetadata,
+                    crosspostList,
+                    post.data.content_type,
+                    post.data.icon_url,
+                    post.data.locked,
+                    post.data.stickied,
+                    preview,
+                    pageGroup,
+                    position  
+                ];
+
+                const result = await connection.query(query, values);
+                savedIds.push(result.rows[0].reddit_post_id);
+            }
+
+            await connection.query('COMMIT');
+
+            // Send a simple success response
+            console.log("Successfully saved posts, sending response");
+            return res.json({ success: true, savedIds });
+
+        } catch (e) {
+            await connection.query('ROLLBACK');
+            console.error("Database transaction error:", e);
+            throw e;
+        } finally {
+            connection.release();
+            console.log("Connection released");
+        }
+    } catch (error) {
+        console.error('Error saving posts:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Endpoint to get all stored posts from database
+app.get('/api/db-posts', async (req, res) => {
+    try {
+        const {
+            after,
+            limit = 10,
+            subreddit = 'all',
+            query: searchQuery = '',
+            contentType = 'all',
+            sort = 'hot',
+            time = 'all'
+        } = req.query;
+
+        const formattedAfter = after
+            ? (after.startsWith('t3_') ? after : 't3_' + after)
+            : 'page_1';
+
+        const pageGroup = buildCacheKey(formattedAfter, {
+            subreddit,
+            sort,
+            query: searchQuery,
+            time
+        });
+
+        console.log(`Looking for page group: ${pageGroup}`);
+
+        if (pageGroup) {
+            // Look for posts with this exact page group
+            const pageQuery = `
+    SELECT * FROM posts
+    WHERE page_group = $1
+    ORDER BY position ASC
+`;
+            const pageParams = [pageGroup];
+            const pageResult = await pool.query(pageQuery, pageParams);
+
+            if (
+                pageResult.rows.length > 0 &&
+                pageResult.rows[0].page_group === pageGroup &&
+                pageResult.rows.length === 10
+            ) {
+                console.log(`✅ Found full page group ${pageGroup} with 10 valid posts`);
+
+                console.log("DB rows content_type values:", pageResult.rows.map(p => p.content_type));
+
+                // Format response like Reddit API
+                const response = {
+                    data: {
+                        children: pageResult.rows.map(post => ({
+                            data: {
+                                id: post.reddit_post_id,
+                                title: post.title,
+                                url: post.url,
+                                permalink: post.permalink,
+                                subreddit: post.subreddit,
+                                score: post.score,
+                                is_video: post.is_video,
+                                domain: post.domain,
+                                author: post.author,
+                                created_utc: post.created_utc,
+                                num_comments: post.num_comments,
+                                over_18: post.over_18,
+                                selftext: post.selftext,
+                                body: post.body,
+                                is_gallery: post.is_gallery,
+                                gallery_data: post.gallery_data,
+                                media_metadata: post.media_metadata,
+                                crosspost_parent_list: post.crosspost_parent_list || [],
+                                is_self: post.is_self,
+                                post_hint: post.post_hint,
+                                preview: post.preview,
+                                locked: post.locked,
+                                stickied: post.stickied,
+                                content_type: post.content_type
+                            }
+                        })),
+                        after: pageResult.rows.length > 0
+                            ? (pageResult.rows[pageResult.rows.length - 1].reddit_post_id.startsWith('t3_')
+                                ? pageResult.rows[pageResult.rows.length - 1].reddit_post_id
+                                : 't3_' + pageResult.rows[pageResult.rows.length - 1].reddit_post_id)
+                            : null,
+                        before: null
+                    }
+                };
+                console.log("🔎 Final response content_types:", response.data.children.map(p => p.data.content_type));
+
+                return res.json(response);
+            }
+  
+            console.log(`No complete page group found for ${pageGroup}, falling back to empty response`);
+
+            // Return empty response to trigger Reddit API fetch
+            return res.json({
+                data: {
+                    children: [],
+                    after: null,
+                    before: null
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error('Error in db-posts endpoint:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
+
+
+
+// 1. Add a bookmark
+app.post('/api/bookmarks', async (req, res) => {
+    try {
+        const { postId, stripeCustomerId } = req.body;
+
+        if (!stripeCustomerId) {
+            return res.status(400).json({ success: false, error: 'Missing customer ID' });
+        }
+
+        if (!postId) {
+            return res.status(400).json({ success: false, error: 'Missing post ID' });
+        }
+
+        // Insert bookmark
+        await pool.query(
+            'INSERT INTO bookmarks (user_id, reddit_post_id) VALUES ($1, $2) ON CONFLICT (user_id, reddit_post_id) DO NOTHING',
+            [stripeCustomerId, postId]
+        );
+
+        res.json({ success: true, message: 'Bookmark added' });
+    } catch (error) {
+        console.error('Error adding bookmark:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 2. Remove a bookmark
+app.delete('/api/bookmarks/:stripeCustomerId/:reddit_post_id', async (req, res) => {
+    try {
+        const { stripeCustomerId, reddit_post_id } = req.params;
+
+        if (!stripeCustomerId) {
+            return res.status(400).json({ success: false, error: 'Missing customer ID' });
+        }
+
+        if (!reddit_post_id) {
+            return res.status(400).json({ success: false, error: 'Missing post ID' });
+        }
+
+        // Delete bookmark
+        await pool.query(
+            'DELETE FROM bookmarks WHERE user_id = $1 AND reddit_post_id = $2',
+            [stripeCustomerId, reddit_post_id]
+        );
+
+        res.json({ success: true, message: 'Bookmark removed' });
+    } catch (error) {
+        console.error('Error removing bookmark:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 4. Get all bookmarks for a user
+app.get('/api/bookmarks/:stripeCustomerId', async (req, res) => {
+    const { stripeCustomerId } = req.params;
+
+    const result = await pool.query(`
+        SELECT reddit_post_id
+        FROM bookmarks
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+    `, [stripeCustomerId]);
+
+    res.json({ bookmarks: result.rows });
+});
 
 // 🔁 START SERVER LOGIC
 async function startServer() {
