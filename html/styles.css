@@ -6,7 +6,7 @@ html {
 :root {
     --primary-color: #ff4500;
     --secondary-color: #0079d3;
-    --background-color: #f8f9fa;
+    --background-color: #f7f9fb;
     --card-color: #ffffff;
     --text-color: #1a1a1b;
     --light-text: #787c7e;
@@ -662,7 +662,7 @@ body.comfy-mode .img-container a .image-wrapper {
 
 body.comfy-mode .no-comments {
     height: 160px;
-    transform: translateY(8px);
+    transform: translateY(28px);
 }
 
 body.comfy-mode .comments-section {

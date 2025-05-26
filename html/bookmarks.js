@@ -1,18 +1,17 @@
 let currentOffset = 0;
 let hasMoreBookmarks = true;
+window.loadBookmarkedContent = loadBookmarkedContent;
 
 // Basic initialization function for bookmarks page
 function initBookmarks() {
-    console.log("Bookmarks initialized!");
+
+        console.log("🔖 Loading bookmarks...");
 
     // Create and insert the tabs UI
     insertTabsUI();
 
     // Set up tab switching behavior
     setupTabEvents();
-
-    // Load initial bookmarked content
-    loadBookmarkedContent();
 }
 
 // Function to create and insert the tabs UI
@@ -60,10 +59,75 @@ function setupTabEvents() {
     });
 }
 
-// Function to load bookmarked content
 function loadBookmarkedContent() {
-    console.log("Loading bookmarked content...");
-    // This will be implemented later - for now just a placeholder
+    const resultsContainer = document.querySelector('.results-container');
+    resultsContainer.textContent = '';
+    const userId = window.stripeCustomerId;
+
+    if (!userId) {
+        resultsContainer.innerHTML = '<div class="no-bookmarks">Please log in to view bookmarks</div>';
+        return;
+    }
+
+    // Show loading state
+    resultsContainer.innerHTML = '<div class="loading">Loading bookmarks...</div>';
+
+    // Fetch bookmarks with all post data
+    fetch(`http://localhost:3000/api/bookmarks/${userId}`)
+        .then(response => response.text()) // Get as text first
+        .then(rawText => {
+ 
+            // Try to parse
+            const data = JSON.parse(rawText);
+            // console.log('Parsed successfully:', data);
+            
+            resultsContainer.textContent = ''; // Clear loading
+
+            if (data.bookmarks && data.bookmarks.length > 0) {
+                // Transform bookmarks to match Reddit API format for displayResults
+                const transformedData = {
+                    data: {
+                        children: data.bookmarks.map(bookmark => ({
+                            data: {
+                                id: bookmark.reddit_post_id,
+                                title: bookmark.title,
+                                url: bookmark.url,
+                                permalink: bookmark.permalink,
+                                subreddit: bookmark.subreddit,
+                                score: bookmark.score,
+                                is_video: bookmark.is_video,
+                                domain: bookmark.domain,
+                                author: bookmark.author,
+                                created_utc: bookmark.created_utc,
+                                num_comments: bookmark.num_comments,
+                                over_18: bookmark.over_18,
+                                selftext: bookmark.selftext,
+                                body: bookmark.body,
+                                is_gallery: bookmark.is_gallery,
+                                gallery_data: bookmark.gallery_data,
+                                media_metadata: bookmark.media_metadata,
+                                crosspost_parent_list: bookmark.crosspost_parent_list || [],
+                                content_type: bookmark.content_type,
+                                icon_url: bookmark.icon_url,
+                                locked: bookmark.locked,
+                                stickied: bookmark.stickied,
+                                preview: bookmark.preview
+                            }
+                        }))
+                    }
+                };
+
+                // Use your existing displayResults function!
+                displayResults(transformedData);
+
+            } else {
+                resultsContainer.innerHTML = '<div class="no-bookmarks">No bookmarks found. Start bookmarking posts to see them here!</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading bookmarks:', error);
+            resultsContainer.innerHTML = showError("Error loading bookmarks. Please try again.");
+        });
 }
 
 // Function to load New Section content
@@ -79,7 +143,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const page = urlParams.get('page');
 
     if (page === 'bookmarks') {
-        console.log("Bookmarks page detected!");
         initBookmarks();
     }
 });

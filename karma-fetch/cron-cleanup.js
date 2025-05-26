@@ -6,18 +6,33 @@ const deleteOldEntries = async () => {
     try {
         const result = await client.query(`
             DELETE FROM image_news_cache
-            WHERE created_at < NOW() - INTERVAL '7 minutes'
+            WHERE created_at < NOW() - INTERVAL '24 hours'
         `);
 
         const now = new Date();
         const readable = now.toLocaleString();
-        console.log(`🧹 Deleted ${result.rowCount} IMAGE NEWS CACHE entries older than 7 minutes at  ${readable}`);
+        console.log(`🧹 Deleted ${result.rowCount} IMAGE NEWS CACHE rows older than 24 hours at ${readable}`);
     } catch (err) {
         console.error('❌ Error cleaning entries:', err.message);
     }
 };
 
-cron.schedule('*/7 * * * *', deleteOldEntries);
+cron.schedule('0 2 * * *', deleteOldEntries);
+
+cron.schedule('0 3 * * *', async () => {
+    try {
+        const result = await client.query(`
+            DELETE FROM media_analysis
+            WHERE created_at < NOW() - INTERVAL '5 days'
+        `);
+
+        const now = new Date();
+        const readable = now.toLocaleString();
+        console.log(`🧹 Deleted ${result.rowCount} MEDIA_ANALYSIS rows older than 5 days at ${readable}`);
+    } catch (err) {
+        console.error('❌ Error deleting old media_analysis entries:', err.message);
+    }
+});
 
 cron.schedule('0 * * * *', async () => {
     try {
@@ -28,7 +43,7 @@ cron.schedule('0 * * * *', async () => {
 
         const now = new Date();
         const readable = now.toLocaleString();
-        console.log(`🧹 Deleted ${result.rowCount} SUBREDDIT SEARCH CACHE entries older than 24 hours at ${readable}`);
+        console.log(`🧹 Deleted ${result.rowCount} SUBREDDIT SEARCH CACHE rows older than 24 hours at ${readable}`);
     } catch (err) {
         console.error('❌ Error cleaning subreddit_search_cache:', err.message);
     }
