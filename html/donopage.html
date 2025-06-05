@@ -306,7 +306,7 @@ body.dark-mode .amount-option.selected {
         <img id="themeIcon" alt="Toggle theme" />
     </button>
         <div class="donation-card">
-            <h2>Support KarmaFinder</h2>
+            <h2>Donate</h2>
 
             <p>Your donation helps keep the servers running and enables new features.</p>
 
@@ -351,6 +351,13 @@ body.dark-mode .amount-option.selected {
                     card.classList.add('visible');
                 });
             });
+
+            if (window.location.href.includes('donopage')) {
+                document.title = "Donate";
+                document.querySelector('meta[name="description"]').content = "Support KarmaFinder development and help keep the service running";
+                document.querySelector('meta[property="og:title"]').content = "Donate";
+                document.querySelector('meta[property="og:description"]').content = "Support KarmaFinder development and help keep the service running";
+            }
 
             // Handle amount option selection
             amountOptions.forEach(option => {

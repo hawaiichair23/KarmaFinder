@@ -49,18 +49,32 @@ cron.schedule('0 * * * *', async () => {
     }
 });
 
-cron.schedule('0 * * * *', async () => {
+cron.schedule('0 0 */10 * *', async () => {
     try {
         const result = await client.query(`
             DELETE FROM subreddit_icons
-            WHERE created_at < NOW() - INTERVAL '24 hours'
+            WHERE created_at < NOW() - INTERVAL '10 days'
+        `);
+        const now = new Date();
+        const readable = now.toLocaleString();
+        console.log(`🧹 Deleted ${result.rowCount} ICONS older than 10 days at ${readable}`);
+    } catch (err) {
+        console.error('❌ Error deleting old icons:', err.message);
+    }
+});
+
+cron.schedule('*/30 * * * *', async () => {
+    try {
+        const result = await client.query(`
+            DELETE FROM comments 
+            WHERE indexed_at < NOW() - INTERVAL '30 minutes'
         `);
 
         const now = new Date();
         const readable = now.toLocaleString();
-        console.log(`🧹 Deleted ${result.rowCount} ICONS older than 24 hours at ${readable}`);
+        console.log(`🗑️ Deleted ${result.rowCount} COMMENTS rows older than 30 minutes at ${readable}`);
     } catch (err) {
-        console.error('❌ Error deleting old icons:', err.message);
+        console.error('❌ Error cleaning old comments:', err.message);
     }
 });
 

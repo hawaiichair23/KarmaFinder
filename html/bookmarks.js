@@ -2,6 +2,12 @@ let currentOffset = 0;
 let hasMoreBookmarks = true;
 window.loadBookmarkedContent = loadBookmarkedContent;
 
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('page') === 'bookmarks') {
+    document.title = "Bookmarks";
+    document.querySelector('meta[name="description"]').content = "Your saved Reddit posts";
+    document.querySelector('meta[property="og:title"]').content = "Bookmarks - KarmaFinder";
+}
 // Basic initialization function for bookmarks page
 function initBookmarks() {
 

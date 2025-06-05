@@ -40,14 +40,16 @@ const headers = {
     'Referer': 'https://www.google.com/',
     'Connection': 'keep-alive',
 };
-
-// Request timeout
 app.use((_req, res, next) => {
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
         if (!res.headersSent) {
-            res.send('Page took too long to load, try again');
+            console.log('⏰ Request timeout - killing connection');
+            res.destroy(); // Kill the connection instead of sending response
         }
-    }, 10000); // 10 seconds
+    }, 10000);
+
+    // Clear timeout when response finishes
+    res.on('finish', () => clearTimeout(timeout));
     next();
 });
 
@@ -78,7 +80,7 @@ async function getOGImage(url) {
         const ogImage = $('meta[property="og:image"]').attr('content');
         return ogImage || null;
     } catch (err) {
-        console.error('🛑 OG fetch failed:', err.message);
+        console.error('🛑 Image scrape failed:', err.message);
         return null;
     }
 }
@@ -175,6 +177,14 @@ async function dogFetch(url, options = {}) {
 app.post('/api/save-image', async (req, res) => {
     const { reddit_post_id, subreddit, title, url, thumbnail } = req.body;
 
+    // Handle Reddit video URLs - convert to DASH format
+    let processedUrl = url;
+    if (url && url.includes('reddit.com/video/')) {
+        const videoId = url.split('/').pop();
+        processedUrl = `https://v.redd.it/${videoId}/DASH_480.mp4`;
+        console.log(`🎥 Converted Reddit video URL: ${url} -> ${processedUrl}`);
+    }
+
     // Normalize thumbnail value to lowercase string (if it exists)
     const normalizedThumb = (thumbnail || '').toLowerCase();
 
@@ -184,63 +194,21 @@ app.post('/api/save-image', async (req, res) => {
     let finalThumbnail = thumbnail;
 
     // If no thumbnail or it's clearly a placeholder, try scraping OG image
-    if (!thumbnail || badThumbs.has(normalizedThumb)) {
-        console.log(`🧪 OG fetch triggered for: ${url}`);
+    if ((!thumbnail || badThumbs.has(normalizedThumb)) &&
+        !processedUrl.includes('i.redd.it') &&
+        !processedUrl.includes('v.redd.it')) {
+
+        console.log(`🧪 Image scrape triggered for: ${processedUrl}`);
         try {
-            finalThumbnail = await getOGImage(url);
-            console.log(`🔍 OG image result: ${finalThumbnail}`);
+            finalThumbnail = await getOGImage(processedUrl);
+            console.log(`🔍 Image scrape result: ${finalThumbnail}`);
         } catch (err) {
-            console.error(`❌ Failed to fetch OG image: ${err.message}`);
-            finalThumbnail = null; // Fallback
+            console.error(`❌ Failed to fetch image scrape: ${err.message}`);
+            finalThumbnail = null;
         }
     }
     
-    console.log('🧪 Media URL check:', url);
-
-    // 🧪 Media analysis
-    if (shouldRunFFProbe(url)) {
-        console.log(`📼 Running FFprobe on media URL: ${url}`);
-        try {
-            // Create temp file
-            const { path: filePath, cleanup } = await tmp.file({ postfix: '.media' });
-
-            // Download the media file
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`Failed to download media: ${response.statusText}`);
-            const buffer = await response.buffer();
-            fs.writeFileSync(filePath, buffer);
-
-            // Run ffprobe
-            const ffprobeCmd = `ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames,width,height,duration -of default=noprint_wrappers=1 "${filePath}"`;
-            const { stdout } = await execAsync(ffprobeCmd);
-
-            // Parse output
-            const result = {};
-            stdout.split('\n').forEach(line => {
-                const [key, val] = line.trim().split('=');
-                if (key && val) result[key] = val;
-            });
-
-            const frameCount = parseInt(result.nb_read_frames || '0', 10);
-            const animated = frameCount > 1;
-            const width = parseInt(result.width || '0', 10);
-            const height = parseInt(result.height || '0', 10);
-            const duration = parseFloat(result.duration || '0');
-            const type = url.split('.').pop().split('?')[0];
-
-            // Insert into media_analysis
-            await pool.query(`
-                INSERT INTO media_analysis (url, type, frame_count, animated, width, height, duration)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                ON CONFLICT (url) DO NOTHING
-            `, [url, type, frameCount, animated, width, height, duration]);
-
-            cleanup(); // Remove temp file
-
-        } catch (err) {
-            console.warn(`⚠️ FFprobe failed for ${url}:`, err.message);
-        }
-    }
+    console.log('💾 Saving post to database...');
 
     // Insert to DB
     try {
@@ -250,7 +218,7 @@ app.post('/api/save-image', async (req, res) => {
             ON CONFLICT (reddit_post_id) DO NOTHING
         `;
 
-        const values = [reddit_post_id, subreddit, title, url, finalThumbnail];
+        const values = [reddit_post_id, subreddit, title, processedUrl, finalThumbnail];
         await pool.query(query, values);
 
         res.status(200).json({
@@ -268,6 +236,24 @@ app.post('/api/save-image', async (req, res) => {
     } catch (err) {
         console.error('❌ DB Insert error:', err.message);
         res.status(500).json({ success: false, message: 'Insert failed' });
+    }
+});
+
+app.get('/api/get-cached-image/:reddit_post_id', async (req, res) => {
+    try {
+        const { reddit_post_id } = req.params;
+        const query = 'SELECT * FROM image_news_cache WHERE reddit_post_id = $1';
+        const result = await pool.query(query, [reddit_post_id]);
+
+        if (result.rows.length === 0) {
+            return res.status(200).json({ success: false, message: 'Not cached yet' });
+        }
+
+        console.log(`🎯 Serving cached image for post: ${reddit_post_id} - ${result.rows[0].thumbnail}`);
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        console.error('❌ Cache fetch error:', err);
+        res.status(500).json({ success: false, message: 'Database error' });
     }
 });
 
@@ -293,12 +279,10 @@ app.get('/api/get-cached-posts', async (req, res) => {
 app.get('/reddit', async (req, res) => {
     const encodedUrl = req.query.url;
     let decodedUrl = decodeURIComponent(encodedUrl);
-
-    console.log('🔍 Decoded URL:', decodedUrl);
-
+    
     // Ensure it’s a Reddit URL
     if (!decodedUrl.startsWith('https://www.reddit.com/')) {
-        return res.status(403).send('Only Reddit URLs are allowed');
+        return res.status(200).send('Non-Reddit URL intercepted :3c');
     }
 
     // Check if this is a subreddit search request
@@ -562,7 +546,7 @@ app.get('/image', async (req, res) => {
     try {
         const imageHeaders = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/113.0.0.0 Safari/537.36',
-            'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+            'Accept': '*/*',
             'Accept-Language': 'en-US,en;q=0.9',
             'Referer': 'https://www.google.com/',
             'Connection': 'keep-alive',
@@ -575,40 +559,42 @@ app.get('/image', async (req, res) => {
 
         if (!response.ok) {
             res.setHeader('Access-Control-Allow-Origin', '*');
-            console.error(`[⚠️] Image source returned status ${response.status}: ${imageUrl}`);
+            console.error(`[⚠️] Media source returned status ${response.status}: ${imageUrl}`);
             const body = await response.text();
             console.error('❌ Response body:', body.slice(0, 300));
             return res.status(response.status).send(`Source returned ${response.status}`);
         }
 
         const contentType = response.headers.get('content-type') || '';
-        if (!contentType.startsWith('image/')) {
+        const isAllowedMedia = contentType.startsWith('image/') || contentType.startsWith('video/');
+
+        if (!isAllowedMedia) {
             res.setHeader('Access-Control-Allow-Origin', '*');
-            console.error('[⚠️] Not image content:', contentType, '| URL:', imageUrl);
-            return res.status(400).send('Invalid image content.');
+            console.error('[⚠️] Unsupported media type:', contentType, '| URL:', imageUrl);
+            return res.status(400).send('Unsupported media content.');
         }
 
-        const imageBuffer = await response.arrayBuffer();
-        if (!imageBuffer || imageBuffer.byteLength === 0) {
+        const mediaBuffer = await response.arrayBuffer();
+        if (!mediaBuffer || mediaBuffer.byteLength === 0) {
             res.setHeader('Access-Control-Allow-Origin', '*');
-            console.warn('⚠️ Empty image buffer:', imageUrl);
-            return res.status(500).send('Empty image data.');
+            console.warn('⚠️ Empty media buffer:', imageUrl);
+            return res.status(500).send('Empty media data.');
         }
 
-        res.setHeader('Access-Control-Allow-Origin', '*'); // ✅ HERE
+        res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Length', imageBuffer.byteLength);
+        res.setHeader('Content-Length', mediaBuffer.byteLength);
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
         res.setHeader('Surrogate-Control', 'no-store');
         res.setHeader('ETag', `"${Date.now()}"`);
 
-        res.send(Buffer.from(imageBuffer));
+        res.send(Buffer.from(mediaBuffer));
     } catch (err) {
         res.setHeader('Access-Control-Allow-Origin', '*');
-        console.error('[🔥] Error fetching image:', err.message);
-        res.status(500).send('Error fetching image: ' + err.message);
+        console.error('[🔥] Error fetching media:', err.message);
+        res.status(500).send('Error fetching media: ' + err.message);
     }
 });
 
@@ -652,7 +638,7 @@ app.post('/api/save-posts', async (req, res) => {
                 }
 
                 const reddit_post_id = post.data.id;
-                const position = i;
+                const position = post.data.position;
           
                 // Safely stringify JSON objects - this is the key fix
                 const galleryData = post.data.gallery_data ? JSON.stringify(post.data.gallery_data) : null;
@@ -842,7 +828,6 @@ app.get('/api/db-posts', async (req, res) => {
 
 app.post('/api/analyze-media', async (req, res) => {
     const { url } = req.body;
-
     if (!url || typeof url !== 'string') {
         return res.status(400).json({ success: false, message: 'Invalid or missing URL' });
     }
@@ -851,10 +836,20 @@ app.post('/api/analyze-media', async (req, res) => {
         // Create temp file
         const { path: filePath, cleanup } = await tmp.file({ postfix: '.media' });
 
+        // Filter out Reddit videos
+        if (url.includes('v.redd.it')) {
+            throw new Error('Reddit videos are not supported');
+        }
+
+        // Filter out Reddit images
+        if (url.includes('i.redd.it')) {
+            throw new Error('Reddit videos are not supported');
+        }
+
         // Download media
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' // Pretend to be a browser
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
             }
         });
 
@@ -865,6 +860,19 @@ app.post('/api/analyze-media', async (req, res) => {
 
         const buffer = await response.buffer();
         fs.writeFileSync(filePath, buffer);
+
+        // Check if file is actually video before FFprobe
+        if (buffer.length < 1000) {
+            throw new Error('Downloaded file too small, probably not a video');
+        }
+        
+        // Check for common video file signatures
+        const header = buffer.toString('hex', 0, 12);
+        if (!header.includes('000018667479') && // MP4
+            !header.includes('1a45dfa3') &&     // WebM
+            !header.includes('464c5601')) {     // FLV
+            throw new Error('Downloaded file is not a valid video format');
+        }
 
         // Run ffprobe
         const ffprobeCmd = `ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames,width,height,duration -of default=noprint_wrappers=1 "${filePath}"`;
@@ -901,8 +909,116 @@ app.post('/api/analyze-media', async (req, res) => {
     }
 });
 
+// GET /api/get-comments/:permalink
+app.get('/api/get-comments/:permalink(*)', async (req, res) => {
+    try {
+        const { permalink } = req.params;
 
+        if (!permalink || (!permalink.startsWith('/r/') && !permalink.startsWith('r/'))) {
+            return res.status(400).json({ error: 'Invalid permalink' });
+        }
 
+        // Normalize the permalink to start with /r/
+        const normalizedPermalink = permalink.startsWith('/r/') ? permalink : '/' + permalink;
+
+        const query = `
+            SELECT reddit_comment_id, author, body, score, created_utc, position, post_total_comments, is_stickied
+            FROM comments
+            WHERE post_permalink = $1
+            ORDER BY position ASC
+            LIMIT 40
+        `;
+
+        const result = await pool.query(query, [normalizedPermalink]);
+
+        if (result.rows.length > 0) {
+            console.log(`✅ Found ${result.rows.length} cached comments for ${normalizedPermalink}`);
+            return res.json({
+                success: true,
+                comments: result.rows,
+                cached: true,
+                post_total_comments: result.rows[0]?.post_total_comments, 
+                is_stickied: result.rows[0]?.is_stickied
+            });
+        }
+
+        console.log(`❌ No cached comments found for ${normalizedPermalink}`);
+        return res.json({
+            success: true,
+            comments: [],
+            cached: false
+        });
+
+    } catch (error) {
+        console.error('Error getting comments:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /api/save-comments
+app.post('/api/save-comments', async (req, res) => {
+    try {
+        const { permalink, comments, total_comments, is_stickied } = req.body;
+        if (!permalink || !comments || !Array.isArray(comments)) {
+            return res.status(400).json({
+                success: false,
+                error: "Invalid request: permalink and comments array required"
+            });
+        }
+        console.log(`Processing ${comments.length} comments for ${permalink}`);
+        const savedIds = [];
+        const connection = await pool.connect();
+        try {
+            // Delete existing comments for this post
+            await connection.query('DELETE FROM comments WHERE post_permalink = $1', [permalink]);
+            await connection.query('BEGIN');
+
+            for (let i = 0; i < comments.length; i++) {
+                const comment = comments[i];
+                if (!comment.author || !comment.body) {
+                    console.log("Skipping comment with missing data");
+                    continue;
+                }
+                const query = `
+                    INSERT INTO comments (
+                        post_permalink, reddit_comment_id, author, body,
+                        score, created_utc, position, post_total_comments, is_stickied
+                    )
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    RETURNING id
+                `;
+                const values = [
+                    permalink,
+                    comment.id || null,
+                    comment.author,
+                    comment.body,
+                    comment.score || 0,
+                    comment.created_utc || 0,
+                    i,  // position based on array order
+                    total_comments || null,
+                    is_stickied || false
+                ];
+                const result = await connection.query(query, values);
+                savedIds.push(result.rows[0].id);
+            }
+            await connection.query('COMMIT');
+            console.log(`✅ Successfully saved ${savedIds.length} comments`);
+            return res.json({
+                success: true,
+                savedCount: savedIds.length
+            });
+        } catch (e) {
+            await connection.query('ROLLBACK');
+            console.error("Database transaction error:", e);
+            throw e;
+        } finally {
+            connection.release();
+        }
+    } catch (error) {
+        console.error('Error saving comments:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
 
 // 1. Add a bookmark
 app.post('/api/bookmarks', async (req, res) => {
@@ -943,9 +1059,9 @@ app.post('/api/bookmarks', async (req, res) => {
         }
 
         // Stringify JSON fields 
-        const galleryData = (gallery_data && gallery_data !== null && !gallery_data.includes(null) && Object.keys(gallery_data || {}).length > 0) ? JSON.stringify(gallery_data) : null;
-        const mediaMetadata = (media_metadata && media_metadata !== null && !media_metadata.includes(null) && Object.keys(media_metadata || {}).length > 0) ? JSON.stringify(media_metadata) : null;
-        const crosspostList = (crosspost_parent_list && crosspost_parent_list !== null && crosspost_parent_list.length > 0 && !crosspost_parent_list.includes(null)) ? JSON.stringify(crosspost_parent_list) : null;
+        const galleryData = (gallery_data && gallery_data !== null && Object.keys(gallery_data || {}).length > 0) ? JSON.stringify(gallery_data) : null;
+        const mediaMetadata = (media_metadata && media_metadata !== null && Object.keys(media_metadata || {}).length > 0) ? JSON.stringify(media_metadata) : null;
+        const crosspostList = (crosspost_parent_list && crosspost_parent_list !== null && crosspost_parent_list.length > 0) ? JSON.stringify(crosspost_parent_list) : null;
         const previewData = (preview && preview !== null && Object.keys(preview || {}).length > 0) ? JSON.stringify(preview) : null;
 
         // Insert bookmark
