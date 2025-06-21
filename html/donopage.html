@@ -2,6 +2,8 @@
 <html lang="en">
 
 <head>
+<link rel="icon" type="image/ico" sizes="32x32" href="../assets/favicon-32x32.png">
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Support KarmaFinder</title>
@@ -46,6 +48,15 @@
         .fade-in.visible {
             opacity: 1;
         }
+
+        .h2-icon {
+        width: 57px;
+        height: 57px;
+        vertical-align: middle;
+        margin-right: 8px;
+        cursor: pointer;
+        }
+
 /* DARK MODE */
 
 body.dark-mode {
@@ -306,8 +317,10 @@ body.dark-mode .amount-option.selected {
         <img id="themeIcon" alt="Toggle theme" />
     </button>
         <div class="donation-card">
-            <h2>Donate</h2>
-
+            <h2>
+                Donate
+                <img src="../assets/search-favicon.png" alt="Icon" class="h2-icon">
+            </h2>
             <p>Your donation helps keep the servers running and enables new features.</p>
 
             <div class="amount-options">
@@ -358,6 +371,10 @@ body.dark-mode .amount-option.selected {
                 document.querySelector('meta[property="og:title"]').content = "Donate";
                 document.querySelector('meta[property="og:description"]').content = "Support KarmaFinder development and help keep the service running";
             }
+
+            window.addEventListener('load', function () {
+                window.scrollTo(0, 0);
+            });
 
             // Handle amount option selection
             amountOptions.forEach(option => {

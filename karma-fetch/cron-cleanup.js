@@ -63,16 +63,16 @@ cron.schedule('0 0 */10 * *', async () => {
     }
 });
 
-cron.schedule('*/30 * * * *', async () => {
+cron.schedule('*/7 * * * *', async () => {
     try {
         const result = await client.query(`
             DELETE FROM comments 
-            WHERE indexed_at < NOW() - INTERVAL '30 minutes'
+            WHERE indexed_at < NOW() - INTERVAL '7 minutes'
         `);
 
         const now = new Date();
         const readable = now.toLocaleString();
-        console.log(`🗑️ Deleted ${result.rowCount} COMMENTS rows older than 30 minutes at ${readable}`);
+        console.log(`🗑️ Deleted ${result.rowCount} COMMENTS rows older than 7 minutes at ${readable}`);
     } catch (err) {
         console.error('❌ Error cleaning old comments:', err.message);
     }

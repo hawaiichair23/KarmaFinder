@@ -4,6 +4,7 @@
 <head>
 <link rel="stylesheet" href="styles.css" />
 <link rel="stylesheet" href="bookmarks.css">
+<link rel="icon" type="image/ico" sizes="32x32" href="/assets/favicon-32x32.png">
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -38,6 +39,7 @@
                 <div class="logo">KarmaFinder</div>
                 </a>
                 <div class="tagline">Find exactly what you're looking for on Reddit 🔎</div>
+                <img src="../assets/hermes.png" alt="Hermes Detective Cat" class="hermes-cat">
             </div>
         </header>
 
@@ -57,7 +59,7 @@
                     <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2" fill="none" />
                     <path d="m15.8 15.8 4.2 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                 </svg>
-                    <input type="text" id="search-input" class="search-input" placeholder="Search Reddit" autofocus>
+                    <input type="text" id="search-input" class="search-input" placeholder="Search Reddit">
                     <div id="suggestions"></div>
                         <button id="search-button" class="search-button"></button>
                     </div>
@@ -174,7 +176,7 @@
             if (callback) callback();
             return;
         }
-            fetch(`http://localhost:3000/api/bookmarks/${stripeCustomerId}`)
+            fetch(`http://localhost:3000/api/bookmarks/${stripeCustomerId}?limit=1000`)
                 .then(res => res.json())
                 .then(data => {
                     const bookmarks = {};
@@ -235,95 +237,158 @@
         time: 'all',
         subreddit: '',
     };
-
-    function loadPaginationState(fromPopState = false) {
-            const params = new URLSearchParams(window.location.search);
-            const pageIndex = parseInt(params.get('page'), 10) || 0;
-            const subreddit = params.get('sub') || '';
-            const query = params.get('q') || '';
-            const sort = params.get('sort') || 'hot';
-            const time = params.get('time') || 'all';
-            let contentType;
-
-            currentPageIndex = pageIndex;
-            currentFilters = { subreddit, query, sort, time };
-
-            // RESTORE FROM SESSIONSTORAGE
-            const savedAfter = sessionStorage.getItem('kf_current_after') || null;
-            const savedHistory = JSON.parse(sessionStorage.getItem('kf_navigation_history') || '[]');
-
-            currentAfter = savedAfter;
-            currentBefore = null;
-            navigationHistory = savedHistory;
-
-            console.log('🔄 Restored from sessionStorage - after:', currentAfter, 'history length:', navigationHistory.length);
     
-            // 🖼️ Update UI
-            sortSelect.value = sort;
-            timeSelect.value = time;
-            contentSelect.value = contentType;
-            searchInput.value = query;
-            subredditInput.value = subreddit;
-            if (subreddit) selectSubreddit(subreddit);
-            if (!subreddit) {
+    // Data for html injection
+        if (window.preloadedSearchData && window.preloadedQuery !== undefined) { 
+            console.log('🚀 Using preloaded search data');
+
+            // Set the search input
+            searchInput.value = window.preloadedQuery;
+
+            // Set the subreddit if one was preloaded
+            if (window.preloadedSubreddit) {
+
+                const subredditInput = document.getElementById('subreddit-input'); 
+                if (subredditInput) {
+                    subredditInput.value = window.preloadedSubreddit;
+                }
+                console.log('🎯 Set subreddit to:', window.preloadedSubreddit);
+            }
+
+            // Process the data the same way performSearch does
+            const data = window.preloadedSearchData;
+            currentAfter = data.data.after || null;
+            currentBefore = data.data.before || null;
+            const trimmedData = data.data.children.map(post => ({
+                id: post.data.id,
+                title: post.data.title,
+                url: post.data.url,
+                permalink: post.data.permalink,
+                subreddit: post.data.subreddit,
+                score: post.data.score,
+                is_video: post.data.is_video,
+                domain: post.data.domain,
+                author: post.data.author,
+                created_utc: post.data.created_utc,
+                num_comments: post.data.num_comments,
+                over_18: post.data.over_18,
+                preview: post.data.preview,
+                selftext: post.data.selftext,
+                body: post.data.body,
+                is_gallery: post.data.is_gallery,
+                gallery_data: post.data.gallery_data,
+                media_metadata: post.data.media_metadata,
+                crosspost_parent_list: post.data.crosspost_parent_list || [],
+                content_type: post.content_type,
+                icon_url: null,
+                locked: post.data.locked,
+                stickied: post.data.stickied
+            }));
+            displayResults(trimmedData);
+            preloadBookmarks(window.stripeCustomerId);
+            updatePagination();
+
+            // Clean up
+            delete window.preloadedSearchData;
+            delete window.preloadedQuery;
+            delete window.preloadedSubreddit;
+        }
+
+    function loadPaginationState(fromPopState = false, direction = 'refresh') {
+        const params = new URLSearchParams(window.location.search);
+        const pageIndex = parseInt(params.get('page'), 10) || 0;
+        const subreddit = params.get('sub') || '';
+        const query = params.get('q') || '';
+        const sort = params.get('sort') || 'hot';
+        const time = params.get('time') || 'all';
+        const contentType = params.get('type') || 'all';
+
+        // Determine direction if not provided
+        if (fromPopState && direction === 'refresh') {
+            const oldPageIndex = currentPageIndex;
+            direction = pageIndex > oldPageIndex ? 'forward' : pageIndex < oldPageIndex ? 'backward' : 'same';
+        }
+
+        currentPageIndex = pageIndex;
+        currentFilters = { subreddit, query, sort, time, contentType };
+
+        // RESTORE FROM SESSIONSTORAGE
+        const savedAfter = sessionStorage.getItem('kf_current_after') || null;
+        const savedHistory = JSON.parse(sessionStorage.getItem('kf_navigation_history') || '[]');
+        currentAfter = savedAfter;
+        currentBefore = null;
+        navigationHistory = savedHistory;
+
+        console.log('🔄 Restored from sessionStorage - after:', currentAfter, 'history length:', navigationHistory.length);
+
+        // 🖼️ Update UI
+        sortSelect.value = sort;
+        timeSelect.value = time;
+        contentSelect.value = contentType;
+        searchInput.value = query;
+        subredditInput.value = subreddit;
+        if (subreddit) {
+            selectSubreddit(subreddit);
+        } else {
             subredditInput.value = '';
             subredditChipContainer.style.display = 'none';
         }
 
-            console.log('🔄 URL restored state:', currentFilters, 'Page:', currentPageIndex);
+        console.log('🔄 URL restored state:', currentFilters, 'Page:', currentPageIndex);
 
-            // ✅ Only rewrite the URL if NOT handling a popstate event
-            if (!fromPopState) {
-                const cleanParams = new URLSearchParams();
-                cleanParams.set('page', currentPageIndex);
-                if (query) cleanParams.set('q', query);
-                if (subreddit) cleanParams.set('sub', subreddit);
-                if (sort !== 'hot') cleanParams.set('sort', sort);
-                if (time !== 'all') cleanParams.set('time', time);
+        // ✅ Only rewrite the URL if NOT handling a popstate event
+        if (!fromPopState) {
+            const cleanParams = new URLSearchParams();
+            if (currentPageIndex > 0) cleanParams.set('page', currentPageIndex);
+            if (query) cleanParams.set('q', query);
+            if (subreddit) cleanParams.set('sub', subreddit);
+            if (sort !== 'hot') cleanParams.set('sort', sort);
+            if (time !== 'all') cleanParams.set('time', time);
+            if (contentType !== 'all') cleanParams.set('type', contentType);
+            const newUrl = cleanParams.toString() ? '?' + cleanParams.toString() : window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+        }
 
-                const newUrl = cleanParams.toString() ? '?' + cleanParams.toString() : window.location.pathname;
-                window.history.replaceState({}, '', newUrl);
-            }
-           
-            // Use the token from sessionStorage
-            const targetToken = currentAfter?.after || currentAfter; 
-             
-            // In loadPaginationState, check if it's from popstate (back button)
-            if (fromPopState) {
-                // Back button - use navigation history
-                const targetToken = navigationHistory[currentPageIndex - 1]?.after;
-                performSearch(targetToken, null, false, true);
-                // console.log("TARGET TOKEN:", targetToken);
+        // Only perform search if called from popstate
+        if (fromPopState) {
+            let targetToken;
+            if (direction === 'forward') {
+                targetToken = navigationHistory[currentPageIndex]?.after || currentAfter;
+                console.log("🔜 Going FORWARD, using token:", targetToken);
             } else {
-                // Refresh - use currentAfter from sessionStorage
-                performSearch(currentAfter, null, false, true);
+                targetToken = navigationHistory[currentPageIndex - 1]?.after;
+                console.log("🔙 Going BACKWARD, using token:", targetToken);
             }
+            performSearch(targetToken, null, false, true);
         }
 
+        // Return true if we successfully restored state
+        return true;
+    }
 
+    function randomBlink() {
+            const img = document.querySelector('.hermes-cat');
 
-    function initApp() {
-            const isPageRefresh = performance.navigation
-                ? (performance.navigation.type === 1)
-                : (performance.getEntriesByType('navigation')[0]?.type === 'reload');
+            // First blink
+            img.src = '../assets/hermes-blink.png';
+            setTimeout(() => img.src = '../assets/hermes.png', 150);
 
-            const restored = isPageRefresh && loadPaginationState();
+            // Random delay between blinks (400-3000ms)
+            const delayBetween = Math.random() * 400 + 3000;
 
-            if (!restored) {
-                console.log("🛎️ Starting fresh search...");
-                currentPageIndex = 0;
-                currentAfter = null;
-                currentBefore = null;
-                currentFilters = {
-                    sort: 'hot',
-                    time: 'all',
-                    subreddit: '',
-                    query: '',
-                };
+            setTimeout(() => {
+                // Second blink
+                img.src = '../assets/hermes-blink.png';
+                setTimeout(() => img.src = '../assets/hermes.png', 150);
+            }, delayBetween);
 
-                performSearch(currentAfter, null, false, true); // only call here
-            }
+            // Random delay until next double blink (4-12 seconds)
+            const nextBlink = Math.random() * 12000 + 4000;
+            setTimeout(randomBlink, nextBlink);
         }
+
+        // Start the blinking
+        randomBlink();
 
     // Event Listeners
     searchButton.addEventListener('click', async () => {
@@ -342,9 +407,6 @@
             }
 
             const subreddit = subredditInput.value.trim();
-            console.log('🔍 Keydown subreddit value:', subredditInput.value);
-            console.log('🔍 Keydown subreddit after trim:', subreddit);
-            console.log('🔍 Keydown subreddit type:', typeof subreddit);
 
             if (subreddit && subreddit !== 'undefined' && subreddit !== 'null') {
                 // 🌐 Check if the subreddit exists using about.json
@@ -363,18 +425,82 @@
                 }
             }
             
+            // Store the search suggestion
+        const searchTerm = searchInput.value.trim();
+        if (searchTerm) {
+            try {
+                await fetch('http://localhost:3000/api/suggestions/store', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: searchTerm,
+                        subreddit: (subreddit && subreddit !== 'undefined' && subreddit !== 'null') ? subreddit : null
+                    })
+                });
+            } catch (err) {
+                console.error("Failed to store suggestion:", err);
+            }
+        }
+
         // ✅ Passed all checks
         performSearch();
-
         setTimeout(() => {
-        searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+            searchButton.style.backgroundImage = "url('../assets/search-default.png')";
         }, 500);
     });
 
     [subredditInput, searchInput].forEach(input => {
             input.addEventListener('keydown', async (e) => {
-                if (e.key !== 'Enter') return;
+                if (e.key === 'Tab') {
+                    let dropdown, suggestions, currentHighlighted;
 
+                    // Check suggestions dropdown first
+                    dropdown = document.querySelector('#suggestions');
+                    if (dropdown && dropdown.style.display !== 'none') {
+                        suggestions = dropdown.querySelectorAll('div');
+                        currentHighlighted = dropdown.querySelector('.highlighted');
+                    } else {
+                        // Check subreddit dropdown
+                        dropdown = document.querySelector('.subreddit-suggestions');
+                        if (dropdown && dropdown.classList.contains('active')) {
+                            suggestions = dropdown.querySelectorAll('.subreddit-suggestion');
+                            currentHighlighted = dropdown.querySelector('.highlighted');
+                        }
+                    }
+
+                    if (suggestions && suggestions.length > 0) {
+                        e.preventDefault();
+
+                        // Remove current highlight
+                        if (currentHighlighted) {
+                            currentHighlighted.classList.remove('highlighted');
+                        }
+
+                        // Find next item to highlight
+                        let nextIndex = 0;
+                        if (currentHighlighted) {
+                            const currentIndex = Array.from(suggestions).indexOf(currentHighlighted);
+                            nextIndex = (currentIndex + 1) % suggestions.length;
+                        }
+
+                        // Highlight next item
+                        suggestions[nextIndex].classList.add('highlighted');
+                        return;
+                    }
+                }
+
+                if (e.key === 'Enter') {
+                    // Check both dropdowns
+                    let highlighted = document.querySelector('#suggestions .highlighted') ||
+                        document.querySelector('.subreddit-suggestions .highlighted');
+
+                    if (highlighted) {
+                        e.preventDefault();
+                        highlighted.click();
+                        highlighted.classList.remove('highlighted');
+                        return
+                    }
+    
                 // Reset state
                 currentFilters.subreddit = '';
                 subredditChipContainer.style.display = 'none';
@@ -411,15 +537,59 @@
                         return;
                     }
                 }
-
+                // Store the search suggestion only when triggered from searchInput
+                if (searchTerm) {
+                    try {
+                        await fetch('http://localhost:3000/api/suggestions/store', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                query: searchTerm,
+                                subreddit: (subreddit && subreddit !== 'undefined' && subreddit !== 'null') ? subreddit : null
+                            })
+                        });
+                    } catch (err) {
+                        console.error("Failed to store suggestion:", err);
+                    }
+                }
                 performSearch();
+                }
+
+                // Reset highlight when typing
+                if (e.key.length === 1 || e.key === 'Backspace') {
+                    highlightedIndex = -1;
+                    const dropdown = document.querySelector('.suggestions-dropdown');
+                    if (dropdown) {
+                        const suggestions = dropdown.querySelectorAll('.suggestion-item');
+                        suggestions.forEach(item => item.classList.remove('highlighted'));
+                    }
+                }
+            
             });
+    });
+
+    // Add popular subs on click
+        document.querySelector('#subreddit-input').addEventListener('focus', (e) => {
+            // Only show popular subs if input is empty
+            if (!e.target.value.trim()) {
+                const popularSubs = [
+                    { name: 'AskReddit', icon: null },
+                    { name: 'pics', icon: null },
+                    { name: 'mildlyinteresting', icon: null },
+                    { name: 'explainlikeimfive', icon: null },
+                    { name: 'politics', icon: null },
+                    { name: 'MadeMeSmile', icon: null },
+                    { name: 'funny', icon: null }
+                ];
+                populateSubredditSuggestions(popularSubs);
+                document.querySelector('.subreddit-suggestions').classList.add('active');
+            }
         });
 
         sortSelect.addEventListener('change', () => {
             currentFilters.sort = sortSelect.value;
 
-                // Only perform search if NOT relevance
+            // Only perform search if NOT relevance
             if (sortSelect.value !== 'relevance') {
 
                 // Reset pagination state
@@ -503,6 +673,28 @@
                 if (!suggestionsDiv.contains(event.target) && event.target !== input) {
                     suggestionsDiv.innerHTML = '';
                     suggestionsDiv.style.display = 'none';
+                }
+            });
+
+        document.querySelector('#search-input').addEventListener('focus', function () {
+            if (this.value === '') {
+
+                fetch('http://localhost:3000/api/top-searches')
+                    .then(res => res.json())
+                    .then(data => {
+                        const suggestionsDiv = document.querySelector('#suggestions');
+                        displaySuggestions(data, suggestionsDiv);
+                    });
+            }
+        });
+
+        document.querySelector('.search-input-container').addEventListener('click', function (e) {
+                // Only focus if they didn't click the input itself, search button, or filter icon
+                if (!e.target.matches('.search-input') &&
+                    !e.target.matches('.search-button') &&
+                    !e.target.matches('#filter-icon') &&
+                    !e.target.closest('.search-button')) {
+                    document.querySelector('#search-input').focus();
                 }
             });
 
@@ -635,14 +827,22 @@
             return wrapper;
         }
 
+        document.getElementById('content-select').addEventListener('change', function () {
+                currentFilters.contentType = this.value;
+                updateURL();
+            });
+
         async function handleSubredditSuggestions(query) {
             // Don't search for empty queries
             if (!query || query.trim() === '') {
                 subredditSuggestions.innerHTML = '';
                 return;
             }
+                // Strip r/ prefix if present
+                const cleanQuery = query.replace(/^r\//, '');
+                
                 const queryToken = ++activeQueryToken;
-                console.log(`🔎 Fetching subreddit suggestions for: "${query}"`);
+                console.log(`🔎 Fetching subreddit suggestions for: "${cleanQuery}"`);
                 let matches = [];
                 try {
                     const res = await fetch(`http://localhost:3000/reddit?url=https://www.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}`);
@@ -652,7 +852,7 @@
                         for (const child of data.data.children) {
                             if (
                                 child?.data?.display_name &&
-                                child.data.display_name.toLowerCase().startsWith(query.toLowerCase())
+                                child.data.display_name.toLowerCase().startsWith(cleanQuery.toLowerCase())
                             ) {
                                 filtered.push(child.data.display_name);
                                 if (filtered.length === 7) break; // ✅ TRUE early exit
@@ -689,10 +889,6 @@
 
         function populateSubredditSuggestions(subreddits) {
         
-            console.log("Populating subreddit suggestions:", subreddits);
-            console.log("Populating subreddit suggestions:", subreddits);
-            console.log("DEBUG: All subreddit names:", subreddits.map((s, i) => `${i}: ${s?.name || 'UNDEFINED'}`)); // ADD THIS LINE
-
             // Sort subreddits by relevance to the search query
             const query = subredditInput.value.toLowerCase().trim();
             if (query.length > 0) {
@@ -768,6 +964,7 @@
                                 img.onload = () => {
                                     iconEl.textContent = ''; // Clear the letter
                                     iconEl.appendChild(img);
+                                    iconEl.classList.add('icon-loaded');
                                 };
                                 img.onerror = () => {
                                     console.warn(`🔻 Broken image for: ${sub.name}, keeping fallback`);
@@ -797,11 +994,11 @@
         const subreddit = chipVisible
             ? subredditChipContainer.querySelector('.chip-text').textContent.replace('r/', '')
             : subredditTyped;
-
         return {
             query,
             time: document.getElementById('time-select').value,
             sort: document.getElementById('sort-select').value,
+            contentType: document.getElementById('content-select').value,  
             subreddit
         };
     }
@@ -816,11 +1013,6 @@
                 const query = e.target.value.trim();
                 clearTimeout(timeout);
 
-                if (query.length < 2) {
-                    suggestionsDiv.innerHTML = '';
-                    return;
-                }
-
                 timeout = setTimeout(() => {
                     getSmartSuggestions(query, suggestionsDiv, dictionary);
                 }, 300);
@@ -829,47 +1021,73 @@
 
     async function getSmartSuggestions(query, suggestionsDiv, dictionary) {
             const trimmedQuery = query.trim();
+
+            // If empty, show top searches instead
+            if (!trimmedQuery) {
+                const response = await fetch('http://localhost:3000/api/top-searches');
+                const data = await response.json();
+                displaySuggestions(data, suggestionsDiv);
+                return;
+            }
+
             const words = trimmedQuery.split(' ');
             const lastWord = words[words.length - 1];
-
             const fuse = new Fuse(dictionary, { threshold: 0.4 });
 
-            // Entire query is one word and it's in the dictionary
-            const isElonMode = words.length === 1 || dictionary.includes(trimmedQuery.toLowerCase());
-
-            if (isElonMode) {
-                // One word results
-                console.log("🤡 ELON MODE");
-                try {
-                    const apiUrl = `https://api.datamuse.com/words?rel_trg=${encodeURIComponent(trimmedQuery)}&max=7`;
-                    const response = await fetch(apiUrl);
-                    const data = await response.json();
-
-                    const apiWords = data.map(item => `${trimmedQuery} ${item.word}`);
-                    const allSuggestions = [trimmedQuery, ...apiWords];
-                    displaySuggestions(allSuggestions.slice(0, 6), suggestionsDiv);
-                } catch (error) {
-                    console.error("❌ Datamuse error:", error);
-                    displaySuggestions([trimmedQuery], suggestionsDiv);
-                }
-
-            } else {
-                // Finish word mode
-                console.log("🐔 CHICKEN MODE");
-                const results = fuse.search(lastWord).slice(0, 5);
-
-                const fullSuggestions = results.map(result => {
-                    const newWords = [...words];
-                    newWords[newWords.length - 1] = result.item;
-                    return newWords.join(' ');
-                });
-
-                const suggestions = [trimmedQuery, ...fullSuggestions];
-                displaySuggestions(suggestions.slice(0, 6), suggestionsDiv);
-
+            // Get stored suggestions from database first
+            let storedSuggestions = [];
+            try {
+                const subreddit = subredditInput.value?.trim() || '';
+                const url = `http://localhost:3000/api/suggestions?q=${encodeURIComponent(trimmedQuery)}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                storedSuggestions = data.map(item => ({
+                    query: item.query,
+                    subreddit: item.subreddit, 
+                    isStored: true
+                }));
+            } catch (error) {
+                console.error("❌ Stored suggestions error:", error);
             }
-        }
 
+            // Calculate remaining slots for pattern suggestions
+            const remainingSlots = Math.max(0, 7 - storedSuggestions.length);
+            let patternSuggestions = [];
+
+            if (remainingSlots > 0) {
+                const isElonMode = words.length === 1 && dictionary.includes(trimmedQuery.toLowerCase());
+                if (isElonMode) {
+                    console.log("🤡 ELON MODE");
+                    try {
+                        const apiUrl = `https://api.datamuse.com/words?rel_trg=${encodeURIComponent(trimmedQuery)}&max=${remainingSlots}`;
+                        const response = await fetch(apiUrl);
+                        const data = await response.json();
+                        const apiWords = data.map(item => `${trimmedQuery} ${item.word}`);
+                        patternSuggestions = [trimmedQuery, ...apiWords].slice(0, remainingSlots);
+                    } catch (error) {
+                        console.error("❌ Datamuse error:", error);
+                        patternSuggestions = [trimmedQuery];
+                    }
+                } else {
+                    console.log("🐔 CHICKEN MODE");
+                    const results = fuse.search(lastWord).slice(0, remainingSlots - 1);
+                    const fullSuggestions = results.map(result => {
+                        const newWords = [...words];
+                        newWords[newWords.length - 1] = result.item;
+                        return newWords.join(' ');
+                    });
+                    patternSuggestions = [trimmedQuery, ...fullSuggestions].slice(0, remainingSlots);
+                }
+            }
+
+            patternSuggestions = patternSuggestions.filter(suggestion =>
+                suggestion.toLowerCase() !== trimmedQuery.toLowerCase()
+            );
+
+            // Combine: stored suggestions FIRST, then pattern suggestions
+            const allSuggestions = [...storedSuggestions, ...patternSuggestions];
+            displaySuggestions(allSuggestions, suggestionsDiv);
+        }
 
     function isIncompleteWord(word, dictionary) {
             return !dictionary.includes(word.toLowerCase());
@@ -895,18 +1113,108 @@
         }
 
     function displaySuggestions(suggestions, suggestionsDiv) {
-        const suggestionsHtml = suggestions.map(word =>
-            `<div onclick="selectSuggestion('${word}', 'search-input', 'suggestions')">${word}</div>`
-        ).join('');
+        const suggestionsHtml = suggestions.map(suggestion => {
+            const word = typeof suggestion === 'string' ? suggestion : suggestion.query;
+            const suggestionSubreddit = typeof suggestion === 'object' ? suggestion.subreddit : null;
+            
+            const iconContent = suggestionSubreddit ? 
+                `<span class="suggestion-icon subreddit-icon">${suggestionSubreddit.charAt(0).toUpperCase()}</span>` :
+                '<img src="../assets/search-favicon.png" class="suggestion-favicon" alt="Search">';
+            
+            return `<div onclick="selectSuggestion('${word}', 'search-input', 'suggestions', '${suggestionSubreddit || ''}')" data-subreddit="${suggestionSubreddit || ''}" class="suggestion-item">
+                ${iconContent}
+                ${word}
+            </div>`;
+        }).join('');
 
-        suggestionsDiv.innerHTML = suggestionsHtml;
-        suggestionsDiv.style.display = 'block';
+            suggestionsDiv.innerHTML = suggestionsHtml;
+            suggestionsDiv.style.display = 'block';
+
+            // Add real icons for suggestions that have subreddit data
+            const suggestionElements = suggestionsDiv.querySelectorAll('[data-subreddit]');
+            suggestionElements.forEach(element => {
+                const subredditName = element.getAttribute('data-subreddit');
+                if (subredditName) {
+                    addIconToSuggestion(element, subredditName);
+                }
+            });
+        }
+
+    async function addIconToSuggestion(suggestionElement, subreddit) {
+            if (!subreddit) return;
+
+            suggestionElement.querySelector('.suggestion-favicon')?.remove();
+                
+            const iconContainer = suggestionElement.querySelector('.suggestion-icon');
+
+            // Start with letter fallback
+            iconContainer.textContent = subreddit.charAt(0).toUpperCase();
+
+            const storageKey = `subreddit_icon_${subreddit}`;
+            const cachedIcon = sessionStorage.getItem(storageKey);
+
+            // Check sessionStorage first
+            if (cachedIcon && cachedIcon !== 'null' && cachedIcon !== '/api/placeholder/20/20') {
+                const img = document.createElement('img');
+                img.src = cachedIcon;
+                img.alt = `Icon for r/${subreddit}`;
+                img.className = 'subreddit-icon-img';
+                iconContainer.textContent = '';
+                iconContainer.appendChild(img);
+                setTimeout(() => img.classList.add('fade-in'), 10);
+                iconContainer.classList.add('icon-loaded');
+            } else if (!cachedIcon || cachedIcon === 'null') {
+                // Fetch from API
+                getSubredditIcon(subreddit).then(iconUrl => {
+                    if (iconUrl && iconUrl !== '/api/placeholder/20/20') {
+                        const img = document.createElement('img');
+                        img.src = iconUrl;
+                        img.alt = `Icon for r/${subreddit}`;
+                        img.className = 'subreddit-icon-img';
+                        iconContainer.textContent = '';
+                        iconContainer.appendChild(img);
+                        setTimeout(() => img.classList.add('fade-in'), 10);
+                        iconContainer.classList.add('icon-loaded');
+                        sessionStorage.setItem(storageKey, iconUrl);
+                    }
+                });
+        }
     }
 
-    function selectSuggestion(word, inputId, suggestionsId) {
-        document.getElementById(inputId).value = word;
-        document.getElementById(suggestionsId).innerHTML = '';
-    }
+    function selectSuggestion(word, inputId, suggestionsId, subreddit = null) {
+            document.getElementById(inputId).value = word;
+            document.getElementById(suggestionsId).innerHTML = '';
+
+            // If this suggestion has a subreddit, auto-select it
+            if (subreddit) {
+                selectSubreddit(subreddit);
+            }
+
+            sortSelect.value = 'relevance';
+            currentFilters.sort = 'relevance';
+
+            // Store/increment the suggestion
+            if (word) {
+                try {
+                    fetch('http://localhost:3000/api/suggestions/store', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            query: word,
+                            subreddit: (subreddit && subreddit !== 'undefined' && subreddit !== 'null') ? subreddit : null
+                        })
+                    });
+                } catch (err) {
+                    console.error("Failed to store suggestion:", err);
+                }
+            }
+
+            // Reset page index and history for new search
+            currentPageIndex = 0;
+
+            // Perform the search
+            performSearch();
+        }
 
     function selectSubreddit(subName) {
         if (!subName || subName.toLowerCase() === 'all') {
@@ -932,6 +1240,167 @@
         return `${baseToken}__${subreddit}__${sort}__${query}__${time}`;
     }
 
+    function needsProgressiveFiltering(filters) {
+        console.log('🔍 Checking filters for progressive filtering:', filters);
+
+        // Progressive filtering needed for:
+        // 1. "new" or "hot" sort with time filtering (not "all" time)
+        // 2. "new" sort with content filtering (not "all" content)
+        if ((filters.sort === 'new' || filters.sort === 'hot') && filters.time !== 'all') {
+            console.log('🔄 Progressive filtering needed: new/hot sort + time filtering');
+            return true;
+        }
+
+        if (filters.sort === 'new' && filters.contentType !== 'all') {
+            console.log('🔄 Progressive filtering needed: new sort + content filtering');
+            return true;
+        }
+
+        console.log('✅ No progressive filtering needed');
+        return false;
+    }
+
+    async function performProgressiveSearch(after = null, before = null, navigateBack = false, isInitialLoad = false) {
+        console.log('🔄 performProgressiveSearch() called with:', { after, before, navigateBack, isInitialLoad });
+
+        const query = currentFilters.query?.trim() || '';
+        const subreddit = currentFilters.subreddit || '';
+        const sort = currentFilters.sort;
+        const time = currentFilters.time;
+        const contentType = currentFilters.contentType;
+        const limit = 10;
+        const MAX_FETCHES = 5;
+
+        let fetchCount = 0;
+        let allFilteredPosts = [];
+        let currentAfterToken = (currentPageIndex === 0) ? null : (after || currentAfter);
+
+        async function fetchBatch() {
+            // Build Reddit URL (same logic as performSearch)
+            let finalUrl = '';
+            const isQuerying = query.length > 0;
+            const encodedQuery = encodeURIComponent(query);
+
+            if (isQuerying) {
+                finalUrl = `https://www.reddit.com${subreddit ? `/r/${subreddit}` : ''}/search.json?q=${encodedQuery}&sort=${sort}&restrict_sr=1&limit=${limit}&t=${time}`;
+            } else if (subreddit) {
+                finalUrl = `https://www.reddit.com/r/${subreddit}/${sort}.json?limit=${limit}&t=${time}`;
+            } else {
+                finalUrl = `https://www.reddit.com/r/all/${sort}.json?limit=${limit}&t=${time}`;
+            }
+
+            if (currentAfterToken) finalUrl += `&after=${currentAfterToken}`;
+
+            console.log('🌐 Fetching batch from:', finalUrl);
+
+            const response = await fetch(`http://localhost:3000/reddit?url=${encodeURIComponent(finalUrl)}`);
+            const data = await response.json();
+            console.log('🔍 Raw response data:', data);
+            return data;
+        }
+
+        // Progressive fetch loop
+        while (allFilteredPosts.length < 10 && fetchCount < MAX_FETCHES) {
+            fetchCount++;
+            console.log(`🔄 Fetch attempt ${fetchCount}/${MAX_FETCHES}`);
+            try {
+                const batchData = await fetchBatch();
+
+                if (!batchData.data.children || batchData.data.children.length === 0) {
+                    console.log('🛑 No more posts available');
+                    break;
+                }
+
+                // Trim the data (same as performSearch)
+                const trimmedData = batchData.data.children.map(post => ({
+                    id: post.data.id,
+                    title: post.data.title,
+                    url: post.data.url,
+                    permalink: post.data.permalink,
+                    subreddit: post.data.subreddit,
+                    score: post.data.score,
+                    is_video: post.data.is_video,
+                    domain: post.data.domain,
+                    author: post.data.author,
+                    created_utc: post.data.created_utc,
+                    num_comments: post.data.num_comments,
+                    over_18: post.data.over_18,
+                    preview: post.data.preview,
+                    selftext: post.data.selftext,
+                    body: post.data.body,
+                    is_gallery: post.data.is_gallery,
+                    gallery_data: post.data.gallery_data,
+                    media_metadata: post.data.media_metadata,
+                    crosspost_parent_list: post.data.crosspost_parent_list || [],
+                    icon_url: null,
+                    locked: post.data.locked,
+                    stickied: post.data.stickied,
+                    content_type: post.content_type
+                }));
+
+                // Apply filters 
+                let filteredBatch = filterPostsByTime(trimmedData, time);
+
+                // Early termination: if we got raw posts but some did not pass time filter, stop
+                if (trimmedData.length > 0 && filteredBatch.length === 0 && time !== 'all') {
+                    console.log('🛑 Early termination: got posts but none within time range, stopping');
+                    break;
+                }
+
+                console.log(`📦 Batch: ${trimmedData.length} raw posts → ${filteredBatch.length} filtered posts`);
+
+                // Add to our collection
+                allFilteredPosts.push(...filteredBatch);
+
+                console.log(`🎯 Total filtered posts so far: ${allFilteredPosts.length}`);
+
+                currentAfterToken = batchData.data.after;
+                if (!currentAfterToken) {
+                    console.log('🛑 Reached end of Reddit feed');
+                    break;
+                }
+
+            } catch (error) {
+                console.error('❌ Error in progressive fetch:', error);
+                break;
+            }
+        }
+
+        console.log('🎯 Progressive search complete, found:', allFilteredPosts.length, 'posts');
+
+        // Take only the first 10 results (in case we got a few extra)
+        const finalResults = allFilteredPosts.slice(0, 10);
+
+        // Save to navigation history
+        navigationHistory[currentPageIndex] = {
+            query: currentFilters.query,
+            subreddit: currentFilters.subreddit,
+            after: currentAfterToken, 
+            before: null,          
+            nextBefore: null,
+            results: finalResults
+        };
+
+        // Display the results
+        displayResults(finalResults);
+        preloadBookmarks(window.stripeCustomerId);
+        updatePagination();
+        updateURL();
+        window.scrollTo(0, 0);
+
+        console.log('✅ Progressive search displayed:', finalResults.length, 'posts');
+    }
+
+
+
+
+
+
+
+
+
+
+
 
     function performSearch(after = null, before = null, navigateBack = false, isInitialLoad = false) {
 
@@ -949,38 +1418,34 @@
             if (navigateBack) {
             const targetPage = navigationHistory[currentPageIndex];
 
-            // Check if cached data matches current filters
+            // For going back, we need the after token from the NEXT page
+            const nextPageIndex = currentPageIndex + 1;
+            const nextPage = navigationHistory[currentPageIndex];
+
+            currentAfter = nextPage?.after || null;
+            currentBefore = targetPage?.before || null;
+
+            // Then check for cached results
             if (targetPage?.results?.length &&
                 targetPage.query === currentFilters.query &&
                 targetPage.subreddit === currentFilters.subreddit) {
 
-                currentAfter = targetPage.after || null;
-                currentBefore = targetPage.before || null;
                 console.log("⬅️ Using cached results for back navigation");
                 displayResults(targetPage.results);
+                preloadBookmarks(window.stripeCustomerId);
                 updatePagination();
                 window.scrollTo(0, 0);
                 return;
+                }
             }
-            // Fall through to normal URL building and fetching
-        }
 
             // On initial load, filters should already be set externally
             if (!isInitialLoad) {
-                currentFilters = getCurrentFiltersFromUI();
+            currentFilters = getCurrentFiltersFromUI();
             }
-            // Setup tokens
-            if (navigateBack && currentPageIndex > 0) {
-                console.log("🔍 Looking for previous page in navigationHistory:", currentPageIndex - 1);
-                console.log("🔍 navigationHistory:", navigationHistory);
-                const previousPage = navigationHistory[currentPageIndex];
-                console.log("🔍 Previous page data:", previousPage);
-                if (previousPage) {
-                    currentAfter = previousPage.after || null;  // Change this line
-                    currentBefore = previousPage.before || null;  // Change this line
-                    console.log("🔍 Set tokens from history - after:", currentAfter, "before:", currentBefore);
-                }
-            } else {
+
+            // Move the else logic here and change it to handle non-navigate-back cases
+            if (!navigateBack) {
                 currentAfter = after || currentAfter;
                 currentBefore = before || currentBefore;
             }
@@ -994,7 +1459,6 @@
 
             const tokenForThisPage = buildCacheKey(currentPageIndex === 0 ? 'page_1' : currentAfter, currentFilters);
             console.log('🏷️ Token for this page:', tokenForThisPage);
-
             console.log('🏷️ Building token with currentAfter:', currentAfter);
             console.log('🏷️ currentPageIndex:', currentPageIndex);
        
@@ -1027,6 +1491,13 @@
             params.append('limit', limit.toString());
 
             showLoading();
+
+            // Check if progressive filtering is needed
+            if (needsProgressiveFiltering(currentFilters)) {
+                console.log('🔄 Progressive filtering needed, calling performProgressiveSearch()');
+                performProgressiveSearch(after, before, navigateBack, isInitialLoad);
+                return;
+            }
 
             // Fetch from database
             fetch(`http://localhost:3000/api/db-posts?${params.toString()}`)
@@ -1066,32 +1537,24 @@
                             locked: post.data.locked,
                             stickied: post.data.stickied
                         }));
-                    
+
+                        // console.log('💾 SAVED navigationHistory[' + currentPageIndex + ']:', navigationHistory[currentPageIndex]);
+                        
+                        const filtered = filterPostsByTime(trimmedData, currentFilters.time);
+                        console.log("📦 Raw post in frontend before filtering:", trimmedData);
+
                         // Save to history
                         navigationHistory[currentPageIndex] = {
                             query: currentFilters.query,
-                            after: currentAfter,
-                            before: currentBefore,
-                            nextAfter: dbResult.data?.after || null,
-                            nextBefore: dbResult.data?.before || null,
+                            subreddit: currentFilters.subreddit,
+                            after: dbResult.data.after,
+                            before: dbResult.data.before,  
+                            nextBefore: trimmedData.length > 0 ? `t3_${trimmedData[0].id}` : null,
+                            results: filtered
                         };
 
-                        const now = Math.floor(Date.now() / 1000);
-                        let timeCutoff = 0;
-
-                        switch (currentFilters.time) {
-                            case "hour": timeCutoff = now - 3600; break;
-                            case "day": timeCutoff = now - 86400; break;
-                            case "week": timeCutoff = now - 604800; break;
-                            case "month": timeCutoff = now - 2592000; break;
-                            case "year": timeCutoff = now - 31536000; break;
-                            default: timeCutoff = 0;
-                        }
-
-                        const filtered = trimmedData.filter(post => post.created_utc >= timeCutoff);
-                        console.log("📦 Raw post in frontend before filtering:", trimmedData);
-
                         displayResults(filtered);
+                        preloadBookmarks(window.stripeCustomerId);
                         window.scrollTo(0, 0);
                         updatePagination();
                         updateURL();
@@ -1140,33 +1603,22 @@
                                 };
                             });
 
+                            const filtered = filterPostsByTime(trimmedData, currentFilters.time);
+
+                            // Update tokens
                             navigationHistory[currentPageIndex] = {
                                 query: currentFilters.query,
-                                after: currentAfter,
-                                before: currentBefore,
-                                nextAfter: data.data?.after || null,
-                                nextBefore: data.data?.before || null,
+                                subreddit: currentFilters.subreddit,
+                                after: data.data.after,   
+                                before: data.data.before,
+                                nextBefore: trimmedData.length > 0 ? `t3_${trimmedData[0].id}` : null
                             };
 
-                         // Use currentAfter which is the token that was used to fetch this page
-                             if (data.data.children.length > 0) {
+                            // Use currentAfter which is the token that was used to fetch this page
+                            if (data.data.children.length > 0) {
                                 savePostsToDatabase(trimmedData.map(p => ({ data: p })), tokenForThisPage);
-                                console.log('💾 Saved posts to database with page group:', tokenForThisPage);
+                                // console.log('💾 Saved posts to database with page group:', tokenForThisPage);
                             }
-
-                            const now = Math.floor(Date.now() / 1000);
-                            let timeCutoff = 0;
-
-                            switch (currentFilters.time) {
-                                case "hour": timeCutoff = now - 3600; break;
-                                case "day": timeCutoff = now - 86400; break;
-                                case "week": timeCutoff = now - 604800; break;
-                                case "month": timeCutoff = now - 2592000; break;
-                                case "year": timeCutoff = now - 31536000; break;
-                                default: timeCutoff = 0;
-                            }
-
-                            const filtered = trimmedData.filter(post => post.created_utc >= timeCutoff);
 
                             fetch('http://localhost:3000/api/get-cached-posts')
                                 .then(res => res.json())
@@ -1176,6 +1628,7 @@
                                     });
 
                                     displayResults(filtered);
+                                    preloadBookmarks(window.stripeCustomerId);
                                     setTimeout(() => {
                                         if (!filtered.length) {
                                             showError("Couldn't find those terms. 🔎");
@@ -1191,7 +1644,7 @@
                 })
                 .catch(err => {
                     console.error('❌ Final catch triggered:', err);
-                    showError("Something went wrong. Try again.");
+                    showError("Something went wrong. Please try again.");
                 });           
         }
 
@@ -1333,9 +1786,45 @@
         });
     }
 
-    async function displayResults(data) {
-            resultsContainer.style.opacity = 0;
-            resultsContainer.innerHTML = '';
+    function filterPostsByContent(posts, contentType) {
+            if (contentType === 'all') {
+                return posts;
+            }
+
+            return posts.filter(post => {
+                const postContentType = classifyContentType(post);
+                return postContentType === contentType;
+        });
+    }
+
+    function filterPostsByTime(posts, timeFilter) {
+            if (timeFilter === 'all') {
+                return posts;
+            }
+
+            const now = Math.floor(Date.now() / 1000);
+            let timeCutoff = 0;
+
+                switch (timeFilter) {
+            case "hour": timeCutoff = now - 7200; break;   
+            case "day": timeCutoff = now - 172800; break;   
+            case "week": timeCutoff = now - 1209600; break;  
+            case "month": timeCutoff = now - 5184000; break; 
+            case "year": timeCutoff = now - 63072000; break; 
+            default: timeCutoff = 0;
+            }
+
+        return posts.filter(post => post.created_utc >= timeCutoff);
+    }
+
+
+    async function displayResults(data, isAppend = false) {
+            // For append mode in bookmarks
+            if (!isAppend) {
+                resultsContainer.style.opacity = 0;
+                resultsContainer.innerHTML = '';
+            }
+
             const selectedFilter = document.getElementById('content-select').value;
             // console.log('Number of posts:', data.length);
             // console.log('First post:', data[0]);
@@ -1370,7 +1859,8 @@
             const resultCard = document.createElement('div');
             resultCard.className = 'result-card';
             resultCard.dataset.permalink = post.permalink;
-
+            resultCard.dataset.bookmarkId = bookmarkId;
+            
             if (isProbablyNSFW) {
                 resultCard.classList.add('nsfw');
             }
@@ -1456,6 +1946,9 @@
 
                 // Set the subreddit in the input
                 subredditInput.value = subredditName;
+                // Set filter to hot
+                sortSelect.value = 'hot';
+                currentFilters.sort = 'hot';
 
                 // Update the chip to show this subreddit
                 if (subredditChipContainer) {
@@ -1498,24 +1991,36 @@
             const storageKey = `subreddit_icon_${post.subreddit}`;
             const cachedIcon = sessionStorage.getItem(storageKey);
 
+            // Check sessionStorage first, then backend, then fetch
             if (cachedIcon && cachedIcon !== 'null' && cachedIcon !== '/api/placeholder/20/20') {
-                // console.log(`🔍 Using cached icon for r/${post.subreddit}:`, cachedIcon);
+                // Use cached icon from sessionStorage
                 const img = document.createElement('img');
                 img.src = cachedIcon;
                 img.alt = `Icon for r/${post.subreddit}`;
                 img.className = 'subreddit-icon-img';
                 subredditIcon.textContent = '';
                 subredditIcon.appendChild(img);
-
-                // Trigger fade-in
                 setTimeout(() => img.classList.add('fade-in'), 10);
-          
+                subredditIcon.classList.add('icon-loaded');
                 post.icon_url = cachedIcon;
-            } else if (!post.icon_url) {
-                // Only fetch if we don't have an icon cached in sessionStorage
+            } else if (post.icon_url && post.icon_url !== null) {
+                // Use the icon URL from the backend response
+                console.log(`🌐 Using backend icon for r/${post.subreddit}:`, post.icon_url);
+                const img = document.createElement('img');
+                img.src = post.icon_url;
+                img.alt = `Icon for r/${post.subreddit}`;
+                img.className = 'subreddit-icon-img';
+                subredditIcon.textContent = '';
+                subredditIcon.appendChild(img);
+                setTimeout(() => img.classList.add('fade-in'), 10);
+                subredditIcon.classList.add('icon-loaded');
+                // Cache it in sessionStorage for next time
+                sessionStorage.setItem(storageKey, post.icon_url);
+            } else if (!cachedIcon || cachedIcon === 'null') {
+                // Only fetch if backend didn't provide an icon AND no sessionStorage cache
                 getSubredditIcon(post.subreddit).then(iconUrl => {
                     if (iconUrl && iconUrl !== '/api/placeholder/20/20') {
-                        console.log(`🌏 Checking icon for r/${post.subreddit}:`, iconUrl);
+                        console.log(`🌏 Fetched icon for r/${post.subreddit}:`, iconUrl);
                         const img = document.createElement('img');
                         img.src = iconUrl;
                         img.alt = `Icon for r/${post.subreddit}`;
@@ -1523,9 +2028,8 @@
                         subredditIcon.textContent = '';
                         subredditIcon.appendChild(img);
                         setTimeout(() => img.classList.add('fade-in'), 10);
-                        // Update in-memory cache
+                        subredditIcon.classList.add('icon-loaded');
                         post.icon_url = iconUrl;
-                        // Also ensure sessionStorage is updated
                         sessionStorage.setItem(storageKey, iconUrl);
                     }
                 });
@@ -1782,13 +2286,13 @@
             resultCard.appendChild(contentSection);
             resultCard.appendChild(commentsSection);
 
-            console.log('🔍 Post debug:', {
-                id: post.id,
-                title: post.title,
-                is_self: post.is_self,
-                domain: post.domain,
-                hasVisualMedia: hasVisualMedia
-            });
+            //console.log('🔍 Post debug:', {
+            //    id: post.id,
+            //    title: post.title,
+            //    is_self: post.is_self,
+            //   domain: post.domain,
+            //    hasVisualMedia: hasVisualMedia
+            //});
             
             // Check database cache before patches
             if (!window.imageHandler) {
@@ -1911,7 +2415,9 @@
         );
 
         if (visibleCards.length === 0) {
-        showError("No results found. Try different search terms or filters.");
+            showError("No results found. Try different search terms or filters.");
+            paginationContainer.innerHTML = '';
+            return;
         }
     }
         
@@ -1963,7 +2469,6 @@
                 // ADD THIS - create the img element that updateImageSuccess expects
                 const img = document.createElement('img');
                 img.className = 'result-image';
-                img.style.display = 'none'; // Hidden until loaded
 
                 imgContainer.className = 'img-container';
                 imageWrapper.className = 'image-wrapper';
@@ -2204,6 +2709,11 @@
 
     function setupImageModal(imageWrapper) {
         imageWrapper.addEventListener('click', function () {
+            // Remove any existing modals first
+            const existingModal = document.querySelector('.modal-overlay');
+            if (existingModal) {
+                existingModal.remove();
+            }
             const modalOverlay = document.createElement('div');
             modalOverlay.className = 'modal-overlay';
             modalOverlay.style.cssText = `
@@ -2343,7 +2853,7 @@
         // Helper function to check if URL is a Reddit domain
         isRedditDomain(url) {
             if (!url) return false;
-            const redditDomains = ['i.redd.it', 'v.redd.it', 'preview.redd.it', 'external-preview.redd.it'];
+            const redditDomains = ['i.redd.it', 'v.redd.it', 'reddit.com', 'preview.redd.it', 'external-preview.redd.it'];
             return redditDomains.some(domain => url.includes(domain));
         }
 
@@ -2358,7 +2868,7 @@
 
             // Skip Reddit image domains entirely
             if (this.isRedditDomain(post.url)) {
-                console.log(`🚫 Skipping Reddit image domain: ${post.url}`);
+                // console.log(`🚫 Skipping Reddit image domain: ${post.url}`);
                 return;
             }
 
@@ -2449,7 +2959,6 @@
         updateImageSuccess(resultCard, thumbnailUrl) {
             console.log('🔍 updateImageSuccess called with:', thumbnailUrl);
             const image = resultCard.querySelector('img.result-image');
-            image.style.display = 'none'; 
             image.style.opacity = '0';
             image.style.transition = 'opacity 0.3s ease-in-out';
             if (!image) return;
@@ -2488,6 +2997,13 @@
                 // Make container visible
                 const container = resultCard.querySelector('.img-container');
                 if (container) container.style.visibility = 'visible';
+
+                // Set up modal for scraped images  
+                const imgWrapper = resultCard.querySelector('.image-wrapper');
+                if (imgWrapper && !imgWrapper._hasModalSetup) {
+                    setupImageModal(imgWrapper);
+                    imgWrapper._hasModalSetup = true;
+                }
             };
 
             const handleError = () => {
@@ -2562,7 +3078,12 @@
                 })
             });
             const text = await response.text();
-            return JSON.parse(text);
+            if (response.ok) {
+                return JSON.parse(text);
+            } else {
+                console.error('Error:', text);
+                return { success: false, message: 'Failed' };
+            }
         }
 
         // Update cache
@@ -2689,7 +3210,7 @@
                 const cacheData = await cacheResponse.json();
 
                 if (cacheData.success && cacheData.cached && cacheData.comments.length > 0) {
-                    console.log(`✅ Using ${cacheData.comments.length} cached comments from database`);
+                    // console.log(`✅ Using ${cacheData.comments.length} cached comments from database`);
 
                     // Keep first 15
                     const dbComments = cacheData.comments.slice(0, 8).map(comment => ({
@@ -2948,7 +3469,12 @@
     }
 
     function updatePagination(targetPage = currentPageIndex) {
-    
+        const visibleCards = document.querySelectorAll('.result-card:not([style*="display: none"])');
+        if (visibleCards.length < 10) {
+            paginationContainer.innerHTML = '';
+            return;
+        }
+        // console.log('✅ currentAfter exists:', currentAfter);
         paginationContainer.innerHTML = '';
 
         let prevButton;
@@ -2963,11 +3489,13 @@
                 return;
             }
 
-            currentPageIndex--; 
             const targetPage = navigationHistory[currentPageIndex];
-            const prevToken = targetPage.before; 
-
-            performSearch(null, prevToken, true, targetPage.query); 
+            const prevToken = targetPage.nextBefore;
+            currentPageIndex--; 
+                console.log('🔍 About to use prevToken:', prevToken);
+                console.log('🔍 This came from navigationHistory[' + currentPageIndex + '].nextBefore');
+                console.log('🔍 Full targetPage data:', targetPage);
+            performSearch(null, prevToken, true, false); 
             savePaginationState();
         });
         paginationContainer.appendChild(prevButton);
@@ -2991,7 +3519,6 @@
 
             paginationContainer.appendChild(nextButton);
         }
-    
     }
 
     function savePaginationState() {
@@ -3086,52 +3613,26 @@
                 return cachedIcon;
             }
 
-            try {
-                const response = await fetch(`http://localhost:3000/reddit?url=https://www.reddit.com/r/${encodeURIComponent(cleanSubreddit)}/about.json`);
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const data = await response.json();
-
-                // Check each icon type in priority order
-                const iconSources = [
-                    data.data?.community_icon,
-                    data.data?.icon_img,
-                    data.data?.mobile_banner_image,
-                    data.data?.header_img,
-                    data.data?.banner_img
-                ];
-
-                // Find the first valid icon
-                let iconUrl = null;
-                for (const icon of iconSources) {
-                    if (icon && typeof icon === 'string' && icon.trim()) {
-                        iconUrl = icon.replace(/&amp;/g, '&').trim();
-                        if (iconUrl && iconUrl.startsWith('http')) {
-                            break;
-                        }
-                    }
-                }
-
-                if (!iconUrl) {
-                    sessionStorage.setItem(storageKey, 'null');
-                    return '/api/placeholder/20/20';
-                }
-
-                // Save to sessionStorage
-                sessionStorage.setItem(storageKey, iconUrl);
-                console.log(`💾 Saved icon for r/${cleanSubreddit} to sessionStorage:`, iconUrl);
-                return iconUrl;
-
-            } catch (err) {
-                console.error(`❌ Failed to fetch icon for r/${cleanSubreddit}:`, err.message);
-                // Cache the failure to avoid repeated requests
+        try {
+            const response = await fetch(`http://localhost:3000/reddit/icons?subreddits=${encodeURIComponent(cleanSubreddit)}`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const data = await response.json();
+            const iconUrl = data[cleanSubreddit];
+            if (!iconUrl) {
                 sessionStorage.setItem(storageKey, 'null');
                 return '/api/placeholder/20/20';
             }
+            // Save to sessionStorage
+            sessionStorage.setItem(storageKey, iconUrl);
+            return iconUrl;
+        } catch (err) {
+            console.error(`❌ Failed to fetch icon for r/${cleanSubreddit}:`, err.message);
+            sessionStorage.setItem(storageKey, 'null');
+            return '/api/placeholder/20/20';
         }
+    }
 
     function tryMediaPatch(fPost, resultCard, attempt = 1) {
             const cacheKey = fPost.url;
@@ -3216,15 +3717,28 @@
                 return;
             }
 
+            // Check if image-wrapper exists, create if missing
+            if (!imgWrapper) {
+                // Create the missing wrapper structure
+                imgWrapper = document.createElement('div');
+                imgWrapper.className = 'image-wrapper';
+                imgWrapper.style.cursor = 'pointer';
+
+                // Move the image inside the wrapper
+                const parent = mediaElement.parentNode;
+                parent.insertBefore(imgWrapper, mediaElement);
+                imgWrapper.appendChild(mediaElement);
+            }
+
             mediaElement.onerror = () => {
                 console.warn(`🚫 Failed to load media for ${cacheKey}, retrying raw URL`);
                 mediaElement.src = cached.url;
             };
 
             mediaElement.onload = () => {
-                console.log(`✅ Patched media loaded for ${cacheKey}`);
-                shimmer.style.display = 'none';
-                mediaElement.classList.add('show');
+            console.log(`✅ Patched media loaded for ${cacheKey}`);
+            shimmer.style.display = 'none';
+            mediaElement.classList.add('show');
             };
 
             mediaElement.src = fallbackURL;
@@ -3348,15 +3862,30 @@
                 imgContainer.appendChild(playIcon);
             }
         }
+    let isPopstateEvent = false;
+
+    window.addEventListener('popstate', (event) => {
+            isPopstateEvent = true;
+            loadPaginationState(true);
+        });
 
     function updateURL() {
             const params = new URLSearchParams();
             if (currentFilters.query) params.set('q', currentFilters.query);
             if (currentFilters.subreddit) params.set('sub', currentFilters.subreddit);
+            if (currentFilters.contentType && currentFilters.contentType !== 'all') params.set('type', currentFilters.contentType);
+            if (currentFilters.sort && currentFilters.sort !== 'hot') params.set('sort', currentFilters.sort);
+            if (currentFilters.time && currentFilters.time !== 'all') params.set('time', currentFilters.time);
             if (currentPageIndex > 0) params.set('page', currentPageIndex);
 
             const newURL = `${window.location.pathname}?${params.toString()}`;
-            history.pushState(null, '', newURL);
+
+            if (isPopstateEvent) {
+                // Don't modify history during popstate
+                return;
+            } else {
+                history.pushState(null, '', newURL);
+            }
         }
 
     function initPage() {   
@@ -3392,7 +3921,7 @@
 
         // ✅ 3. Only do search stuff on main page
         if (isBookmarksPage) {
-            loadBookmarkedContent();
+            loadSectionContent(1, false);
             return;
         }
 
@@ -3401,9 +3930,13 @@
             ? performance.navigation.type === 1
             : performance.getEntriesByType('navigation')[0]?.type === 'reload';
 
-        if (isPageRefresh) {
-            loadPaginationState();
-        } else {
+        const isBackForward = performance.navigation
+            ? performance.navigation.type === 2
+            : performance.getEntriesByType('navigation')[0]?.type === 'back_forward';
+
+        const restored = (isPageRefresh || isBackForward) && loadPaginationState(isBackForward);
+
+        if (!restored || isPageRefresh) {
             // Fresh load - setup defaults and search
             console.log("🛎️ Loading r/all...");
             currentPageIndex = 0;
@@ -3414,9 +3947,9 @@
                 time: 'all',
                 subreddit: '',
                 query: '',
+                contentType: 'all'
             };
-
-            if (window.stripeCustomerId && !sessionStorage.getItem('bookmarks')) {
+            if (window.stripeCustomerId) {
                 preloadBookmarks(window.stripeCustomerId, performSearch);
             } else {
                 performSearch();
@@ -3430,12 +3963,6 @@
     } else {
         initPage();
     }
-
-    window.addEventListener('popstate', () => {
-            console.log("🔙 Popstate triggered");
-            loadPaginationState(true, true); 
-        });
-
 
     function getYouTubeThumbnail(url) {
         // Extract video ID from various YouTube URL formats
@@ -3507,7 +4034,7 @@
                 const cleanUrl = post.url.split('?')[0];
                 const videoId = cleanUrl.split('/').pop();
                 const dashUrl = `https://v.redd.it/${videoId}/DASH_480.mp4`;
-                console.log('🎬 Constructing Reddit video thumbnail:', dashUrl);
+                // console.log('🎬 Constructing Reddit video thumbnail:', dashUrl);
                 // DON'T proxy video files - return direct URL
                 return dashUrl;
             }

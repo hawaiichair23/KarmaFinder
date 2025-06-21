@@ -1,4 +1,3 @@
-
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const util = require('util');
@@ -8,6 +7,7 @@ const execAsync = promisify(exec);
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
+const path = require('path');
 const pool = require('./db');
 const app = express();
 const PORT = 3000;
@@ -26,6 +26,7 @@ app.use(cors({
 }));
 
 app.options('*', cors());
+app.use(express.static(path.join(__dirname, '../html')));
 
 require('dotenv').config();
 require('./cron-cleanup');
@@ -53,13 +54,10 @@ app.use((_req, res, next) => {
     next();
 });
 
-function shouldRunFFProbe(url) {
-    const cleaned = (url || '').toLowerCase();
-    const ext = cleaned.split('.').pop().split('?')[0];
-    const mediaExtensions = ['gif', 'gifv', 'mp4', 'webm'];
-    const mediaDomains = ['i.imgur.com', 'v.redd.it', 'streamable.com', 'redgifs.com'];
-    return mediaExtensions.includes(ext) || mediaDomains.some(domain => cleaned.includes(domain));
-}
+pool.on('error', (err) => {
+    console.error('Unexpected error on idle client', err)
+    process.exit(-1)
+})
 
 function buildCacheKey(baseToken, filters) {
     const encode = str => encodeURIComponent(str || '');
@@ -75,7 +73,10 @@ function buildCacheKey(baseToken, filters) {
 
 async function getOGImage(url) {
     try {
-        const { data: html } = await axios.get(url, { headers });
+        const { data: html } = await axios.get(url, {
+            headers,
+            timeout: 5000
+        });
         const $ = cheerio.load(html);
         const ogImage = $('meta[property="og:image"]').attr('content');
         return ogImage || null;
@@ -208,7 +209,7 @@ app.post('/api/save-image', async (req, res) => {
         }
     }
     
-    console.log('💾 Saving post to database...');
+    console.log('💾 Saving news image to database...');
 
     // Insert to DB
     try {
@@ -276,114 +277,114 @@ app.get('/api/get-cached-posts', async (req, res) => {
     }
 });
 
+
+app.get('/reddit/icons', async (req, res) => {
+
+    const subreddits = req.query.subreddits?.split(',').filter(s => s && s.trim()) || [];
+    const icons = {};
+    if (subreddits.length === 0) {
+        return res.json({});
+    }
+
+    for (const subreddit of subreddits) {
+        console.log(`🚨 Processing subreddit: ${subreddit}`);
+        try {
+            console.log(`🔎 Checking icon for r/${subreddit}`);
+
+            // Check DB first
+            const iconRes = await pool.query(
+                'SELECT icon_url FROM subreddit_icons WHERE subreddit = $1',
+                [subreddit]
+            );
+
+            if (iconRes.rows.length > 0) {
+                icons[subreddit] = iconRes.rows[0].icon_url;
+                console.log(`📦 Found cached icon for r/${subreddit}`);
+            } else {
+                // Fetch from Reddit
+                const token = await getRedditAppToken();
+                const aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
+                    headers: {
+                        ...headers,
+                        'Authorization': `Bearer ${token}`,
+                        'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
+                    }
+                });
+
+                const aboutData = await aboutRes.json();
+                const rawIcon = (
+                    aboutData.data.community_icon ||
+                    aboutData.data.icon_img ||
+                    aboutData.data.mobile_banner_image ||
+                    aboutData.data.header_img ||
+                    aboutData.data.banner_img ||
+                    ''
+                ).replace(/&amp;/g, '&').trim();
+
+                const iconUrl = rawIcon || null;
+                icons[subreddit] = iconUrl;
+
+
+                console.log(`🔍 About to save: subreddit="${subreddit}", iconUrl="${iconUrl}"`);
+                // Cache it
+                await pool.query(`
+                   INSERT INTO subreddit_icons (subreddit, icon_url, created_at)
+                   VALUES ($1, $2, NOW())
+                   ON CONFLICT (subreddit)
+                   DO UPDATE SET icon_url = EXCLUDED.icon_url, created_at = NOW()
+               `, [subreddit, iconUrl]);
+
+                console.log(`💾 Saved icon for r/${subreddit}`);
+            }
+        } catch (err) {
+            console.error(`❌ Failed to fetch icon for r/${subreddit}:`, err.message);
+            icons[subreddit] = null;
+        }
+    }
+
+    res.json(icons);
+});
+
 app.get('/reddit', async (req, res) => {
     const encodedUrl = req.query.url;
     let decodedUrl = decodeURIComponent(encodedUrl);
-    
-    // Ensure it’s a Reddit URL
+
+    // Ensure it's a Reddit URL
     if (!decodedUrl.startsWith('https://www.reddit.com/')) {
         return res.status(200).send('Non-Reddit URL intercepted :3c');
     }
 
     // Check if this is a subreddit search request
     if (decodedUrl.includes('subreddits/search.json')) {
-        // Extract the search query
         const urlParams = new URL(decodedUrl, 'https://example.com').searchParams;
         const query = urlParams.get('q')?.trim().toLowerCase();
         console.log('🔍 Subreddit search query:', query);
 
         if (query) {
             try {
-
                 const cachedResult = await pool.query(
-                    "SELECT results, created_at FROM subreddit_search_cache WHERE query_term = $1",
+                    "SELECT results FROM subreddit_search_cache WHERE query_term = $1",
                     [query]
                 );
 
                 if (cachedResult.rows.length > 0) {
                     console.log(`🚀 Cache hit for query: ${query}`);
-                    const cachedData = cachedResult.rows[0].results;
-
-                    // Loop through each subreddit in the results
-                    for (let child of cachedData.data.children) {
-                        const subreddit = child.data.display_name;
-                        console.log(`🔎 Checking icon for r/${subreddit}`);
-
-                        try {
-                            // Try to get the icon from your table
-                            const iconRes = await pool.query(
-                                'SELECT icon_url FROM subreddit_icons WHERE subreddit = $1',
-                                [subreddit]
-                            );
-
-                            console.log(`📦 iconRes for r/${subreddit}:`, iconRes.rows);
-
-                            if (iconRes.rows.length > 0) {
-                                child.icon_url = iconRes.rows[0].icon_url; // Allowed to be null
-                            } else {
-                                // Fetch from Reddit
-                                const token = await getRedditAppToken();
-                                const aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
-                                    headers: {
-                                        ...headers,
-                                        'Authorization': `Bearer ${token}`,
-                                        'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
-                                    }
-                                });
-
-                                const aboutData = await aboutRes.json();
-                                const rawIcon = (
-                                    aboutData.data.community_icon ||
-                                    aboutData.data.mobile_banner_image ||
-                                    aboutData.data.icon_img ||
-                                    aboutData.data.header_img ||
-                                    aboutData.data.banner_img ||
-                                    ''
-                                ).replace(/&amp;/g, '&').trim();
-
-                                const iconUrl = rawIcon || null;
-                                child.icon_url = iconUrl;
-
-                                // Save the icon to your DB for next time
-                                await pool.query(`
-                    INSERT INTO subreddit_icons (subreddit, icon_url, created_at)
-                    VALUES ($1, $2, NOW())
-                    ON CONFLICT (subreddit)
-                    DO UPDATE SET icon_url = EXCLUDED.icon_url, created_at = NOW()
-                `, [subreddit, iconUrl]);
-
-                                console.log(`💾 Saved icon for r/${subreddit} from /about.json`);
-                            }
-
-                        } catch (err) {
-                            console.error(`❌ Failed to fetch icon for r/${subreddit}:`, err.message);
-                            child.icon_url = null;
-                        }
-                    }
-
-                    // After all icons have been checked or fetched, send the result
-                    return res.json(cachedData);
+                    return res.json(cachedResult.rows[0].results);
                 }
 
                 console.log("⚡ Fetching from Reddit because no cache hit");
-
             } catch (error) {
                 console.error('Error checking cache:', error);
-                // Continue to fetch from Reddit if there's an error
             }
         }
     }
 
     // Rewrite www to oauth
     decodedUrl = decodedUrl.replace('https://www.reddit.com', 'https://oauth.reddit.com');
-
-    // Strip trailing .json or .json/ since OAuth API doesn't need them
     decodedUrl = decodedUrl.replace(/\.json\/?$/, '');
 
     try {
         const token = await getRedditAppToken();
-
-        // Only retry for ECONNRESET errors
         let response;
 
         for (let attempt = 1; attempt <= 3; attempt++) {
@@ -395,21 +396,13 @@ app.get('/reddit', async (req, res) => {
                         'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
                     }
                 });
-
-                // If it worked, break out of the loop
                 break;
-
             } catch (error) {
-                lastError = error;
-
-                // ONLY retry if it's ECONNRESET
                 if (error.code === 'ECONNRESET' && attempt < 3) {
                     console.log(`ECONNRESET on attempt ${attempt}, retrying...`);
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     continue;
                 }
-
-                // For any other error, or if we've hit max attempts, throw immediately
                 throw error;
             }
         }
@@ -424,59 +417,6 @@ app.get('/reddit', async (req, res) => {
             data.data.children = data.data.children.slice(0, 10);
         }
 
-        if (data?.data?.children) {
-            for (let child of data.data.children) {
-                const subreddit = child.data.subreddit;
-
-                try {
-                    // Try to get the icon from your table
-                    const iconRes = await pool.query(
-                        'SELECT icon_url FROM subreddit_icons WHERE subreddit = $1',
-                        [subreddit]
-                    );
-
-                    if (iconRes.rows.length > 0) {
-                        child.icon_url = iconRes.rows[0].icon_url;
-                    } else {
-                        // No icon in DB – fetch it from Reddit
-                        const aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
-                            headers: {
-                                ...headers,
-                                'Authorization': `Bearer ${token}`,
-                                'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
-                            }
-                        });
-
-                        const aboutData = await aboutRes.json();
-                        const rawIcon = (
-                            aboutData.data.community_icon ||
-                            aboutData.data.mobile_banner_image ||
-                            aboutData.data.icon_img ||
-                            aboutData.data.header_img ||
-                            aboutData.data.banner_img ||
-                            ''
-                        ).replace(/&amp;/g, '&').trim();
-
-                        const iconUrl = rawIcon || null;
-                        child.icon_url = iconUrl;
-
-                        // Save the icon for next time
-                        await pool.query(`
-                    INSERT INTO subreddit_icons (subreddit, icon_url, created_at)
-                    VALUES ($1, $2, NOW())
-                    ON CONFLICT (subreddit)
-                    DO UPDATE SET icon_url = EXCLUDED.icon_url, created_at = NOW()
-                `, [subreddit, iconUrl]);
-
-                        console.log(`💾 Saved icon for r/${subreddit} from live /about.json`);
-                    }
-                } catch (err) {
-                    console.error(`❌ Failed to fetch or cache icon for r/${subreddit}:`, err.message);
-                    child.icon_url = null;
-                }
-            }
-        }
-        
         // Cache subreddit search results
         if (encodedUrl.includes('subreddits/search.json')) {
             const urlParams = new URL(decodeURIComponent(encodedUrl), 'https://example.com').searchParams;
@@ -484,20 +424,16 @@ app.get('/reddit', async (req, res) => {
 
             if (query && data) {
                 try {
-                    // Clean the data before storing
                     const cleanedData = {
                         data: {
                             children: data.data.children
-                                .filter(child => child && child.data && child.data.display_name) // ✅ Prevent [null]
+                                .filter(child => child && child.data && child.data.display_name)
                                 .map(child => ({
                                     data: {
-                                        // Keep only these essential fields
                                         id: child.data.id,
                                         display_name: child.data.display_name,
                                         url: child.data.url,
                                         name: child.data.name,
-
-                                        // Only the image fields you're actually using
                                         community_icon: child.data.community_icon || null,
                                         mobile_banner_image: child.data.mobile_banner_image || null,
                                         icon_img: child.data.icon_img || null,
@@ -508,13 +444,12 @@ app.get('/reddit', async (req, res) => {
                         }
                     };
 
-                    // STORE QUERIES IN DB
                     await pool.query(
                         `INSERT INTO subreddit_search_cache (query_term, results, created_at) 
-                        VALUES ($1, $2, NOW()) 
-                        ON CONFLICT (query_term) DO UPDATE 
-                        SET results = $2, created_at = NOW()`,
-                        [query, JSON.stringify(cleanedData)]  
+                       VALUES ($1, $2, NOW()) 
+                       ON CONFLICT (query_term) DO UPDATE 
+                       SET results = $2, created_at = NOW()`,
+                        [query, JSON.stringify(cleanedData)]
                     );
                 } catch (error) {
                     console.error('Error caching results:', error);
@@ -525,18 +460,134 @@ app.get('/reddit', async (req, res) => {
         res.json(data);
 
     } catch (err) {
-        // Handle ECONNRESET first, BEFORE sending any other response
         if (err.code === 'ECONNRESET') {
             console.error('❌ Reddit closed the connection after 3 attempts');
             return res.status(503).json({ error: 'Reddit connection lost. Please try again.' });
         }
 
-        // Handle all other errors
         console.error('❌ Reddit proxy error:', err.message);
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.status(500).json({ error: 'Failed to fetch Reddit content. ' + err.message });
     }
+});
 
+app.get('/search', async (req, res) => {
+    const searchQuery = req.query.q;
+    const subreddit = req.query.sub; 
+
+    // Logging the search to the database
+    try {
+        if (searchQuery || subreddit) { 
+            const existing = await pool.query(
+                'SELECT id, score FROM search_suggestions WHERE query = $1 AND subreddit = $2',
+                [searchQuery || '', subreddit || '']
+            );
+
+            if (existing.rows.length > 0) {
+                // Update existing record
+                await pool.query(
+                    'UPDATE search_suggestions SET score = score + 1, updated_at = NOW() WHERE id = $1',
+                    [existing.rows[0].id]
+                );
+            } else {
+                // Insert new record
+                await pool.query(
+                    'INSERT INTO search_suggestions (query, subreddit, score, created_at, updated_at) VALUES ($1, $2, 1, NOW(), NOW())',
+                    [searchQuery || '', subreddit || '']
+                );
+            }
+        }
+    } catch (err) {
+        console.error('Failed to log search:', err);
+    }
+
+
+    try {
+        // Build the Reddit URL with optional subreddit
+        let redditUrl;
+        if (subreddit && searchQuery) {
+            // Search within specific subreddit
+            redditUrl = `https://www.reddit.com/r/${subreddit}/search.json?q=${encodeURIComponent(searchQuery)}&sort=relevance&restrict_sr=1&limit=10`;
+        } else if (subreddit && !searchQuery) {
+            // Just get hot posts from subreddit
+            redditUrl = `https://www.reddit.com/r/${subreddit}/hot.json?limit=10`;
+        } else if (!subreddit && searchQuery) {
+            // Search all of Reddit
+            redditUrl = `https://www.reddit.com/r/all/search.json?q=${encodeURIComponent(searchQuery)}&sort=relevance&restrict_sr=0&limit=10`;
+        } else {
+            // Both empty - show r/all hot (front page)
+            redditUrl = `https://www.reddit.com/r/all/hot.json?limit=10`;
+        }
+
+        const token = await getRedditAppToken();
+        const oauthUrl = redditUrl.replace('https://www.reddit.com', 'https://oauth.reddit.com');
+        const response = await dogFetch(oauthUrl, {
+            headers: {
+                ...headers,
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
+            }
+        });
+        const redditData = await response.json();
+
+        // Read your actual HTML file and modify it
+        let html = fs.readFileSync(path.join(__dirname, '../html/karmafinder.html'), 'utf8');
+
+        // Serve the assets folder for images
+        app.use('/assets', express.static(path.join(__dirname, '../assets')));
+        app.use('/assets/favicon-32x32.png', express.static(path.join(__dirname, '../assets/favicon-32x32.png')));
+
+        // Set the sort dropdown to relevance for preloaded results
+        html = html.replace(
+            '<option value="relevance">Relevance</option>',
+            '<option value="relevance" selected>Relevance</option>'
+        );
+
+        // Remove selected from hot
+        html = html.replace(
+            '<option value="hot" selected>Hot</option>',
+            '<option value="hot">Hot</option>'
+        );
+
+        // Update the title and meta tags for SEO
+        const titleText = subreddit
+            ? `KarmaFinder - "${searchQuery}" in r/${subreddit} Search Results`
+            : `KarmaFinder - "${searchQuery}" Search Results`;
+
+        const descriptionText = subreddit
+            ? `Reddit search results for '${searchQuery}' in r/${subreddit} - Find discussions and posts about ${searchQuery} in the ${subreddit} subreddit`
+            : `Reddit search results for '${searchQuery}' - Find discussions, posts, and conversations about ${searchQuery} on Reddit`;
+
+        html = html.replace(
+            '<title>KarmaFinder - Better Reddit Search</title>',
+            `<title>${titleText}</title>`
+        );
+
+        html = html.replace(
+            '<meta name="description" content="Search Reddit like Google. Find exactly what you\'re looking for across any subreddit.">',
+            `<meta name="description" content="${descriptionText}">`
+        );
+
+        // Inject the search data and query into the page
+        const dataScript = `
+    <script>
+      window.preloadedSearchData = ${JSON.stringify(redditData)};
+      window.preloadedQuery = "${searchQuery}";
+      window.preloadedSubreddit = "${subreddit || ''}";
+    </script>`;
+        html = html.replace('</body>', dataScript + '</body>');
+
+        // Update the search input to show the query
+        html = html.replace(
+            'placeholder="Search Reddit"',
+            `placeholder="Search Reddit" value="${searchQuery}"`
+        );
+
+        res.send(html);
+    } catch (err) {
+        console.error('SEO search error:', err);
+        res.status(500).send('Search failed: ' + err.message);
+    }
 });
 
 app.get('/image', async (req, res) => {
@@ -826,6 +877,54 @@ app.get('/api/db-posts', async (req, res) => {
     }
 });
 
+// GET /api/suggestions?q=claude&subreddit=Art&limit=10
+app.get('/api/suggestions', async (req, res) => {
+    const { q, subreddit, limit = 10 } = req.query;
+
+    let query = `
+    SELECT query, subreddit, score 
+    FROM search_suggestions 
+    WHERE query ILIKE $1
+  `;
+    let params = [`${q}%`];
+
+    // If they're searching within a specific subreddit
+    if (subreddit) {
+        query += ` AND subreddit = $2`;
+        params.push(subreddit);
+    }
+
+    query += ` ORDER BY score DESC, query ASC LIMIT $${params.length + 1}`;
+    params.push(limit);
+
+    const suggestions = await pool.query(query, params);
+    res.json(suggestions.rows);
+});
+
+// POST /api/suggestions/select
+app.post('/api/suggestions/store', async (req, res) => {
+    const { query, subreddit } = req.body;
+
+    await pool.query('SELECT increment_suggestion_score($1, $2)', [query.toLowerCase(), subreddit || null]);
+    
+    res.json({ success: true });
+});
+
+// Pull top queries on click
+app.get('/api/top-searches', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT query, subreddit, score
+            FROM search_suggestions 
+            ORDER BY score DESC 
+            LIMIT 6
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.post('/api/analyze-media', async (req, res) => {
     const { url } = req.body;
     if (!url || typeof url !== 'string') {
@@ -1050,6 +1149,16 @@ app.post('/api/bookmarks', async (req, res) => {
             preview
         } = req.body;
 
+        const defaultSectionResult = await pool.query(
+            'SELECT id FROM sections WHERE user_id = $1 AND name = $2',
+            [stripeCustomerId, 'Bookmarks']
+        );
+        const sectionId = defaultSectionResult.rows[0]?.id;
+
+        if (!sectionId) {
+            return res.status(400).json({ success: false, error: 'Default section not found' });
+        }
+
         if (!stripeCustomerId) {
             return res.status(400).json({ success: false, error: 'Missing customer ID' });
         }
@@ -1067,17 +1176,17 @@ app.post('/api/bookmarks', async (req, res) => {
         // Insert bookmark
         await pool.query(
             `INSERT INTO bookmarks (
-                user_id, reddit_post_id, title, url, permalink, subreddit, score, 
-                is_video, domain, author, created_utc, num_comments, over_18, 
-                selftext, body, is_gallery, gallery_data, media_metadata, 
-                crosspost_parent_list, content_type, icon_url, locked, stickied, preview
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24) 
+                user_id, reddit_post_id, title, url, permalink, subreddit, score,
+                is_video, domain, author, created_utc, num_comments, over_18,
+                selftext, body, is_gallery, gallery_data, media_metadata,
+                crosspost_parent_list, content_type, icon_url, locked, stickied, preview, section_id
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
             ON CONFLICT (user_id, reddit_post_id) DO NOTHING`,
             [
                 stripeCustomerId, postId, title, url, permalink, subreddit, score,
                 is_video, domain, author, created_utc, num_comments, over_18,
                 selftext, body, is_gallery, galleryData, mediaMetadata,
-                crosspostList, content_type, icon_url, locked, stickied, previewData
+                crosspostList, content_type, icon_url, locked, stickied, previewData, sectionId
             ]
         );
 
@@ -1118,18 +1227,154 @@ app.delete('/api/bookmarks/:stripeCustomerId/:reddit_post_id', async (req, res) 
 app.get('/api/bookmarks/:stripeCustomerId', async (req, res) => {
     try {
         const { stripeCustomerId } = req.params;
+        const { offset = 0, limit = 10 } = req.query; 
+
         const result = await pool.query(`
-            SELECT reddit_post_id, title, url, permalink, subreddit, score,
+            SELECT id, reddit_post_id, title, url, permalink, subreddit, score,
                    is_video, domain, author, created_utc, num_comments, over_18,
                    selftext, body, is_gallery, gallery_data, media_metadata,
                    crosspost_parent_list, content_type, icon_url, locked, stickied, preview
             FROM bookmarks
             WHERE user_id = $1
-            ORDER BY created_at DESC
-        `, [stripeCustomerId]);
+            ORDER BY sort_order ASC, created_at DESC
+            LIMIT $2 OFFSET $3
+        `, [stripeCustomerId, parseInt(limit), parseInt(offset)]); 
+
         res.json({ bookmarks: result.rows });
     } catch (error) {
         console.error('GET bookmarks error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 4b. Get bookmarks for a user by section 
+app.get('/api/bookmarks/:stripeCustomerId/section/:sectionId', async (req, res) => {
+    try {
+        const { stripeCustomerId, sectionId } = req.params;
+        const { offset = 0, limit = 10 } = req.query;
+
+        console.log('userId:', stripeCustomerId, 'sectionId:', sectionId, 'limit:', limit, 'offset:', offset);
+
+        const result = await pool.query(`
+           SELECT id, reddit_post_id, title, url, permalink, subreddit, score,
+                  is_video, domain, author, created_utc, num_comments, over_18,
+                  selftext, body, is_gallery, gallery_data, media_metadata,
+                  crosspost_parent_list, content_type, icon_url, locked, stickied, preview
+           FROM bookmarks
+           WHERE user_id = $1 AND section_id = $2
+           ORDER BY sort_order ASC, created_utc ASC, reddit_post_id
+           LIMIT $3 OFFSET $4
+       `, [stripeCustomerId, parseInt(sectionId), parseInt(limit), parseInt(offset)]);
+
+        console.log('Returned bookmarks:', result.rows.length);
+
+        res.json({ bookmarks: result.rows });
+    } catch (error) {
+        console.error('GET bookmarks by section error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 5. Reorder bookmarks
+app.post('/api/bookmarks/:stripeCustomerId/reorder', async (req, res) => {
+    try {
+        const { stripeCustomerId } = req.params;
+        const { orderedIds, sectionId } = req.body;
+
+        if (!orderedIds || !Array.isArray(orderedIds)) {
+            return res.status(400).json({ success: false, error: 'Invalid ordered IDs' });
+        }
+
+        // Update each bookmark with its new position WITHIN THE SECTION
+        for (let i = 0; i < orderedIds.length; i++) {
+            await pool.query(
+                'UPDATE bookmarks SET sort_order = $1 WHERE user_id = $2 AND reddit_post_id = $3 AND section_id = $4',
+                [i, stripeCustomerId, orderedIds[i], sectionId]  
+            );
+        }
+
+        console.log(`Updated sort order for section ${sectionId}:`, orderedIds.map((id, i) => `${id}=${i}`));
+
+        res.json({ success: true, message: 'Bookmark order updated' });
+    } catch (error) {
+        console.error('Error updating bookmark order:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 6. Get bookmarks by section
+app.get('/api/bookmarks/:userId/section/:sectionId', async (req, res) => {
+    try {
+        const { userId, sectionId } = req.params;
+        const offset = parseInt(req.query.offset) || 0;
+        const limit = parseInt(req.query.limit) || 10;
+        console.log('userId:', userId, 'sectionId:', sectionId, 'limit:', limit, 'offset:', offset);
+        const result = await pool.query(`
+            SELECT * FROM bookmarks
+            WHERE user_id = $1 AND section_id = $2
+            ORDER BY sort_order ASC, created_utc ASC, reddit_post_id
+            LIMIT $3 OFFSET $4
+        `, [userId, sectionId, limit, offset]);
+        console.log('Returned bookmarks:', result.rows.length);
+        res.json({ bookmarks: result.rows });
+    } catch (error) {
+        console.error('Error fetching section bookmarks:', error);
+        res.status(500).json({ error: 'Failed to fetch bookmarks' });
+    }
+});
+
+// 7. Get all sections for a user
+app.get('/api/bookmarks/:userId/sections', async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const result = await pool.query(`
+            SELECT id, name, sort_order, 
+                   (SELECT COUNT(*) FROM bookmarks WHERE section_id = sections.id) as count
+            FROM sections 
+            WHERE user_id = $1
+            ORDER BY sort_order
+        `, [userId]);
+
+        res.json({ sections: result.rows });
+    } catch (error) {
+        console.error('Error fetching sections:', error);
+        res.status(500).json({ error: 'Failed to fetch sections' });
+    }
+});
+
+// 8. Move bookmark to different section
+app.put('/api/bookmarks/:bookmarkId/section', async (req, res) => {
+    try {
+        const { bookmarkId } = req.params;
+        const { sectionId } = req.body;
+        await pool.query(`
+            UPDATE bookmarks
+            SET section_id = $1
+            WHERE reddit_post_id = $2
+        `, [sectionId, bookmarkId]); // Remove sort_order = 1
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating bookmark section:', error);
+        res.status(500).json({ error: 'Failed to update section' });
+    }
+});
+
+// Get all sections for a user
+app.get('/api/sections/:stripeCustomerId', async (req, res) => {
+    try {
+        const { stripeCustomerId } = req.params;
+
+        const result = await pool.query(`
+            SELECT id, name, sort_order, created_at
+            FROM sections
+            WHERE user_id = $1
+            ORDER BY sort_order ASC
+        `, [stripeCustomerId]);
+
+        res.json({ sections: result.rows });
+    } catch (error) {
+        console.error('GET sections error:', error);
         res.status(500).json({ error: error.message });
     }
 });

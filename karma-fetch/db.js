@@ -7,9 +7,9 @@ const pool = new Pool({
     database: process.env.PGDATABASE,
     password: process.env.PGPASSWORD,
     port: process.env.PGPORT,
-    max: 80, // Maximum number of clients in the pool
-    idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-    connectionTimeoutMillis: 2000, // How long to wait for a client from the pool
+    max: 100, 
+    idleTimeoutMillis: 0, 
+    connectionTimeoutMillis: 2000, 
 });
 
 // Pool event handlers
