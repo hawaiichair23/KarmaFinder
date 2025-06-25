@@ -2,16 +2,19 @@
 
 .tab-container {
     display: flex;
-    margin-bottom: 0px;
+    margin-bottom: -1px;
 }
 
 .tab {
     padding-top: 9px;
     padding-bottom: 9px;
-    padding-right: 27px;
-    padding-left: 27px;
-    max-width: 100px;
-    text-overflow: ellipse;
+    padding-left: 17px;
+    padding-right: 17px;
+    width: 124px;
+    height: 25px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
     text-align: center;
     cursor: pointer;
     background-color: #f9fafe;
@@ -19,7 +22,7 @@
     font-size: medium;
     border-width: 1.5px;
     border-style: solid;
-    border-radius: 7px 7px 5px 5px;
+    border-radius: 8px;
     border-color: #dddddd;
     box-shadow: inset 0 0 1px rgba(0, 0, 0, 0.4);
 }
@@ -42,20 +45,17 @@ body.dark-mode .tab:hover {
     display: flex;
     position: relative;
     flex-direction: column;
-    background-color: #f9fafe;
     gap: 15px;
+    background-color: var(--card-color);
     border-radius: 8px;
     justify-content: center;
     align-items: center;
     min-height: 120px;
-    transition: all 0.15s ease-in-out;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border-style: solid;
-    border-width: 1.5px;
-    border-color: rgba(0, 0, 0, 0.25);
-    box-shadow: inset 0 0 1px rgba(0, 0, 0, 0.4);
+    border: 1.5px solid var(--shadow-card);
+    box-shadow: 0 1px 3px var(--shadow-light), inset 0 0 1px var(--inset-shadow);
     transform: translateY(6px);
-    opacity: 1;
+    opacity: 0;
+    transition: all 0.15s ease-in-out;
     z-index: 15;
 }
 
@@ -63,10 +63,15 @@ body.dark-mode .tab:hover {
     position: absolute;
     top: 15px;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-53%);
     opacity: 0;
     transition: opacity 0.2s ease;
     z-index: 10;
+}
+
+body.comfy-mode .bookmark-section-dropdown {
+    transform: translateX(-191%);
+    top: 18px;
 }
 
 .result-card:hover .bookmark-section-dropdown {
@@ -241,6 +246,17 @@ body.dark-mode .context-menu {
     border-radius: 8px;
 }
 
+.pengcil {
+    background-image: url('../assets/pengcil.png');
+    width: 19px;
+    height: 21px;
+    margin-right: 0px;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 1050;
+}
+
 body.dark-mode .context-menu-item {
     box-shadow: inset 0 0 1px #35353e;
 }
@@ -278,12 +294,6 @@ body.dark-mode .context-menu-item.danger:hover {
     box-shadow: none !important;
 }
 
-.tab:focus {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-}
-
 /* Style the selected text */
 .tab.editing::selection {
     background: #4f4f72;
@@ -303,4 +313,56 @@ body.dark-mode .tab.editing::selection {
 body.dark-mode .tab.editing::-moz-selection {
     background: #4f4f72;
     color: #fff;
+}
+
+/* Addition button */
+
+.add-section-btn {
+    background-color: #f9fafe;
+    border-color: rgba(76, 76, 76, 0.25);
+    box-shadow: inset 0 0 1px rgba(58, 58, 58, 0.4);
+    border-style: solid;
+    border-width: 1.5px;
+    /* No bottom border to blend with content */
+    border-radius: 8px;
+    /* Only top corners rounded */
+    color: #a0a0ad;
+    width: 46px;
+    height: 43px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 23px;
+    font-weight: 500;
+    top: 2px;
+    position: relative;
+}
+
+.plus-sign {
+    position: relative;
+    top: -1.5px;
+}
+
+.add-section-btn:hover {
+    filter: brightness(0.95) hue-rotate(10deg);
+}
+
+.add-section-btn:active {
+    background: #d0d0d0;
+}
+
+body.dark-mode .add-section-btn {
+    background: #202022;
+    color: #888;
+    box-shadow: inset 0 0 1.5px rgba(86, 86, 86, 0.4);
+    border-color: #333;
+}
+
+body.dark-mode .add-section-btn:hover {
+    filter: brightness(1.15) hue-rotate(10deg);
+}
+
+body.dark-mode .add-section-btn:active {
+    background: #202022;
 }

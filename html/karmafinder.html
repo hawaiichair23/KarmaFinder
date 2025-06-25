@@ -2,10 +2,11 @@
 <html lang="en">
 
 <head>
+<link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
 <link rel="stylesheet" href="styles.css" />
 <link rel="stylesheet" href="bookmarks.css">
 <link rel="icon" type="image/ico" sizes="32x32" href="/assets/favicon-32x32.png">
-
+<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta property="og:title" content="KarmaFinder - Reddit Search Engine">
@@ -28,9 +29,30 @@
 
     window.stripeCustomerId = "cus_ABC123";
 
+    window.addEventListener('beforeunload', function (e) {
+            console.trace('🚨 PAGE UNLOAD TRIGGERED - STACK TRACE:');
+        });
+
 </script>
 
     <a href="donopage.html" class="donate-btn floating-button">Support the Site</a>
+    <div class="theme-toggle-container">
+        <button class="theme-arrow" onclick="toggleThemeMenu()">🎨</button>
+        <div class="theme-dropdown" id="themeDropdown">
+            <div class="theme-option" onclick="selectTheme('default')">
+                <div class="theme-preview" style="background: linear-gradient(45deg, #ff4500, #0079d3)"></div>
+                <span>Default</span>
+            </div>
+            <div class="theme-option" onclick="selectTheme('ocean')">
+                <div class="theme-preview" style="background: linear-gradient(45deg, #1e90ff, #4169e1)"></div>
+                <span>Ocean</span>
+            </div>
+                <div class="theme-option" onclick="selectTheme('forest')">
+                    <div class="theme-preview" style="background: linear-gradient(45deg, #005304, #08a310)"></div>
+                    <span>Forest</span>
+                </div>
+        </div>
+    </div>
     <div class="container">
         <header
             style="display: flex; justify-content: center; align-items: center; position: relative; padding: 1rem 0;">
@@ -40,6 +62,13 @@
                 </a>
                 <div class="tagline">Find exactly what you're looking for on Reddit 🔎</div>
                 <img src="../assets/hermes.png" alt="Hermes Detective Cat" class="hermes-cat">
+                <div id="hermes-speech" class="speech-bubble hidden">
+                    <div class="speech-tail speech-tail-outline"></div>
+                    <div class="speech-tail speech-tail-inner"></div>
+                    <div class="speech-text"></div>
+                </div>
+
+
             </div>
         </header>
 
@@ -54,6 +83,25 @@
 
         <div class="search-container">
           <div class="search-top-row">
+
+                    <div class="toggle-group">
+                        <div class="toggle-wrapper">
+                            <label class="switch">
+                                <input type="checkbox" id="toggle1" />
+                                <span class="slider"></span>
+                            </label>
+                            <span class="toggle-label">✨ Enhanced Search</span>
+                        </div>
+                    
+                        <div class="toggle-wrapper">
+                            <label class="switch">
+                                <input type="checkbox" id="toggle2" />
+                                <span class="slider"></span>
+                            </label>
+                            <span class="toggle-label">Reddit Search</span>
+                        </div>
+                    </div>
+
             <div class="search-input-container">
                 <svg class="search-icon" width="22" height="22" viewBox="0 0 24 24" fill="none">
                     <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2" fill="none" />
@@ -95,7 +143,6 @@
                     </select>
 
                 </div>
-
                 <div class="option-group">
                     <label for="safesearch-select">SafeSearch</label>
                     <select id="safesearch-select">
@@ -147,13 +194,13 @@
                     Github</a>
                     <br>
                     <br>
-            <p class="footie">Made by hawaiichair23</p>
+            <p class="footie" tabindex="0">Made by hawaiichair23</p>
         </footer>
     </div>
 
     <script>
         
-        // Seven minutes. Seven minutes is all I can spare to play with you.
+        // SEVEN MINUTES. SEVEN MINUTES IS ALL I CAN SPARE TO PLAY WITH YOU.
         const CACHE_DURATION_MS = 7 * 60 * 1000;
         
         // Configuration 
@@ -166,8 +213,6 @@
                 : 'https://karmafinder.onrender.com';
 
         let searchTimeout = null;
-
-        let POPULAR_SUBREDDITS = [];
 
     function preloadBookmarks(stripeCustomerId, callback) {
 
@@ -227,8 +272,14 @@
     let navigationHistory = [];
     let activeQueryToken = 0;
     let cachedPostsById = {};
+    let pendingCatReaction = null;
+    let bannedSubreddits = [];
+    let isScrambled = false;
     let currentPageIndex = 0;
     let lastQuery = "";
+    let isTalking = false;
+    let mouthTimeout;
+    let hermesLineCount = 0;
     let currentAfter = null;
     let currentBefore = null;
     let isLoading = false;
@@ -294,159 +345,709 @@
             delete window.preloadedSubreddit;
         }
 
-    function loadPaginationState(fromPopState = false, direction = 'refresh') {
-        const params = new URLSearchParams(window.location.search);
-        const pageIndex = parseInt(params.get('page'), 10) || 0;
-        const subreddit = params.get('sub') || '';
-        const query = params.get('q') || '';
-        const sort = params.get('sort') || 'hot';
-        const time = params.get('time') || 'all';
-        const contentType = params.get('type') || 'all';
-
-        // Determine direction if not provided
-        if (fromPopState && direction === 'refresh') {
-            const oldPageIndex = currentPageIndex;
-            direction = pageIndex > oldPageIndex ? 'forward' : pageIndex < oldPageIndex ? 'backward' : 'same';
-        }
-
-        currentPageIndex = pageIndex;
-        currentFilters = { subreddit, query, sort, time, contentType };
-
-        // RESTORE FROM SESSIONSTORAGE
-        const savedAfter = sessionStorage.getItem('kf_current_after') || null;
-        const savedHistory = JSON.parse(sessionStorage.getItem('kf_navigation_history') || '[]');
-        currentAfter = savedAfter;
-        currentBefore = null;
-        navigationHistory = savedHistory;
-
-        console.log('🔄 Restored from sessionStorage - after:', currentAfter, 'history length:', navigationHistory.length);
-
-        // 🖼️ Update UI
-        sortSelect.value = sort;
-        timeSelect.value = time;
-        contentSelect.value = contentType;
-        searchInput.value = query;
-        subredditInput.value = subreddit;
-        if (subreddit) {
-            selectSubreddit(subreddit);
-        } else {
-            subredditInput.value = '';
-            subredditChipContainer.style.display = 'none';
-        }
-
-        console.log('🔄 URL restored state:', currentFilters, 'Page:', currentPageIndex);
-
-        // ✅ Only rewrite the URL if NOT handling a popstate event
-        if (!fromPopState) {
-            const cleanParams = new URLSearchParams();
-            if (currentPageIndex > 0) cleanParams.set('page', currentPageIndex);
-            if (query) cleanParams.set('q', query);
-            if (subreddit) cleanParams.set('sub', subreddit);
-            if (sort !== 'hot') cleanParams.set('sort', sort);
-            if (time !== 'all') cleanParams.set('time', time);
-            if (contentType !== 'all') cleanParams.set('type', contentType);
-            const newUrl = cleanParams.toString() ? '?' + cleanParams.toString() : window.location.pathname;
-            window.history.replaceState({}, '', newUrl);
-        }
-
-        // Only perform search if called from popstate
-        if (fromPopState) {
-            let targetToken;
-            if (direction === 'forward') {
-                targetToken = navigationHistory[currentPageIndex]?.after || currentAfter;
-                console.log("🔜 Going FORWARD, using token:", targetToken);
-            } else {
-                targetToken = navigationHistory[currentPageIndex - 1]?.after;
-                console.log("🔙 Going BACKWARD, using token:", targetToken);
+    // Load Blocklist 
+        async function loadBlocklist() {
+            try {
+                const response = await fetch('./blocklist.json');
+                const data = await response.json();
+                bannedSubreddits = data.bannedSubreddits;
+            } catch (error) {
+                console.warn('No blocklist found'); 
             }
-            performSearch(targetToken, null, false, true);
         }
 
-        // Return true if we successfully restored state
-        return true;
+
+    function loadPaginationState(fromPopState = false, direction = 'refresh') {
+            const params = new URLSearchParams(window.location.search);
+            const pageIndex = parseInt(params.get('page'), 10) || 0;
+            const subreddit = params.get('sub') || '';
+            const query = params.get('q') || '';
+            const sort = params.get('sort') || 'hot';
+            const time = params.get('time') || 'all';
+            const contentType = params.get('type') || 'all';
+
+            if (fromPopState && direction === 'refresh') {
+                const oldPageIndex = currentPageIndex;
+                direction = pageIndex > oldPageIndex ? 'forward' : pageIndex < oldPageIndex ? 'backward' : 'same';
+            }
+
+            currentPageIndex = pageIndex;
+            currentFilters = { subreddit, query, sort, time, contentType };
+
+            const savedAfter = sessionStorage.getItem('kf_current_after') || null;
+            const savedHistory = JSON.parse(sessionStorage.getItem('kf_navigation_history') || '[]');
+            currentAfter = savedAfter;
+            currentBefore = null;
+            navigationHistory = savedHistory;
+
+            console.log('🔄 Restored from sessionStorage - after:', currentAfter, 'history length:', navigationHistory.length);
+
+            sortSelect.value = sort;
+            timeSelect.value = time;
+            contentSelect.value = contentType;
+            searchInput.value = query;
+            subredditInput.value = subreddit;
+            if (subreddit) {
+                selectSubreddit(subreddit);
+            } else {
+                subredditInput.value = '';
+                subredditChipContainer.style.display = 'none';
+            }
+
+            console.log('🔄 URL restored state:', currentFilters, 'Page:', currentPageIndex);
+
+            if (!fromPopState) {
+                const cleanParams = new URLSearchParams();
+                if (currentPageIndex > 0) cleanParams.set('page', currentPageIndex);
+                if (query) cleanParams.set('q', query);
+                if (subreddit) cleanParams.set('sub', subreddit);
+                if (sort !== 'hot') cleanParams.set('sort', sort);
+                if (time !== 'all') cleanParams.set('time', time);
+                if (contentType !== 'all') cleanParams.set('type', contentType);
+                const newUrl = cleanParams.toString() ? '?' + cleanParams.toString() : window.location.pathname;
+                window.history.replaceState({}, '', newUrl);
+            }
+            return true;
+        }
+    
+    window.addEventListener('popstate', (event) => {
+            console.log('↩️ Popstate event fired!', event.state);
+
+            loadPaginationState(true);
+
+            let afterTokenForPopstate = null;
+            let beforeTokenForPopstate = null;
+
+            if (currentPageIndex > 0) {
+                if (navigationHistory.length > currentPageIndex - 1) {
+                    afterTokenForPopstate = navigationHistory[currentPageIndex - 1]?.after || null;
+                    beforeTokenForPopstate = navigationHistory[currentPageIndex - 1]?.before || null;
+                    console.log(`💡 Popstate for page index ${currentPageIndex}, using after token: ${afterTokenForPopstate}`);
+                } else {
+                    console.warn(`⚠️ Popstate: Navigation history too short for page index ${currentPageIndex}. Falling back to first page.`);
+                    currentPageIndex = 0;
+                    afterTokenForPopstate = null;
+                    beforeTokenForPopstate = null;
+                }
+            } else {
+                console.log(`💡 Popstate for page index 0, fetching without after/before token.`);
+            }
+
+            performSearch(afterTokenForPopstate, beforeTokenForPopstate, true, false);
+        });
+
+    let animationsEnabled = true;
+
+    function singleBlink() {
+        if (!animationsEnabled) return;
+        const img = document.querySelector('.hermes-cat');
+        img.src = '../assets/hermes-blink.png';
+        setTimeout(() => img.src = '../assets/hermes.png', 150);
     }
 
     function randomBlink() {
-            const img = document.querySelector('.hermes-cat');
-
-            // First blink
+        if (!animationsEnabled) return;
+        const img = document.querySelector('.hermes-cat');
+        // First blink
+        img.src = '../assets/hermes-blink.png';
+        setTimeout(() => img.src = '../assets/hermes.png', 150);
+        // Random delay between blinks (500-2000ms)
+        const delayBetween = Math.random() * 500 + 2000;
+        setTimeout(() => {
+            // Second blink
             img.src = '../assets/hermes-blink.png';
             setTimeout(() => img.src = '../assets/hermes.png', 150);
+        }, delayBetween);
+        // Random delay until next double blink (5-13 seconds)
+        const nextBlink = Math.random() * 13000 + 5000;
+        setTimeout(randomBlink, nextBlink);
+    }
 
-            // Random delay between blinks (400-3000ms)
-            const delayBetween = Math.random() * 400 + 3000;
+    // Add mouseover listener
+    document.querySelector('.hermes-cat').addEventListener('mouseover', singleBlink);
 
+    // Start the automatic blinking
+    randomBlink();
+
+    let currentTypewriterTimeout;
+
+    function typewriterEffect(element, text, speed = 50) {
+        if (!animationsEnabled) {
+        // Just show the text instantly
+        element.textContent = text;
+        return;
+        }
+            // Only clear existing typewriter 80% of the time
+            if (Math.random() < 0.80) {
+                clearTimeout(currentTypewriterTimeout);
+            }
+
+            element.textContent = '';
+            let i = 0;
+            function typeChar() {
+                if (i < text.length) {
+                    element.textContent += text.charAt(i);
+                    i++;
+                    currentTypewriterTimeout = setTimeout(typeChar, speed);
+                }
+            }
+            typeChar();
+    }
+
+    function showSpeechBubble(messages) {    
+        const bubble = document.getElementById('hermes-speech');
+        const textElement = bubble.querySelector('.speech-text');
+        const message = Array.isArray(messages) ?
+            messages[Math.floor(Math.random() * messages.length)] : messages;
+        
+        // Early return for mute toggle
+        if (!hermesEnabled) return;
+
+        if (message.length > 27) {
+            let cutPoint = 27;
+            // Find the last space before the limit
+            while (cutPoint > 0 && message[cutPoint] !== ' ') {
+                cutPoint--;
+            }
+            // If no space found, fall back to character limit
+            if (cutPoint === 0) cutPoint = 27;
+
+            const firstPart = message.substring(0, cutPoint);
+            const remainingPart = message.substring(cutPoint + 1);
+
+            // Show first part
+            bubble.classList.remove('hidden');
+            startTalking();
+            typewriterEffect(textElement, firstPart, 50);
+
+            // After first part finishes, call showSpeechBubble again for remaining part
+            // This will automatically handle splitting again
             setTimeout(() => {
-                // Second blink
-                img.src = '../assets/hermes-blink.png';
-                setTimeout(() => img.src = '../assets/hermes.png', 150);
-            }, delayBetween);
-
-            // Random delay until next double blink (4-12 seconds)
-            const nextBlink = Math.random() * 12000 + 4000;
-            setTimeout(randomBlink, nextBlink);
+                stopTalking();
+                hideSpeechBubble();
+                showSpeechBubble(remainingPart); // This will re-check the 27 char limit
+            }, firstPart.length * 50 + 700);
+            return;
         }
 
-        // Start the blinking
-        randomBlink();
+        // Normal case
+        bubble.classList.remove('hidden');
+        startTalking();
+        typewriterEffect(textElement, message, 50);
+        setTimeout(() => stopTalking(), message.length * 50 + 700);
+    }
+    
+    function startTalking() {
+
+        isTalking = true;
+        mouthMovement();
+    }
+
+    function mouthMovement() {
+        if (!isTalking || !animationsEnabled) return;
+
+        const img = document.querySelector('.hermes-cat');
+
+        // Open mouth
+        img.src = '../assets/hermes-mouthopen.png';
+
+        // Mouth open duration
+        const openDuration = Math.random() * 90 + 150;
+
+        setTimeout(() => {
+            if (!isTalking) return;
+
+            // Close mouth
+            img.src = '../assets/hermes.png';
+
+            // Mouth closed duration
+            const closedDuration = Math.random() * 50 + 60;
+
+            // Continue the cycle
+            mouthTimeout = setTimeout(mouthMovement, closedDuration);
+        }, openDuration);
+    }
+
+    function stopTalking() {
+        isTalking = false;
+        clearTimeout(mouthTimeout);
+
+        // Make sure mouth is closed
+        const img = document.querySelector('.hermes-cat');
+        img.src = '../assets/hermes.png';
+    }
+
+    function hideSpeechBubble() {
+            const bubble = document.getElementById('hermes-speech');
+            bubble.classList.add('hidden');
+        }
+
+        let clickCount = 0;
+        let firstClickTime = 0;
+        let isBlocked = false; 
+
+        function scrambleYeller() {
+                const now = Date.now();
+                if (now - firstClickTime > 2000) {
+                    clickCount = 0;
+                    firstClickTime = now;
+                }
+                clickCount++;
+                if (clickCount >= 5) {
+                    isScrambled = true; // Set blocked state
+
+                    showSpeechBubble([
+                        "YOU KNOW I GET SCRAMBLED!",
+                        "STOP!",
+                        "GOOD GRIEF!",
+                        "ONE AT A TIME."
+                    ]);
+
+                    setTimeout(() => {
+                        isScrambled = false; // Unblock after 2.5 seconds
+                        clickCount = 0;
+                    }, 2500);
+
+                    return true;
+                }
+                return isScrambled || false;
+            }
+
+    async function showRareLines() {
+        try {
+            const response = await fetch('http://localhost:3000/api/rare-line');
+            const data = await response.json();
+
+            if (data.line) {
+                clearTimeout(currentTypewriterTimeout);
+                showSpeechBubble(data.line);
+            } else if (data.sequential) {
+                // Show 5-7
+                showSpeechBubble(data.sequential[0]);
+                setTimeout(() => {
+                    showSpeechBubble(data.sequential[1]);
+                    setTimeout(() => {
+                        showSpeechBubble(data.sequential[2]);
+                    }, 3000); // 3 seconds
+                }, 31000); // 31
+            }
+        } catch (error) {
+            console.error('Error fetching rare line:', error);
+        }
+    }   
+
+    let hermesEnabled = true;
+    let blinkTimeout;
+
+    document.querySelector('.hermes-cat').addEventListener('contextmenu', function (e) {
+            e.preventDefault();
+
+            const menu = document.getElementById('hermesContextMenu');
+            menu.style.display = 'block';
+            menu.style.left = e.pageX + 'px';
+            menu.style.top = e.pageY + 'px';
+        });
+
+    // Hide context menu when clicking elsewhere
+    document.addEventListener('click', function () {
+        document.getElementById('hermesContextMenu').style.display = 'none';
+    });
+
+    // Hide context menu when right-clicking elsewhere
+    document.addEventListener('contextmenu', function (e) {
+        // Only hide if the right-click is NOT on the hermes cat
+        if (!e.target.closest('.hermes-cat')) {
+            document.getElementById('hermesContextMenu').style.display = 'none';
+        }
+    });
+
+  // ANIMATIONS TOGGLE WITH LOCALSTORAGE
+    document.addEventListener('DOMContentLoaded', function () {
+        const muteBtn = document.getElementById('muteHermes');
+        const animBtn = document.getElementById('toggleAnimations');
+
+        // Load saved settings or use defaults
+        hermesEnabled = localStorage.getItem('hermesEnabled') !== 'false'; // default true
+        animationsEnabled = localStorage.getItem('animationsEnabled') !== 'false'; // default true
+
+        // Check for greeting
+            if (!sessionStorage.getItem('hasVisited')) {
+            playGreeting();
+            sessionStorage.setItem('hasVisited', 'true');
+        }
+            function playGreeting() {
+            if (!hermesEnabled) return;
+            setTimeout(() => { showSpeechBubble("Welcome back."); }, 350);
+        }
+
+        // Apply saved settings on page load
+        function applySavedSettings() {
+            // Apply hermes/bell setting
+            const bellElement = muteBtn.querySelector('.bell, .bell-unmute');
+            if (bellElement) {
+                bellElement.classList.toggle('bell', !hermesEnabled);
+                bellElement.classList.toggle('bell-unmute', hermesEnabled);
+            }
+
+            // Apply animations setting
+            const checkmark = animBtn.querySelector('.checkmark');
+            if (checkmark) {
+                checkmark.style.visibility = animationsEnabled ? 'visible' : 'hidden';
+            }
+
+            const catImg = document.querySelector('.hermes-cat');
+            if (!animationsEnabled) {
+                clearTimeout(blinkTimeout);
+                clearTimeout(mouthTimeout);
+                if (catImg) catImg.src = '../assets/hermes.png';
+            } else {
+                randomBlink?.();
+            }
+
+            if (!hermesEnabled) {
+                hideSpeechBubble?.();
+                stopTalking?.();
+            }
+        }
+
+        // Apply settings immediately
+        applySavedSettings();
+
+        // Hermes toggle
+        muteBtn.addEventListener('click', function () {
+            hermesEnabled = !hermesEnabled;
+            localStorage.setItem('hermesEnabled', hermesEnabled);
+
+            const bellElement = this.querySelector('.bell, .bell-unmute');
+            if (bellElement) {
+                bellElement.classList.toggle('bell');
+                bellElement.classList.toggle('bell-unmute');
+            }
+            if (!hermesEnabled) {
+                hideSpeechBubble?.();
+                stopTalking?.();
+            }
+        });
+
+        // Animations toggle
+        animBtn.addEventListener('click', function () {
+            animationsEnabled = !animationsEnabled;
+            localStorage.setItem('animationsEnabled', animationsEnabled);
+
+            const checkmark = this.querySelector('.checkmark');
+            checkmark.style.visibility = animationsEnabled ? 'visible' : 'hidden';
+            const catImg = document.querySelector('.hermes-cat');
+            if (!animationsEnabled) {
+                clearTimeout(blinkTimeout);
+                clearTimeout(mouthTimeout);
+                if (catImg) catImg.src = '../assets/hermes.png';
+            } else {
+                randomBlink?.();
+            }
+        });
+    });
+
+    function handleRandomResponse(responses, nothingChance = 0.5, dotsChance = 0.1) {
+        const randomChance = Math.random();
+        const dotsThreshold = nothingChance + dotsChance;
+        if (randomChance < nothingChance) {
+            // Nothing happens
+            hideSpeechBubble();
+            stopTalking();
+            return true; // indicates we handled the response
+        } else if (randomChance < dotsThreshold) {
+            // Show dots
+            showSpeechBubble("...");
+            stopTalking();
+            return true;
+        } else {
+            // Show random message from array
+            showSpeechBubble(responses);
+            return true;
+        }
+    }
+
+    function getCatReactionForSubreddit(input, isSubreddit = false) {
+        if (isSubreddit) {
+            const reactions = {
+                'amitheasshole': ["My cousin ended up on there once."],
+                'gonewild': ["My cousin ended up on there once."],
+                'carsfuckingdragons': ["Touch grass.", "Oh.", "Uhh..."],
+                'anime_irl': ["Touch grass.", "Uhh...", "Oh."],
+                'grilling': ["You should look up uhh, uh, Bratwurst. On a Weber Ranch."],
+                'bettercallsaul': ["He defecated through a sunroof!", "Showtime.", "I KNEW IT WAS 1216! ONE AFTER MAGNA CARTA", "I AM NOT CRAZY! I am not crazy! I know he swapped those numbers!"],
+                'okbuddychicanery': ["He defecated through a sunroof!", "Showtime.", "I KNEW IT WAS 1216! ONE AFTER MAGNA CARTA", "I AM NOT CRAZY! I am not crazy! I know he swapped those numbers!", "Kid named Finger:"],
+                'breakingbadmemes': ["Kid named Finger:"], 
+                'thesopranos': ["How about that prick's face when he saw the gat?"],
+                'thesopranos_memes': ["How about that prick's face when he saw the gat?"],
+                'lego': ["My kids love those. My wallet..."],
+                'memes': ["Some of these are definitely jokes."],
+                'dankmemes': ["Some of these are definitely jokes."],
+                'mystery': ["Lot more homework than you'd expect."],
+                'legaladvice': ["Lot more homework than you'd expect."],
+                'malelivingspace': ["Oh, yeah. This is my place."],
+                'mancave': ["Oh, yeah. This is my place."],
+                'showerthoughts': ["I do my thinking in the rain."],
+                'bmw': ["Good taste."],
+                'tifu': ["So, the song. CBAT..? My cousin told me to give it a listen. Something about interpretive dance."],
+                'askreddit': ["Have you ever heard of the Swamps of Dagobah?"],
+                'starwars': ["Have you ever heard of the Swamps of Dagobah?", "So anyway, I started blasting."],
+                'alwayssunnymemes': ["So anyway, I started blasting."],
+                'IASIP': ["So anyway, I started blasting."],
+                'cars': ["You seen the new GTXi Turbo Plus?", "Exactly.", "You should look up the VIN before buying.", "They need to ditch the damn touchscreens."],
+                'tesla': ["Tch."],
+                'scams': ["Always do a reverse image search. My client fell for that one.", "Advance fee fraud. My client fell for that one."],
+                'floridaman': ["I used to live in Tampa."],
+                'florida': ["I used to live in Tampa."],
+                'disneyworld': ["So overpriced these days.", "I used to live in Tampa.", "You're wondering how I feel about mice."],
+                'disney': ["You're wondering how I feel about mice."],
+                'helldivers': ["My cousin is into that one."],
+                'helldivers2': ["My cousin is into that one."],
+                'cod': ["My cousin is into that one."],
+                'letterboxd': ["I feel like I'm supposed to like Blade Runner. You know, the run time just doesn't do it for me."],
+                'cybertruck': ["Tch.", "*wheeze*"],
+                'personalfinance': ["Know when to hold 'em... I bet you don't know that song.", "My cousin has a VTI. You should look into that."],
+                'wallstreetbets': ["Know when to hold 'em... I bet you don't know that song.", "My cousin told me about GameStop? I thought they were outta business, honestly."],
+                'fire': ["My cousin has a VTI. You should look into that.", "I'm basically retired. Hahaha and then I wake up."],
+                'privacy': ["Travel burner phone."],
+                'prequelmemes': ["Ehhhh..."],
+                'coffee': ["For me, I don't like none of that fancy stuff."],
+                'terminator': ["I'll be back..."],
+                'saltierthancrait': ["Ehhhh...", "Okay.", "Tch.", "Sure.", "I mean..."],
+                'foodporn': ["Have you heard of this Ube stuff. They keep coming out with new foods.", "Always marinade."],
+                'food': ["Always marinade.", "I like to make this chili with the bulk pinto beans and all that. The chickpeas are too big for it.", "Have you heard of this Ube stuff. They keep coming out with new foods."],
+                'eatcheapandhealthy': ["I like to make this chili with the bulk pinto beans and all that. The chickpeas are too big for it."],
+                'maliciouscompliance': ["That's how you end up on my good list.", "All legal-like."],
+                'pettyrevenge': ["That's how you end up on my good list.", "All legal-like."],
+                'antiwork': ["That's how you end up on my good list.", "Join. A. Union.", "Document everything.", "Remember, they wouldn't hesitate."],
+                'nygiants': ["Every damn year.", "My therapist is booked solid.", "Don't even start."],
+            };
+
+            // Check for specific subreddit first
+            if (reactions[input.toLowerCase()]) {
+                return reactions[input.toLowerCase()];
+            }
+        }
+        const nsfwPattern = /\b(tits|titties|rape|raped|tiddies|nudes|onlyfans|hentai|boobs|cum|cock|cocks|cunt|gape|gooning|gooner|goon|pussy|porn|gonewild)\b/i;
+        if (nsfwPattern.test(input)) {
+            return ["Really?", "Okay.", "Bud..."];
+        }
+        return null;
+    }
+
+
+
+
 
     // Event Listeners
     searchButton.addEventListener('click', async () => {
-            searchButton.style.backgroundImage = "url('../assets/search-pressed.png')";
+        // Pressing button too fast
+        if (scrambleYeller()) return;
+        pendingCatReaction = null;
+        // Reset search button
+        setTimeout(() => {
+            searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+        }, 500);
 
-            currentPageIndex = 0;
+        const subreddit = subredditInput.value.trim();
+        searchButton.style.backgroundImage = "url('../assets/search-pressed.png')";
+        currentPageIndex = 0;
+
+        // Check blocklist 
+        if (subreddit && bannedSubreddits.includes(subreddit.toLowerCase())) {
+            // Reset if you're coming from bookmarks page
+            resetBookmarksState();
+
+            showError(`
+                <div style="text-align: center;">
+                    <img src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExOWtmaXgzdmdxdzU0dHJ0dXB5MXV2bWdpb2FqYXZndWc1eGNuZTAwMSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Vuw9m5wXviFIQ/giphy.gif" 
+                 alt="Rick Astley dancing" 
+                 style="width: 300px; border-radius: 8px;">
+                </div>
+            `);
+            // Reset search button
+            setTimeout(() => {
+                searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+            }, 500);
+            return; 
+        }
 
             // Clear the subreddit chip immediately when search is clicked
             currentFilters.subreddit = '';
             subredditChipContainer.style.display = 'none';
-            
 
             if (currentFilters.sort === 'relevance' && (!searchInput.value || searchInput.value.trim() === '')) {
+                // Reset if you're coming from bookmarks page
+                resetBookmarksState();
+
                 showError("No search terms detected. 🔎");
+                // Reset search button
+                setTimeout(() => {
+                    searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                }, 500);
+
+                handleRandomResponse([
+                    "I couldn't find that, kid.",
+                    "Sorry, squirt.",
+                    "I'm gonna need more than that.",
+                    "That's not on my records.",
+                    "Shucks.",
+                    "Nada.",
+                    "I got nothin'.",
+                    "That's a dead end.",
+                    "Not in my files.",
+                    "Zilch.",
+                    "Don't know where I'd find 'blankity blank blank.'",
+                    "No can do."
+                ]);
                 return;
             }
 
-            const subreddit = subredditInput.value.trim();
-
             if (subreddit && subreddit !== 'undefined' && subreddit !== 'null') {
+                // Reset if you're coming from bookmarks page
+                resetBookmarksState();
+
+                setTimeout(() => {
+                    searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                }, 500);
+                // Check for single character inputs
+                if (subreddit.length === 1) {
+                    // Reset if you're coming from bookmarks page
+                    resetBookmarksState();
+
+                    showError("Couldn't find a valid subreddit. 🔎");
+                    if (subreddit.toUpperCase() === 'F') {
+                        handleRandomResponse(["You paying respects?", "Funny.",`That's it? Just "${subreddit}"?`, "I'm gonna need more than that.", "Brother..."]);
+                    } else {
+                        handleRandomResponse([
+                            `That's it? Just "${subreddit}"?`,
+                            "I'm gonna need more than that."
+                        ]);
+                    }
+                    return;
+                }
+
+                const catReaction = getCatReactionForSubreddit(subreddit, true);
+                if (catReaction) {
+                    pendingCatReaction = catReaction;
+                }
+
                 // 🌐 Check if the subreddit exists using about.json
                 try {
                     const res = await fetch(`http://localhost:3000/reddit?url=https://www.reddit.com/r/${subreddit}/about.json`);
-                    if (!res.ok) throw new showError("Couldn't find a valid subreddit. 🔎");
+                    if (!res.ok) {
+                        // Reset if you're coming from bookmarks page
+                        resetBookmarksState();
+                                        
+                        showError("Couldn't find a valid subreddit. 🔎");
+                        // Reset search button
+                        setTimeout(() => {
+                            searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                        }, 500);
+
+                         handleRandomResponse([
+                            "I couldn't find that, kid.",
+                            "Is that a word?",
+                            "Sorry, squirt.",
+                            "That's not on my records.",
+                            "Shucks.",
+                            "Nada.",
+                            "I got nothin'.",
+                            "Not familiar with that.",
+                            "That's a dead end.",
+                            "Not in my files.",
+                            "Never heard of that place.",
+                            "Zilch.",
+                            "No can do."
+                        ]);
+                        return;
+                    }
+                    
                     const json = await res.json();
 
                     if (!json || !json.data || json.data.subreddit_type === 'private') {
+                        // Reset if you're coming from bookmarks page
+                        resetBookmarksState();
+
                         showError("This subreddit is private.");
+                        // Reset search button
+                        setTimeout(() => {
+                            searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                        }, 500);
+
+                        handleRandomResponse([
+                            "Sorry, squirt.",
+                            "That's classified.",
+                            "That's private.",
+                            "No can do."
+                        ]);
                         return;
                     }
+                    
                 } catch (err) {
+                    // Reset if you're coming from bookmarks page
+                    resetBookmarksState();
+
                     showError("Couldn't find a valid subreddit. 🔎");
+                    setTimeout(() => {
+                        searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                    }, 500);
+
+                    handleRandomResponse([
+                        "I couldn't find that, kid.",
+                        "Sorry, squirt.",
+                        "That's not on my records.",
+                        "Shucks.",
+                        "Nada.",
+                        "I got nothin'.",
+                        "Not familiar with that.",
+                        "That's a dead end.",
+                        "Not in my files.",
+                        "Never heard of that place.",
+                        "Zilch.",
+                        "No can do."
+                    ]);
                     return;
                 }
             }
             
-            // Store the search suggestion
+        // Store the search suggestion
         const searchTerm = searchInput.value.trim();
         if (searchTerm) {
             try {
-                await fetch('http://localhost:3000/api/suggestions/store', {
+                fetch('http://localhost:3000/api/suggestions/store', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         query: searchTerm,
                         subreddit: (subreddit && subreddit !== 'undefined' && subreddit !== 'null') ? subreddit : null
                     })
-                });
+                })
+                    .catch(err => {
+                        console.error("Failed to store suggestion in background:", err);
+                    });
             } catch (err) {
-                console.error("Failed to store suggestion:", err);
+                console.error("Error setting up suggestion storage:", err);
             }
         }
 
-        // ✅ Passed all checks
         performSearch();
         setTimeout(() => {
             searchButton.style.backgroundImage = "url('../assets/search-default.png')";
         }, 500);
+
+        if (pendingCatReaction) {
+            const randomChance = Math.random();
+            if (randomChance < 0.85) { // 85% chance for nothing
+                hideSpeechBubble();
+                stopTalking();
+            } else if (randomChance < 0.925) { // 7.5% chance for "..."
+                showSpeechBubble("...");
+                stopTalking();
+            } else { // 7.5% chance for the actual message
+                showSpeechBubble(pendingCatReaction);
+            }
+        }
     });
 
     [subredditInput, searchInput].forEach(input => {
@@ -469,6 +1070,49 @@
                     }
 
                     if (suggestions && suggestions.length > 0) {
+                        if (currentHighlighted) {
+                            const currentIndex = Array.from(suggestions).indexOf(currentHighlighted);
+                            currentHighlighted.classList.remove('highlighted');
+
+                            if (currentIndex < suggestions.length - 1) {
+                                suggestions[currentIndex + 1].classList.add('highlighted');
+                                e.preventDefault();
+                            } else {
+                                // After last suggestion, hide dropdown and allow tab to continue
+                                    if (dropdown.id === 'suggestions') {
+                                    dropdown.innerHTML = '';
+                                    dropdown.style.display = 'none';
+                                } else if (dropdown.classList.contains('subreddit-suggestions')) {
+                                    dropdown.classList.remove('active');
+                                }
+                            }
+                        } else {
+                            // No current highlight — highlight first suggestion
+                            suggestions[0].classList.add('highlighted');
+                            e.preventDefault();
+                        }
+                        
+                    }
+                }
+
+                  // Up and Down Arrows Input  
+                  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    let dropdown, suggestions, currentHighlighted;
+
+                    // Check which dropdown is active (same logic as Tab)
+                    dropdown = document.querySelector('#suggestions');
+                    if (dropdown && dropdown.style.display !== 'none') {
+                        suggestions = dropdown.querySelectorAll('div');
+                        currentHighlighted = dropdown.querySelector('.highlighted');
+                    } else {
+                        dropdown = document.querySelector('.subreddit-suggestions');
+                        if (dropdown && dropdown.classList.contains('active')) {
+                            suggestions = dropdown.querySelectorAll('.subreddit-suggestion');
+                            currentHighlighted = dropdown.querySelector('.highlighted');
+                        }
+                    }
+
+                    if (suggestions && suggestions.length > 0) {
                         e.preventDefault();
 
                         // Remove current highlight
@@ -476,16 +1120,26 @@
                             currentHighlighted.classList.remove('highlighted');
                         }
 
-                        // Find next item to highlight
-                        let nextIndex = 0;
-                        if (currentHighlighted) {
-                            const currentIndex = Array.from(suggestions).indexOf(currentHighlighted);
-                            nextIndex = (currentIndex + 1) % suggestions.length;
+                        let nextIndex;
+                        if (e.key === 'ArrowDown') {
+                            // Move down
+                            if (currentHighlighted) {
+                                const currentIndex = Array.from(suggestions).indexOf(currentHighlighted);
+                                nextIndex = (currentIndex + 1) % suggestions.length;
+                            } else {
+                                nextIndex = 0; // Start at first item
+                            }
+                        } else {
+                            // Move up
+                            if (currentHighlighted) {
+                                const currentIndex = Array.from(suggestions).indexOf(currentHighlighted);
+                                nextIndex = currentIndex <= 0 ? suggestions.length - 1 : currentIndex - 1;
+                            } else {
+                                nextIndex = suggestions.length - 1; // Start at last item
+                            }
                         }
 
-                        // Highlight next item
                         suggestions[nextIndex].classList.add('highlighted');
-                        return;
                     }
                 }
 
@@ -498,61 +1152,203 @@
                         e.preventDefault();
                         highlighted.click();
                         highlighted.classList.remove('highlighted');
-                        return
-                    }
-    
-                // Reset state
-                currentFilters.subreddit = '';
-                subredditChipContainer.style.display = 'none';
-                currentPageIndex = 0;
-
-                const searchTerm = searchInput.value.trim();
-                const subreddit = subredditInput.value?.trim();
-
-                // Block empty search terms if relevance is selected
-                if (currentFilters.sort === 'relevance' && !searchTerm) {
-                    showError("No search terms detected. 🔎");
-                    return;
-                }
-
-                // Only validate subreddit if one was entered
-                if (subreddit && subreddit !== 'undefined' && subreddit !== 'null') {
-                    try {
-                        const res = await fetch(`http://localhost:3000/reddit?url=${encodeURIComponent(`https://www.reddit.com/r/${subreddit}/about.json`)}`);
-                        if (!res.ok) {
-                            showError("Couldn't find a valid subreddit. 🔎");
-                            return;
-                        }
-
-                        const json = await res.json();
-
-                        if (!json || !json.data || json.data.subreddit_type === 'private') {
-                            showError("This subreddit is private.");
-                            return;
-                        }
-
-                    } catch (err) {
-                        console.error("❌ Subreddit validation error:", err.message);
-                        showError("Couldn't find a valid subreddit. 🔎");
                         return;
                     }
-                }
-                // Store the search suggestion only when triggered from searchInput
-                if (searchTerm) {
-                    try {
-                        await fetch('http://localhost:3000/api/suggestions/store', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                query: searchTerm,
-                                subreddit: (subreddit && subreddit !== 'undefined' && subreddit !== 'null') ? subreddit : null
-                            })
-                        });
-                    } catch (err) {
-                        console.error("Failed to store suggestion:", err);
+                    // Pressing button too fast
+                    if (scrambleYeller()) return;
+                    pendingCatReaction = null;
+                    // Reset search button
+                    setTimeout(() => {
+                        searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                    }, 500);
+
+                    const subreddit = subredditInput.value.trim();
+                    const searchTerm = searchInput.value.trim();
+
+                    searchButton.style.backgroundImage = "url('../assets/search-pressed.png')";
+                    currentPageIndex = 0;
+
+                    // **BLOCKLIST CHECK**
+                    if (subreddit && bannedSubreddits.includes(subreddit.toLowerCase())) {
+                        // Reset if you're coming from bookmarks page
+                        resetBookmarksState();
+
+                        showError(`
+                            <div style="text-align: center;">
+                                <img src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExOWtmaXgzdmdxdzU0dHJ0dXB5MXV2bWdpb2FqYXZndWc1eGNuZTAwMSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Vuw9m5wXviFIQ/giphy.gif" 
+                            alt="Rick Astley dancing" 
+                            style="width: 300px; border-radius: 8px;">
+                            </div>
+                        `);
+                        // Reset search button
+                        setTimeout(() => {
+                            searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                        }, 500);
+                        return;
                     }
-                }
-                performSearch();
+
+                    // **RELEVANCE SEARCH TERM CHECK**
+                    if (currentFilters.sort === 'relevance' && !searchTerm) {
+                        // Reset if you're coming from bookmarks page
+                        resetBookmarksState();
+
+                        showError("No search terms detected. 🔎");
+                        setTimeout(() => {
+                            searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                        }, 500);
+                        handleRandomResponse([
+                            "I couldn't find that, kid.",
+                            "Sorry, squirt.",
+                            "That's not on my records.",
+                            "Shucks.",
+                            "Nada.",
+                            "I got nothin'.",
+                            "That's a dead end.",
+                            "Not in my files.",
+                            "Zilch.",
+                            "Don't know where I'd find 'blankity blank blank.'",
+                            "No can do."
+                        ]);
+                        return;
+                    }
+
+                    // **SUBREDDIT VALIDATION**
+                    if (subreddit && subreddit !== 'undefined' && subreddit !== 'null') {
+                        // Check for single character inputs
+                        if (subreddit.length === 1) {
+                            // Reset if you're coming from bookmarks page
+                            resetBookmarksState();
+
+                            showError("Couldn't find a valid subreddit. 🔎");
+                            setTimeout(() => {
+                                searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                            }, 500);
+                            if (subreddit.toUpperCase() === 'F') {
+                                handleRandomResponse(["You paying respects?", "Funny."]);
+                            } else {
+                                handleRandomResponse([
+                                    `That's it? Just "${subreddit}"?`,
+                                    "I'm gonna need more than that.",
+                                    "Brother..."
+                                ]);
+                            }
+                            return;
+                        }
+
+                        const catReaction = getCatReactionForSubreddit(subreddit, true);
+                        console.log("Checking subreddit:", subreddit, "Got reaction:", catReaction);
+                        if (catReaction) {
+                            pendingCatReaction = catReaction;
+                        }
+
+                        try {
+                            const res = await fetch(`http://localhost:3000/reddit?url=https://www.reddit.com/r/${subreddit}/about.json`);
+                            if (!res.ok) {
+                                // Reset if you're coming from bookmarks page
+                                resetBookmarksState();
+
+                                showError("Couldn't find a valid subreddit. 🔎");
+                                setTimeout(() => {
+                                    searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                                }, 500);
+                                handleRandomResponse([
+                                    "I couldn't find that, kid.",
+                                    "Is that a word?",
+                                    "Sorry, squirt.",
+                                    "That's not on my records.",
+                                    "Shucks.",
+                                    "Nada.",
+                                    "I got nothin'.",
+                                    "Not familiar with that.",
+                                    "That's a dead end.",
+                                    "Not in my files.",
+                                    "Never heard of that place.",
+                                    "Zilch.",
+                                    "No can do."
+                                ]);
+                                return;
+                            }
+
+                            const json = await res.json();
+
+                            if (!json || !json.data || json.data.subreddit_type === 'private') {
+                                // Reset if you're coming from bookmarks page
+                                resetBookmarksState();
+
+                                showError("This subreddit is private.");
+                                setTimeout(() => {
+                                    searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                                }, 500);
+                                handleRandomResponse([
+                                    "Sorry, squirt.",
+                                    "That's classified.",
+                                    "That's private.",
+                                    "No can do."
+                                ]);
+                                return;
+                            }
+
+                        } catch (err) {
+                            // Reset if you're coming from bookmarks page
+                            resetBookmarksState();
+
+                            showError("Couldn't find a valid subreddit. 🔎");
+                            setTimeout(() => {
+                                searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                            }, 500);
+                            handleRandomResponse([
+                                "I couldn't find that, kid.",
+                                "Sorry, squirt.",
+                                "That's not on my records.",
+                                "Shucks.",
+                                "Nada.",
+                                "I got nothin'.",
+                                "Not familiar with that.",
+                                "That's a dead end.",
+                                "Not in my files.",
+                                "Never heard of that place.",
+                                "Zilch.",
+                                "No can do."
+                            ]);
+                            return;
+                        }
+                    }
+
+                    // **STORE SEARCH SUGGESTION**
+                    if (searchTerm) {
+                        try {
+                            await fetch('http://localhost:3000/api/suggestions/store', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    query: searchTerm,
+                                    subreddit: (subreddit && subreddit !== 'undefined' && subreddit !== 'null') ? subreddit : null
+                                })
+                            });
+                        } catch (err) {
+                            console.error("Failed to store suggestion:", err);
+                        }
+                    }
+
+                    // **PERFORM SEARCH**
+                    performSearch();
+                    setTimeout(() => {
+                        searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                    }, 500);
+
+                    // **CAT REACTION LOGIC**
+                    if (pendingCatReaction) {
+                        const randomChance = Math.random();
+                        if (randomChance < 0.85) { // 85% chance for nothing
+                            hideSpeechBubble();
+                            stopTalking();
+                        } else if (randomChance < 0.95) { // 10% chance for "..."
+                            showSpeechBubble("...");
+                            stopTalking();
+                        } else { // 5% chance for the actual message
+                            showSpeechBubble(pendingCatReaction);
+                        }
+                    }
                 }
 
                 // Reset highlight when typing
@@ -564,9 +1360,33 @@
                         suggestions.forEach(item => item.classList.remove('highlighted'));
                     }
                 }
-            
             });
+
+        // Click listener for subreddit input
+        if (input === subredditInput) {
+            input.addEventListener('click', (e) => {
+                if (e.target.value.trim()) {
+                    handleSubredditSuggestions(e.target.value.trim());
+                    // Also make sure the dropdown shows
+                    const dropdown = document.querySelector('.subreddit-suggestions');
+                    if (dropdown) {
+                        dropdown.classList.add('active');
+                    }
+                }
+            });
+        }
+
+        // Remove chip if user typed a sub
+        if (input === subredditInput) {
+            input.addEventListener('input', (e) => {
+                if (e.target.value.trim()) {
+                    currentFilters.subreddit = '';
+                    subredditChipContainer.style.display = 'none';
+                }
+            });
+        }
     });
+
 
     // Add popular subs on click
         document.querySelector('#subreddit-input').addEventListener('focus', (e) => {
@@ -584,6 +1404,16 @@
                 populateSubredditSuggestions(popularSubs);
                 document.querySelector('.subreddit-suggestions').classList.add('active');
             }
+        });
+
+        document.getElementById('toggle1').addEventListener('change', function () {
+            console.log('Enhanced Search:', this.checked);
+            // Add your enhanced search logic here
+        });
+
+        document.getElementById('toggle2').addEventListener('change', function () {
+            console.log('Reddit Search:', this.checked);
+            // Add your reddit search logic here
         });
 
         sortSelect.addEventListener('change', () => {
@@ -620,51 +1450,134 @@
             performSearch();
         });
 
-        const comfyToggle = document.getElementById('comfy-toggle');
-        const compactToggle = document.getElementById('compact-toggle');
+            const comfyToggle = document.getElementById('comfy-toggle');
+            const compactToggle = document.getElementById('compact-toggle');
 
-        let isComfyActive = false;
-        let isCompactActive = true;
-        let hasClickedOnce = false;
+            // Use sessionStorage - resets when tab closes, persists on refresh
+            let isComfyActive = sessionStorage.getItem('isComfyActive') === 'true' || false;
+            let isCompactActive = sessionStorage.getItem('isCompactActive') === 'true' || false;
+            let hasClickedOnce = sessionStorage.getItem('hasClickedOnce') === 'true' || false;
 
-        comfyToggle.querySelector('img').src = '../assets/comfy-default.png';
-        compactToggle.querySelector('img').src = '../assets/compact-default.png';
+            // Apply saved states on page load
+            function applyButtonStates() {
+                if (isComfyActive) {
+                    comfyToggle.querySelector('img').src = '../assets/comfy-pressed.png';
+                    document.body.classList.add('comfy-mode');
+                } else {
+                    comfyToggle.querySelector('img').src = '../assets/comfy-default.png';
+                    document.body.classList.remove('comfy-mode');
+                }
+
+                if (isCompactActive) {
+                    compactToggle.querySelector('img').src = '../assets/compact-pressed.png';
+                } else {
+                    compactToggle.querySelector('img').src = '../assets/compact-default.png';
+                }
+
+                if (hasClickedOnce) {
+                    document.body.classList.add('hasClickedOnce');
+                }
+            }
+
+            applyButtonStates();
+
+            // Save states to sessionStorage
+            function saveStates() {
+                sessionStorage.setItem('isComfyActive', isComfyActive);
+                sessionStorage.setItem('isCompactActive', isCompactActive);
+                sessionStorage.setItem('hasClickedOnce', hasClickedOnce);
+            }
 
             comfyToggle.addEventListener('click', () => {
-                    if (isComfyActive) {
-                        if (hasClickedOnce && !isCompactActive) return; 
-                        isComfyActive = false;
-                        comfyToggle.querySelector('img').src = '../assets/comfy-default.png';
-                    } else {
-                        isComfyActive = true;
-                        comfyToggle.querySelector('img').src = '../assets/comfy-pressed.png';
+                if (isComfyActive) {
+                    if (hasClickedOnce && !isCompactActive) return;
+                    isComfyActive = false;
+                    comfyToggle.querySelector('img').src = '../assets/comfy-default.png';
+                } else {
+                    isComfyActive = true;
+                    comfyToggle.querySelector('img').src = '../assets/comfy-pressed.png';
+                    isCompactActive = false;
+                    compactToggle.querySelector('img').src = '../assets/compact-default.png';
+                }
+                hasClickedOnce = true;
+                document.body.classList.add('hasClickedOnce');
 
-                        isCompactActive = false;
-                        compactToggle.querySelector('img').src = '../assets/compact-default.png';
-                    }
-
-                    hasClickedOnce = true;
-                    document.body.classList.add('hasClickedOnce');
-                
-                    if (isComfyActive) {
+                if (isComfyActive) {
                     document.body.classList.add('comfy-mode');
                 } else {
                     document.body.classList.remove('comfy-mode');
                 }
 
-                });
-
-           compactToggle.addEventListener('click', () => {
-                hasClickedOnce = true;
-                document.body.classList.add('hasClickedOnce');
-
-                    compactToggle.querySelector('img').src = '../assets/compact-pressed.png';
-                    document.body.classList.remove('comfy-mode');
-                    isComfyActive = false;
-                    comfyToggle.querySelector('img').src = '../assets/comfy-default.png';
-
+                saveStates();
             });
 
+            compactToggle.addEventListener('click', () => {
+                hasClickedOnce = true;
+                document.body.classList.add('hasClickedOnce');
+                compactToggle.querySelector('img').src = '../assets/compact-pressed.png';
+                document.body.classList.remove('comfy-mode');
+                isComfyActive = false;
+                isCompactActive = true;
+                comfyToggle.querySelector('img').src = '../assets/comfy-default.png';
+
+                saveStates();
+            });
+
+            const toggle1 = document.getElementById('toggle1');
+            const toggle2 = document.getElementById('toggle2');
+
+            // Load saved states from sessionStorage (toggle1 defaults to checked)
+            let toggle1State = sessionStorage.getItem('toggle1State') !== null ?
+                sessionStorage.getItem('toggle1State') === 'true' : true; // default true
+            let toggle2State = sessionStorage.getItem('toggle2State') !== null ?
+                sessionStorage.getItem('toggle2State') === 'true' : false; // default false
+
+            // Apply saved states on page load
+            function applyToggleStates() {
+                toggle1.checked = toggle1State;
+                toggle2.checked = toggle2State;
+            }
+
+            applyToggleStates();
+
+            // Save states to sessionStorage
+            function saveToggleStates() {
+                sessionStorage.setItem('toggle1State', toggle1State);
+                sessionStorage.setItem('toggle2State', toggle2State);
+            }
+
+            // Toggle 1 click handler
+            toggle1.addEventListener('change', () => {
+                if (toggle1.checked) {
+                    // Toggle1 turned ON, turn toggle2 OFF
+                    toggle1State = true;
+                    toggle2State = false;
+                    toggle2.checked = false;
+                } else {
+                    // Toggle1 turned OFF, turn toggle2 ON
+                    toggle1State = false;
+                    toggle2State = true;
+                    toggle2.checked = true;
+                }
+                saveToggleStates();
+            });
+
+            // Toggle 2 click handler
+            toggle2.addEventListener('change', () => {
+                if (toggle2.checked) {
+                    // Toggle2 turned ON, turn toggle1 OFF
+                    toggle2State = true;
+                    toggle1State = false;
+                    toggle1.checked = false;
+                } else {
+                    // Toggle2 turned OFF, turn toggle1 ON
+                    toggle2State = false;
+                    toggle1State = true;
+                    toggle1.checked = true;
+                }
+                saveToggleStates();
+            });
+            
         document.addEventListener('click', function (event) {
                 const suggestionsDiv = document.getElementById('suggestions');
                 const input = document.getElementById('search-input');
@@ -1010,17 +1923,24 @@
             const suggestionsDiv = document.getElementById(suggestionsId);
 
             input.addEventListener('input', function (e) {
-                const query = e.target.value.trim();
+                const query = e.target.value;
                 clearTimeout(timeout);
+
+            input.addEventListener('click', function (e) {
+                const query = e.target.value.trim();
+                if (query) {
+                    getSmartSuggestions(query, suggestionsDiv, dictionary);
+                }
+            });
 
                 timeout = setTimeout(() => {
                     getSmartSuggestions(query, suggestionsDiv, dictionary);
-                }, 300);
+                }, 200);
             });
         }
 
     async function getSmartSuggestions(query, suggestionsDiv, dictionary) {
-            const trimmedQuery = query.trim();
+            let trimmedQuery = query.trim();
 
             // If empty, show top searches instead
             if (!trimmedQuery) {
@@ -1030,6 +1950,14 @@
                 return;
             }
 
+            // Always spell check
+            const correctedQuery = correctLastWord(trimmedQuery, dictionary);
+            if (correctedQuery !== trimmedQuery) {
+                console.log(`🔤 Spell corrected: "${trimmedQuery}" → "${correctedQuery}"`);
+                trimmedQuery = correctedQuery;
+            }
+
+            // Recalculate words after potential correction
             const words = trimmedQuery.split(' ');
             const lastWord = words[words.length - 1];
             const fuse = new Fuse(dictionary, { threshold: 0.4 });
@@ -1038,7 +1966,7 @@
             let storedSuggestions = [];
             try {
                 const subreddit = subredditInput.value?.trim() || '';
-                const url = `http://localhost:3000/api/suggestions?q=${encodeURIComponent(trimmedQuery)}`;
+                const url = `http://localhost:3000/api/suggestions?q=${encodeURIComponent(query)}`;
                 const response = await fetch(url);
                 const data = await response.json();
                 storedSuggestions = data.map(item => ({
@@ -1051,24 +1979,34 @@
             }
 
             // Calculate remaining slots for pattern suggestions
-            const remainingSlots = Math.max(0, 7 - storedSuggestions.length);
+            const remainingSlots = Math.max(0, 6 - storedSuggestions.length);
             let patternSuggestions = [];
 
             if (remainingSlots > 0) {
-                const isElonMode = words.length === 1 && dictionary.includes(trimmedQuery.toLowerCase());
+                const hasTrailingSpace = query.endsWith(' ');
+                const isElonMode = (words.length === 1 && dictionary.includes(trimmedQuery.toLowerCase())) ||
+                    (hasTrailingSpace && words.length === 1);
                 if (isElonMode) {
+                    // Search for next term after first word mode ('elon musk')
                     console.log("🤡 ELON MODE");
                     try {
                         const apiUrl = `https://api.datamuse.com/words?rel_trg=${encodeURIComponent(trimmedQuery)}&max=${remainingSlots}`;
                         const response = await fetch(apiUrl);
                         const data = await response.json();
                         const apiWords = data.map(item => `${trimmedQuery} ${item.word}`);
-                        patternSuggestions = [trimmedQuery, ...apiWords].slice(0, remainingSlots);
+
+                        // If no API results, show the original query as fallback
+                        if (apiWords.length === 0) {
+                            patternSuggestions = [trimmedQuery];
+                        } else {
+                            patternSuggestions = [trimmedQuery, ...apiWords].slice(0, remainingSlots);
+                        }
                     } catch (error) {
                         console.error("❌ Datamuse error:", error);
                         patternSuggestions = [trimmedQuery];
                     }
                 } else {
+                    // Complete the word mid-phrase mode ('grilled chick -> grilled chicken')
                     console.log("🐔 CHICKEN MODE");
                     const results = fuse.search(lastWord).slice(0, remainingSlots - 1);
                     const fullSuggestions = results.map(result => {
@@ -1076,13 +2014,22 @@
                         newWords[newWords.length - 1] = result.item;
                         return newWords.join(' ');
                     });
-                    patternSuggestions = [trimmedQuery, ...fullSuggestions].slice(0, remainingSlots);
+
+                    // If no fuzzy results, show the original query as fallback
+                    if (fullSuggestions.length === 0) {
+                        patternSuggestions = [trimmedQuery];
+                    } else {
+                        patternSuggestions = [trimmedQuery, ...fullSuggestions].slice(0, remainingSlots);
+                    }
                 }
             }
 
-            patternSuggestions = patternSuggestions.filter(suggestion =>
-                suggestion.toLowerCase() !== trimmedQuery.toLowerCase()
-            );
+            // Only filter out the original query if there are other suggestions
+            if (patternSuggestions.length > 1) {
+                patternSuggestions = patternSuggestions.filter(suggestion =>
+                    suggestion.toLowerCase() !== trimmedQuery.toLowerCase()
+                );
+            }
 
             // Combine: stored suggestions FIRST, then pattern suggestions
             const allSuggestions = [...storedSuggestions, ...patternSuggestions];
@@ -1097,35 +2044,65 @@
             const words = query.trim().split(' ');
             const lastWord = words[words.length - 1];
 
+            // ✅ If the word is already in the dictionary, leave it alone
+            if (dictionary.includes(lastWord.toLowerCase())) {
+                return query;
+            }
+
             const fuse = new Fuse(dictionary, {
                 threshold: 0.4,
                 includeScore: true,
             });
 
-            const results = fuse.search(lastWord);
+            let results = fuse.search(lastWord);
 
-            if (results.length > 0 && results[0].score < 0.4) {
-                words[words.length - 1] = results[0].item; // replace with best match
+            if (results.length === 0) {
+                return query; // no suggestions
+            }
+
+            // ✅ Penalize suggestions that are too long or short
+            results = results.map(result => {
+                const lenDiff = Math.abs(result.item.length - lastWord.length);
+                const penalty = lenDiff * 0.01; // mild penalty
+                return {
+                    ...result,
+                    adjustedScore: result.score + penalty,
+                };
+            });
+
+            results.sort((a, b) => a.adjustedScore - b.adjustedScore);
+
+            const best = results[0];
+            const second = results[1];
+
+
+            // ✅ Only correct if the match is pretty confident
+            if (best.adjustedScore < 0.3) {
+                words[words.length - 1] = best.item;
                 return words.join(' ');
             }
 
-            return query; // leave unchanged if no good match
+            return query;
         }
 
+
     function displaySuggestions(suggestions, suggestionsDiv) {
-        const suggestionsHtml = suggestions.map(suggestion => {
-            const word = typeof suggestion === 'string' ? suggestion : suggestion.query;
-            const suggestionSubreddit = typeof suggestion === 'object' ? suggestion.subreddit : null;
-            
-            const iconContent = suggestionSubreddit ? 
-                `<span class="suggestion-icon subreddit-icon">${suggestionSubreddit.charAt(0).toUpperCase()}</span>` :
-                '<img src="../assets/search-favicon.png" class="suggestion-favicon" alt="Search">';
-            
-            return `<div onclick="selectSuggestion('${word}', 'search-input', 'suggestions', '${suggestionSubreddit || ''}')" data-subreddit="${suggestionSubreddit || ''}" class="suggestion-item">
-                ${iconContent}
-                ${word}
-            </div>`;
-        }).join('');
+            const suggestionsHtml = suggestions.map(suggestion => {
+                const word = typeof suggestion === 'string' ? suggestion : suggestion.query;
+                const suggestionSubreddit = typeof suggestion === 'object' ? suggestion.subreddit : null;
+
+                const iconContent = suggestionSubreddit ?
+                    `<span class="suggestion-icon subreddit-icon">${suggestionSubreddit.charAt(0).toUpperCase()}</span>` :
+                    '<img src="../assets/search-favicon.png" class="suggestion-favicon" alt="Search">';
+
+                const subredditName = suggestionSubreddit ? `<span class="suggestion-subreddit">• r/${suggestionSubreddit.toLowerCase()}</span>` : '';
+
+                return `<div onclick="selectSuggestion('${word}', 'search-input', 'suggestions', '${suggestionSubreddit || ''}')" data-subreddit="${suggestionSubreddit || ''}" class="suggestion-item">
+            ${iconContent}
+            ${word}
+            ${subredditName}
+        </div>`;
+            }).join('');
 
             suggestionsDiv.innerHTML = suggestionsHtml;
             suggestionsDiv.style.display = 'block';
@@ -1403,6 +2380,8 @@
 
 
     function performSearch(after = null, before = null, navigateBack = false, isInitialLoad = false) {
+            hideSpeechBubble();
+            showRareLines();
 
             if (window.location.search.includes('page=bookmarks')) {
                 const newUrl = window.location.pathname;
@@ -1854,7 +2833,7 @@
             console.log(post)
 
             const title = decodeEntities(post.title?.toLowerCase() || '');
-            const isProbablyNSFW = post.over_18 || /\b(tits|titties|rape|raped|tiddies|nudes|onlyfans|boobs|cum|cock|cocks|cunt|gape|gooning|gooner|goon|pussy)\b/i.test(title);
+            const isProbablyNSFW = post.over_18 || /\b(tits|titties|rape|raped|tiddies|hentai|nudes|onlyfans|boobs|cum|cock|cocks|cunt|gape|gooning|gooner|goon|pussy)\b/i.test(title);
 
             const resultCard = document.createElement('div');
             resultCard.className = 'result-card';
@@ -1970,6 +2949,15 @@
             bookmarkIcon.className = 'bookmark-icon';
             bookmarkIcon.title = 'Save post';
             bookmarkIcon.dataset.postId = bookmarkId;
+            bookmarkIcon.setAttribute('tabindex', '0');
+
+            // Handle tab + enter on bookmark icons
+            document.addEventListener('keydown', function (e) {
+                if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('bookmark-icon')) {
+                    e.preventDefault();
+                    e.target.click();
+                }
+            });
             
             const stripeCustomerId = window.stripeCustomerId;
 
@@ -2263,7 +3251,7 @@
                 const videoId = post.url.split('/').pop();
                 const dashUrl = `https://v.redd.it/${videoId}/DASH_480.mp4`;
                 console.log('🎥 Using Reddit video thumbnail:', dashUrl);
-                return `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(dashUrl)}`; 
+                thumbnailURL = dashUrl; // Set the variable instead of returning
             }
 
             const hasPreviewImage = post.preview?.images?.[0]?.source?.url;
@@ -2388,6 +3376,22 @@
                         sessionStorage.setItem('bookmarks', JSON.stringify(savedBookmarks));
 
                         console.log('Bookmark with ID of', bookmarkId, 'saved.');
+
+                        // Reorder to put new bookmark at top of section ID 1
+                        const sectionResponse = await fetch(`http://localhost:3000/api/bookmarks/${stripeCustomerId}/section/1?offset=0&limit=100`);
+                        const sectionData = await sectionResponse.json();
+
+                        const existingIds = sectionData.bookmarks.map(b => b.reddit_post_id).filter(id => id !== bookmarkId);
+                        const orderedIds = [bookmarkId, ...existingIds];
+
+                        await fetch(`http://localhost:3000/api/bookmarks/${stripeCustomerId}/reorder`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                orderedIds,
+                                sectionId: 1
+                            })
+                        });
                     }
                 } catch (err) {
                     console.error('Failed to toggle bookmark:', err);
@@ -2402,6 +3406,30 @@
                 document.body.classList.remove('safe-search-enabled');
             }
         }
+
+        // Initialize Plyr for all video players
+        const players = document.querySelectorAll('.js-player');
+        players.forEach(player => {
+            if (!player.plyr) {
+                const plyrInstance = new Plyr(player, {
+                    controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+                    volume: 1, // Full volume
+                    muted: false, // Not muted
+                    clickToPlay: true,
+                    hideControls: false,
+                    seekTime: 10,
+                    displayDuration: true,
+                    invertTime: false,
+                    toggleInvert: true
+                });
+
+                // Force unmute after initialization
+                plyrInstance.muted = false;
+                plyrInstance.volume = 1;
+
+                console.log('🔊 Plyr initialized with sound enabled for:', player);
+            }
+        });
 
         // Visibility code 
         applyStaggeredAnimation('.result-card', 'visible', 40);
@@ -2460,6 +3488,7 @@
 
             // Determine media type and sources
             const mediaInfo = analyzeMediaType(post, thumbnailURL, domain);
+            
 
             if (!mediaInfo.hasVisualMedia && domain && domain !== 'reddit.com' && domain.includes('.')) {
                 const imgContainer = document.createElement('div');
@@ -2483,6 +3512,9 @@
             }
   
             // Create the appropriate media element
+            const videoInfo = identifyVideoTypes(post);
+            mediaInfo.videoInfo = videoInfo;
+            mediaInfo.post = post; 
             const mediaElement = createMediaElementByType(mediaInfo);
             mediaElement.style.opacity = '0';
             mediaElement.style.transition = 'opacity 0.3s ease-in-out';
@@ -2516,6 +3548,7 @@
             const isGif = post.url?.endsWith('.gif') || gifVariant;
             const isMp4 = post.url?.endsWith('.mp4');
             const isYouTube = domain === 'youtube.com' || domain === 'youtu.be';
+            
             const isGallery = post.is_gallery && post.gallery_data && post.media_metadata;
 
             // Determine if we should show visual media
@@ -2574,8 +3607,96 @@
                 primarySource: sources[0] || null
             };
         }
+        function identifyVideoTypes(post) {
+            console.log('=== VIDEO TYPE ANALYSIS ===');
+            console.log('Post ID:', post.id);
+            console.log('URL:', post.url);
+            console.log('Domain:', post.domain);
 
-        function createMediaElementByType(mediaInfo) {
+            const videoInfo = {
+                hasVideo: false,
+                videoType: null,
+                videoSource: null
+            };
+
+            // Reddit native video
+            if (post.secure_media?.reddit_video?.fallback_url) {
+                console.log('🎬 Reddit video found in secure_media!');
+                videoInfo.hasVideo = true;
+                videoInfo.videoType = 'reddit_native';
+                videoInfo.videoSource = post.secure_media.reddit_video.fallback_url;
+
+                // Extract video ID and construct new audio URL
+                const videoUrl = post.secure_media.reddit_video.fallback_url.split("?")[0];
+                const videoId = videoUrl.split('/')[3]; // Extract the ID part
+                videoInfo.audioSource = `https://v.redd.it/${videoId}/DASH_AUDIO_128.mp4`;
+                console.log('🎵 New audio URL:', videoInfo.audioSource);
+
+            } else if (post.media?.reddit_video?.fallback_url) {
+                console.log('🎬 Reddit video found in media!');
+                videoInfo.hasVideo = true;
+                videoInfo.videoType = 'reddit_native';
+                videoInfo.videoSource = post.media.reddit_video.fallback_url;
+
+                // Extract video ID and construct new audio URL
+                const videoUrl = post.media.reddit_video.fallback_url.split("?")[0];
+                const videoId = videoUrl.split('/')[3]; // Extract the ID part
+                videoInfo.audioSource = `https://v.redd.it/${videoId}/DASH_AUDIO_128.mp4`;
+                console.log('🎵 New audio URL:', videoInfo.audioSource);
+
+            } else if (post.url?.includes('v.redd.it')) {
+                console.log('🎬 v.redd.it URL detected!');
+                videoInfo.hasVideo = true;
+                videoInfo.videoType = 'reddit_native';
+
+                // Extract the video ID for later backend processing
+                const videoId = post.url.split('/').pop();
+                videoInfo.videoId = videoId;
+
+                // Use a placeholder source that won't cause errors
+                videoInfo.videoSource = null;
+                console.log('📹 Reddit video ID extracted:', videoId);
+            }
+
+                // Streamable detection
+            if (post.url?.includes('streamable.com')) {
+                console.log('🎥 Streamable detected');
+                const match = post.url.match(/streamable\.com\/([a-zA-Z0-9]+)/);
+                if (match) {
+                    videoInfo.hasVideo = true;
+                    videoInfo.videoType = 'streamable';
+                    videoInfo.embedId = match[1];
+                    videoInfo.videoSource = `https://streamable.com/e/${match[1]}`;
+                    console.log('🔗 Streamable embed URL:', videoInfo.videoSource);
+                }
+            }
+                // YouTube detection
+            if (post.url?.includes('youtube.com') || post.url?.includes('youtu.be')) {
+                console.log('📺 YouTube detected, full URL:', post.url);
+                videoInfo.hasVideo = true;
+                videoInfo.videoType = 'youtube';
+                videoInfo.videoSource = post.url;
+
+                // Better YouTube ID extraction
+                let videoId = null;
+                if (post.url.includes('youtube.com/watch')) {
+                    const urlParams = new URLSearchParams(post.url.split('?')[1]);
+                    videoId = urlParams.get('v');
+                } else if (post.url.includes('youtu.be/')) {
+                    videoId = post.url.split('youtu.be/')[1].split('?')[0];
+                }
+
+                videoInfo.embedId = videoId;
+                console.log('🆔 Extracted YouTube ID:', videoId);
+            }
+
+                console.log('Final result:', videoInfo);
+                console.log('========================');
+
+                return videoInfo;
+            }
+
+     function createMediaElementByType(mediaInfo) {
             if (!mediaInfo.primarySource) {
                 return document.createElement('img');
             }
@@ -2602,16 +3723,64 @@
             // Set standard attributes
             mediaElement.className = 'result-image';
             mediaElement.alt = 'Post thumbnail';
-            mediaElement.setAttribute('loading', 'lazy');
+            mediaElement.setAttribute('loading', 'eager');
             mediaElement.setAttribute('decoding', 'async');
             mediaElement.setAttribute('fetchpriority', 'low');
             mediaElement.setAttribute('crossorigin', 'anonymous');
+
+            // Store video info for modal detection
+            if (mediaInfo.videoInfo && mediaInfo.videoInfo.videoType === 'reddit_native') {
+                mediaElement.dataset.isRedditVideo = 'true';
+                mediaElement.dataset.videoType = 'reddit_native';
+
+                // Extract and store video ID
+                const post = mediaInfo.post;
+                let videoId = null;
+                if (post?.url?.includes('v.redd.it')) {
+                    videoId = post.url.split('/').pop();
+                } else if (mediaInfo.videoInfo.videoSource) {
+                    const match = mediaInfo.videoInfo.videoSource.match(/v\.redd\.it\/([^\/]+)/);
+                    if (match) videoId = match[1];
+                }
+
+                if (videoId) {
+                    mediaElement.dataset.videoId = videoId;
+                }
+            }
 
             // Set initial source
             mediaElement.src = source.url;
 
             return mediaElement;
         }
+
+        async function getCombinedRedditVideo(videoId) {
+                try {
+
+                    // Call the backend API
+                    const response = await fetch(`http://localhost:3000/api/reddit-video/${videoId}`);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    console.log('📦 Backend response:', data);
+
+                    if (data.success && data.videoUrl) {
+                        // Backend has the video ready
+                        console.log('✅ Video ready immediately:', data.videoUrl);
+                        return `http://localhost:3000${data.videoUrl}`;
+                    } else {
+                        console.error('❌ Backend error:', data.error);
+                        return null;
+                    }
+
+                } catch (error) {
+                    console.error('❌ Error getting combined video:', error);
+                    return null;
+                }
+            }
 
         function setupMediaErrorHandling(mediaElement, mediaInfo) {
             let currentSourceIndex = 0;
@@ -2708,30 +3877,226 @@
     }
 
     function setupImageModal(imageWrapper) {
-        imageWrapper.addEventListener('click', function () {
+        imageWrapper.addEventListener('click', async function (event) {
+            // Prevent any default behaviors that might cause navigation
+            event.preventDefault();
+            event.stopPropagation();
+
             // Remove any existing modals first
             const existingModal = document.querySelector('.modal-overlay');
             if (existingModal) {
                 existingModal.remove();
             }
+
             const modalOverlay = document.createElement('div');
             modalOverlay.className = 'modal-overlay';
             modalOverlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0,0,0,0);
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0,0,0,0);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.1s ease;
+    `;
+
+            // Check if this is a Reddit video thumbnail
+            const imageElement = imageWrapper.querySelector('img');
+            const isRedditVideo = imageElement && imageElement.dataset.isRedditVideo === 'true';
+            const originalVideo = imageWrapper.querySelector('.js-player');
+
+            let modalContent;
+
+            if (isRedditVideo) {
+                // Create video with poster immediately - NO BLACK SCREEN
+                modalContent = document.createElement('div');
+                modalContent.style.cssText = `
+            width: auto !important;
+            height: auto !important;
+            max-width: 90vw;
+            max-height: 90vh;
+            opacity: 0;
+            transform: scale(0.8);
             transition: all 0.1s ease;
+            border-radius: 25px;
+            padding: 0;
+            background: transparent;
+            overflow: hidden;
         `;
 
-            const modalImageWrapper = imageWrapper.cloneNode(true);
-            modalImageWrapper.style.cssText = `
+                // Create video element with poster IMMEDIATELY
+                const newVideo = document.createElement('video');
+                newVideo.className = 'js-player';
+                newVideo.setAttribute('controls', '');
+                newVideo.setAttribute('playsinline', '');
+                newVideo.setAttribute('poster', imageElement.src);
+                newVideo.muted = false;
+                newVideo.style.cssText = `
+            width: 100% !important;
+            height: auto !important;
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 25px;
+        `;
+
+                modalContent.appendChild(newVideo);
+                modalOverlay.appendChild(modalContent);
+                document.body.appendChild(modalOverlay);
+
+                // Trigger opening animation
+                setTimeout(() => {
+                    modalOverlay.style.backgroundColor = 'rgba(0,0,0,0.8)';
+                    modalContent.style.opacity = '1';
+                    modalContent.style.transform = 'scale(1)';
+                }, 10);
+
+                // Initialize Plyr immediately
+                try {
+                    const modalPlyrInstance = new Plyr(newVideo, {
+                        controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+                        volume: 1,
+                        muted: false,
+                        clickToPlay: true,
+                        autoplay: true,
+                        disableContextMenu: false,
+                        fullscreen: {
+                            enabled: true,
+                            fallback: true,
+                            iosNative: false
+                        }
+                    });
+
+                    modalPlyrInstance.on('enterfullscreen', () => {
+                        const video = newVideo;
+                        video.style.marginLeft = 'auto';
+                        video.style.marginRight = '0';
+                        video.style.transform = 'translateX(-5vw) translateY(5vh) scale(1.2)';      
+                    });
+
+                    modalPlyrInstance.on('exitfullscreen', () => {
+                        const video = newVideo;
+                        video.style.marginLeft = '';
+                        video.style.marginRight = '';
+                        video.style.transform = '';
+                        video.style.width = '';
+                    });
+                    
+                    modalPlyrInstance.muted = false;
+                    modalPlyrInstance.volume = 1;
+
+                } catch (error) {
+                    console.log('❌ Error initializing Plyr:', error);
+                }
+
+                // Add spinner overlay
+                // Hide the Plyr play button
+                const plyrPlayButton = modalContent.querySelector('.plyr__control--overlaid');
+                if (plyrPlayButton) {
+                    plyrPlayButton.style.display = 'none';
+                }
+
+                // Add spinner overlay (no visible background)
+                const loadingOverlay = document.createElement('div');
+                loadingOverlay.style.cssText = `
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10;
+                `;
+
+                const spinnerWrapper = createCanvasSpinner();
+                spinnerWrapper.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transform: scale(1.5);
+                `;
+
+                loadingOverlay.appendChild(spinnerWrapper);
+                modalContent.appendChild(loadingOverlay);
+
+                // Get the stored video ID and process in background
+                const videoId = imageElement.dataset.videoId;
+                if (videoId) {
+                    try {
+                        console.log('🔄 Getting combined video for ID:', videoId);
+                        const combinedVideoUrl = await getCombinedRedditVideo(videoId);
+
+                        if (combinedVideoUrl) {
+                            newVideo.src = combinedVideoUrl;
+                            loadingOverlay.remove();
+                            // Show the play button again
+                            if (plyrPlayButton) {
+                                plyrPlayButton.style.display = '';
+                            }
+                    
+                        } else {
+                            // Keep spinner, retry after delay
+                            setTimeout(async () => {
+                                const retryUrl = await getCombinedRedditVideo(videoId);
+                                if (retryUrl) {
+                                    newVideo.src = retryUrl;
+                                    loadingOverlay.remove();
+                                }
+                            }, 2000);
+                        }
+                    } catch (error) {
+                        console.error('❌ Error in video processing:', error);
+                        loadingOverlay.remove();
+                    }
+                }
+
+            } else if (originalVideo) {
+                // Handle non-Reddit videos (existing logic)
+                modalContent = document.createElement('div');
+                modalContent.style.cssText = `
+            width: auto !important;
+            height: auto !important;
+            max-width: 90vw;
+            max-height: 90vh;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.1s ease;
+            border-radius: 25px;
+            overflow: hidden;
+        `;
+
+                const newVideo = document.createElement('video');
+                newVideo.className = 'js-player';
+                newVideo.setAttribute('controls', '');
+                newVideo.setAttribute('playsinline', '');
+                newVideo.src = originalVideo.src || originalVideo.querySelector('source')?.src;
+                newVideo.style.cssText = `
+            width: 100% !important;
+            height: auto !important;
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 25px;
+            object-fit: cover;
+        `;
+
+                modalContent.appendChild(newVideo);
+                modalOverlay.appendChild(modalContent);
+                document.body.appendChild(modalOverlay);
+
+                setTimeout(() => {
+                    modalOverlay.style.backgroundColor = 'rgba(0,0,0,0.8)';
+                    modalContent.style.opacity = '1';
+                    modalContent.style.transform = 'scale(1)';
+                }, 10);
+
+            } else {
+                // Handle regular images (existing logic)
+                modalContent = imageWrapper.cloneNode(true);
+                modalContent.style.cssText = `
             width: auto !important;
             height: auto !important;
             cursor: pointer;
@@ -2744,40 +4109,42 @@
             border-radius: 25px;
         `;
 
-            // FIX: Clean up the cloned modal content
-            const imageInside = modalImageWrapper.querySelector('img, video');
-            const shimmerPlaceholder = modalImageWrapper.querySelector('.image-placeholder');
+                const imageInside = modalContent.querySelector('img');
+                const shimmerPlaceholder = modalContent.querySelector('.image-placeholder');
 
-            if (imageInside) {
-                imageInside.style.cssText = `
+                if (imageInside) {
+                    imageInside.style.cssText = `
                 width: 100% !important;
                 height: auto !important;
                 max-width: 90vw;
                 max-height: 90vh;
-                opacity: 1 !important;  // Make sure image is visible in modal
+                opacity: 1 !important;
             `;
+                }
+
+                if (shimmerPlaceholder) {
+                    shimmerPlaceholder.remove();
+                }
+
+                modalOverlay.appendChild(modalContent);
+                document.body.appendChild(modalOverlay);
+
+                setTimeout(() => {
+                    modalOverlay.style.backgroundColor = 'rgba(0,0,0,0.8)';
+                    modalContent.style.opacity = '1';
+                    modalContent.style.transform = 'scale(1)';
+                }, 10);
             }
 
-            // Remove shimmer from modal (it shouldn't be there)
-            if (shimmerPlaceholder) {
-                shimmerPlaceholder.remove();
-            }
+            // Close modal handler - works for all types
+            modalOverlay.addEventListener('click', function (event) {
+                if (event.target.closest('video, .plyr, .plyr__controls, .js-player')) {
+                    return;
+                }
 
-            modalOverlay.appendChild(modalImageWrapper);
-            document.body.appendChild(modalOverlay);
-
-            // Trigger animations with proper timing
-            setTimeout(() => {
-                modalOverlay.style.backgroundColor = 'rgba(0,0,0,0.8)';
-                modalImageWrapper.style.opacity = '1';
-                modalImageWrapper.style.transform = 'scale(1)';
-            }, 10);
-
-            // Close modal
-            modalOverlay.addEventListener('click', function () {
                 modalOverlay.style.backgroundColor = 'rgba(0,0,0,0)';
-                modalImageWrapper.style.opacity = '0';
-                modalImageWrapper.style.transform = 'scale(0.8)';
+                modalContent.style.opacity = '0';
+                modalContent.style.transform = 'scale(0.8)';
                 setTimeout(() => {
                     if (document.body.contains(modalOverlay)) {
                         document.body.removeChild(modalOverlay);
@@ -3101,7 +4468,7 @@
             linkPreview.className = 'link-preview-card';
             linkPreview.style.position = 'absolute';
             linkPreview.style.opacity = '0'; 
-            linkPreview.style.transition = 'opacity 0.3s ease-in-out'; 
+            linkPreview.style.transition = 'opacity 0.2s ease-in-out'; 
             linkPreview.innerHTML = `
         <div class="link-preview-container">
             <span class="link-domain">${domain}</span>
@@ -3201,8 +4568,6 @@
                 console.error('❌ Invalid permalink provided to fetchComments:', permalink);
                 return;
             }
-
-
 
             // Check database for cached comments
             try {
@@ -3358,15 +4723,20 @@
         }
 
     function showError(message) {
-            resultsContainer.innerHTML = `
-    <div class='results-error'>
-        <p>${message}</p>
-    </div>
-    `;
+        resultsContainer.innerHTML = `
+        <div class='results-error'>
+            <p>${message}</p>
+        </div>
+        `;
         resultsContainer.style.opacity = 0;
-    applyStaggeredAnimation('.results-error', 'visible', 60);
+        applyStaggeredAnimation('.results-error', 'visible', 60);
         paginationContainer.innerHTML = '';
-        resultsContainer.style.opacity = 1;
+
+        // Fade in the results container
+        setTimeout(() => {
+            resultsContainer.style.transition = 'opacity 0.3s ease';
+            resultsContainer.style.opacity = 1;
+        }, 10);
     }
 
     function renderComments(data, commentsContainer, permalink, isPostLocked, post, cachedCommentCount) {
@@ -3559,6 +4929,16 @@
 
         const diffYears = Math.floor(diffMonths / 12);
         return `${diffYears} year${diffYears !== 1 ? 's' : ''} ago`;
+    }
+
+    function toggleThemeMenu() {
+        const dropdown = document.getElementById('themeDropdown');
+        dropdown.classList.toggle('show');
+    }
+
+    function selectTheme(themeName) {
+        applyTheme(themeName);
+        document.getElementById('themeDropdown').classList.remove('show');
     }
 
     function formatNumber(num) {
@@ -3754,7 +5134,7 @@
         }
 
     function classifyContentType(post) {
-        // Text detection first (most specific)
+        // Text detection first 
         if (post.is_self === true) return 'text';
         if (post.domain && post.domain.startsWith('self.')) return 'text';
         if (post.url && post.url.includes('/comments/')) return 'text';
@@ -3807,7 +5187,7 @@
                             let normalizedCacheKeyUrl = post.url;
                             normalizedCacheKeyUrl = normalizedCacheKeyUrl.split('?')[0]; // Remove query parameters
                             normalizedCacheKeyUrl = normalizedCacheKeyUrl.replace('preview.redd.it', 'i.redd.it');
-                            normalizedCacheKeyUrl = normalizedCacheKeyUrl.replace('v.redd.it', 'i.redd.it');
+                            // DON'T normalize v.redd.it - keep video URLs as video URLs
                             normalizedCacheKeyUrl = normalizedCacheKeyUrl.replace('external-preview.redd.it', 'i.redd.it');
                             // --- END NORMALIZATION ---
 
@@ -3888,80 +5268,104 @@
             }
         }
 
-    function initPage() {   
-
+   function initPage() {
         const isBookmarksPage = window.location.search.includes('page=bookmarks');
 
-            // ✅ 1. Load cached media posts at startup, not on bookmarks page
-            if (!isBookmarksPage) {
-                loadCachedPosts();
-            }
+        if (!isBookmarksPage) {
+            loadCachedPosts();
+        }
 
-            // ✅ 2. Setup dropdown
-            const input = document.querySelector('#subreddit-input');
-            const dropdown = document.querySelector('.subreddit-suggestions');
+        const input = document.querySelector('#subreddit-input');
+        const dropdown = document.querySelector('.subreddit-suggestions');
+        if (input && dropdown) {
+            document.addEventListener('mousedown', (e) => {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.remove('active');
+                }
+            });
+            dropdown.addEventListener('click', (e) => {
+                const clickedItem = e.target.closest('.subreddit-suggestion');
+                if (clickedItem) {
+                    input.value = clickedItem.dataset.name || clickedItem.innerText;
+                    dropdown.classList.remove('active');
+                }
+            });
+        }
 
-            if (input && dropdown) {
-                // CLICKING OUTSIDE → closes dropdown
-                document.addEventListener('mousedown', (e) => {
-                    if (!input.contains(e.target) && !dropdown.contains(e.target)) {
-                        dropdown.classList.remove('active');
-                    }
-                });
-
-                // CLICKING ON A SUGGESTION → apply + close dropdown
-                dropdown.addEventListener('click', (e) => {
-                    const clickedItem = e.target.closest('.subreddit-suggestion');
-                    if (clickedItem) {
-                        input.value = clickedItem.dataset.name || clickedItem.innerText;
-                        dropdown.classList.remove('active');
-                    }
-                });
-            }
-
-        // ✅ 3. Only do search stuff on main page
         if (isBookmarksPage) {
-            loadSectionContent(1, false);
+            const urlParams = new URLSearchParams(window.location.search);
+            const sectionParam = urlParams.get('section');
+            const sectionId = sectionParam ? parseInt(sectionParam) : 1;
+            loadSectionContent(sectionId, false);
             return;
         }
 
-        // Main page logic
-        const isPageRefresh = performance.navigation
-            ? performance.navigation.type === 1
-            : performance.getEntriesByType('navigation')[0]?.type === 'reload';
-
-        const isBackForward = performance.navigation
+        const isBackForwardNavigation = performance.navigation
             ? performance.navigation.type === 2
             : performance.getEntriesByType('navigation')[0]?.type === 'back_forward';
 
-        const restored = (isPageRefresh || isBackForward) && loadPaginationState(isBackForward);
+        loadPaginationState(isBackForwardNavigation);
 
-        if (!restored || isPageRefresh) {
-            // Fresh load - setup defaults and search
-            console.log("🛎️ Loading r/all...");
+        const urlParams = new URLSearchParams(window.location.search);
+        const isHomepageFromURL = currentPageIndex === 0 &&
+            !urlParams.has('q') &&
+            !urlParams.has('sub') &&
+            !urlParams.has('sort') &&
+            !urlParams.has('time') &&
+            !urlParams.has('type');
+
+        if (isHomepageFromURL) {
+            console.log("🛎️ Loading r/all homepage...");
             currentPageIndex = 0;
             currentAfter = null;
             currentBefore = null;
-            currentFilters = {
-                sort: 'hot',
-                time: 'all',
-                subreddit: '',
-                query: '',
-                contentType: 'all'
-            };
-            if (window.stripeCustomerId) {
-                preloadBookmarks(window.stripeCustomerId, performSearch);
+        }
+
+        let initialAfterToken = null;
+        let initialBeforeToken = null;
+
+        if (currentPageIndex > 0) {
+            if (navigationHistory.length > currentPageIndex - 1) {
+                initialAfterToken = navigationHistory[currentPageIndex - 1]?.after || null;
+                initialBeforeToken = navigationHistory[currentPageIndex - 1]?.before || null;
+                console.log(`💡 On initial load for page index ${currentPageIndex}, using after token: ${initialAfterToken}`);
             } else {
-                performSearch();
+                console.warn(`⚠️ Navigation history too short to load page index ${currentPageIndex}. Falling back to first page.`);
+                currentPageIndex = 0;
+                initialAfterToken = null;
+                initialBeforeToken = null;
             }
+        } else {
+            console.log(`💡 On initial load for page index 0, fetching without after/before token.`);
+        }
+
+        if (window.stripeCustomerId) {
+            preloadBookmarks(window.stripeCustomerId, () => {
+                performSearch(initialAfterToken, initialBeforeToken, false, true);
+            });
+        } else {
+            performSearch(initialAfterToken, initialBeforeToken, false, true);
         }
     }
-            
-    // ✅ Reliable DOM load wrapper
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initPage);
-    } else {
-        initPage();
+ 
+    // DOM load wrapper
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                initPage();
+                loadBlocklist();
+            });
+        } else {
+            initPage();
+            loadBlocklist();
+        }
+
+    function resetBookmarksState() {
+        if (window.location.search.includes('page=bookmarks')) {
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+            const tabsSection = document.querySelector('.tabs-section');
+            if (tabsSection) tabsSection.remove();
+        }
     }
 
     function getYouTubeThumbnail(url) {
@@ -3977,6 +5381,12 @@
     }
 
     function savePostsToDatabase(posts, pageGroupParam) {
+
+        // Only save if there are 10 or more posts
+        if (posts.length < 10) {
+            console.log(`Skipping save: only ${posts.length} posts (need 10 minimum)`);
+            return;
+        }
             const pageGroup = pageGroupParam;
 
             const cleanPosts = posts.map((post, index) => ({
@@ -4008,7 +5418,7 @@
                 }
             }));
        
-        // Send to server with better error handling
+        // Send to server 
         fetch('http://localhost:3000/api/save-posts', {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
@@ -4214,7 +5624,7 @@
         fetch('words.json')
             .then(res => res.json())
             .then(words => {
-                console.log("✅ Word list loaded:", words.length);
+                // console.log("✅ Word list loaded:", words.length);
                 window.englishWords = words;
                 setupSearchSuggestions('search-input', 'suggestions', window.englishWords);
             })
@@ -4223,10 +5633,18 @@
             });
     </script>
 
-
+<script src="themes.js"></script>
 <script src="themetoggle.js" defer></script>
 <script src="bookmarks.js"></script>
-
+            <div class="hermes-context-menu" id="hermesContextMenu">
+                <div class="hermes-context-menu-item" id="muteHermes">
+                    <span class="bell-unmute"></span>
+                    <span>Mute Hermes</span>
+                </div>
+                <div class="hermes-context-menu-item" id="toggleAnimations">
+                    <span class="checkmark">✓</span>
+                    <span>Animations</span>
+                </div>
 </body>
 
 </html>
