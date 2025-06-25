@@ -12,6 +12,18 @@ const pool = new Pool({
     connectionTimeoutMillis: 2000, 
 });
 
+setInterval(() => {
+    const used = process.memoryUsage();
+    console.log('Memory:', {
+        rss: `${Math.round(used.rss / 1024 / 1024)}MB`,
+        heap: `${Math.round(used.heapUsed / 1024 / 1024)}MB`
+    });
+}, 60000); // Every minute
+
+setInterval(() => {
+    console.log('Still alive:', new Date().toLocaleTimeString());
+}, 10000);
+
 // Pool event handlers
 pool.on('connect', () => {
     console.log('🟢 New pool connection established to PostgreSQL');

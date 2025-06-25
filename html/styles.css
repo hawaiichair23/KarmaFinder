@@ -22,6 +22,7 @@ body {
     line-height: 1.6;
     transition: none !important;
     opacity: 0;
+
 }
 
 body.is-loaded {
@@ -501,6 +502,74 @@ body.dark-mode #compact-toggle:hover {
     justify-content: flex-start;
 }
 
+/* TOGGLE SWITCHES */
+
+.toggle-group {
+    position: absolute;
+    left: 0px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    /* vertical space between toggles */
+    align-items: center;
+    /* center them horizontally (optional) */
+}
+
+.toggle-wrapper {
+    display: flex;
+    justify-content: center;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    margin-left: 18px;
+    top: 5px;
+    width: 66px;
+    height: 34px;
+    scale: 75%;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #eee;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 28px;
+    width: 28px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+input:checked+.slider {
+    background: linear-gradient(to right, rgb(255, 166, 0), rgb(255, 4, 4));
+}
+
+input:checked+.slider:before {
+    transform: translateX(29px);
+    left: 4px;
+    bottom: 4px;
+}
+
 .option-group {
     flex: 0 0 auto;
     /* Don't grow or shrink, stay at natural width */
@@ -918,7 +987,6 @@ body.comfy-mode .comments-scroll:hover {
 }
 
 body.comfy-mode .el-quote {
-    color: #989898;
     border-left: 5px solid #bbbbbb;
     padding-left: 12px;
     font-size: 1em;
@@ -2047,4 +2115,126 @@ body.dark-mode .bookmark-tiny {
 
 .dark-mode .bookmark-icon.saved {
     background-color: #f9ce4e;
+}
+
+/* HERMES SPEECH */
+
+@font-face {
+    font-family: 'Special Elite';
+    src: url('../assets/SpecialElite.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+.speech-bubble {
+    word-wrap: break-word;
+    white-space: normal;
+    overflow-wrap: break-word;
+    position: absolute;
+    background: rgb(244, 239, 236);
+    border: 2px solid #333;
+    border-radius: 6px;
+    padding: 8px 12px;
+    max-width: 150px;
+    font-family: 'Special Elite', monospace;
+    font-size: 14px;
+    font-weight: bold;
+    transform: translateY(-20px);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+    z-index: 1000;
+    top: 0px; 
+    left: 820px; /* More to the left */
+    color: #333;
+}
+
+.speech-text {
+    font-family: 'Special Elite', monospace;
+    padding-top: 2px;
+    /* Push text down */
+}
+
+.speech-tail {
+    position: absolute;
+    left: -13px;
+    /* Move it further out */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-top: 7px solid transparent;
+    /* Make it taller */
+    border-bottom: 7px solid transparent;
+    border-right: 15px solid rgb(244, 239, 236);
+    /* Make it longer */
+}
+.hidden {
+    display: none;
+}
+
+/* CONTEXT MENU */
+
+.hermes-context-menu {
+    position: absolute;
+    background: var(--card-color);
+    border: 1px solid #999;
+    border-radius: 8px;
+    padding: 0;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    min-width: 160px;
+    transition: all 0.1s ease;
+    display: none;
+    line-height: 1.6;
+}
+
+body.dark-mode .hermes-context-menu {
+    background: #232326;
+    border: 1px solid #8f8f8f;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.hermes-context-menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: Segoe UI;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: inset 0 0 1px #d8d8dc;
+    border-radius: 8px;
+    left: 0px;
+    margin-left: 0px;
+}
+
+body.dark-mode .hermes-context-menu-item {
+    box-shadow: inset 0 0 1px #35353e;
+    color: #fff;
+}
+
+.hermes-context-menu-item:hover {
+    background: #ebebef;
+}
+
+body.dark-mode .hermes-context-menu-item:hover {
+    background-color: #3c3c43;
+}
+
+.checkmark {
+    color: #007bff;
+    font-weight: bold;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+.bell {
+    background-image: url('../assets/bell.png');
+    width: 20px;
+    height: 20px;
+    margin-right: 0px;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 1050;
 }

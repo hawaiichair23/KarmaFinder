@@ -1,5 +1,5 @@
 let currentOffset = 0;
-let hasMoreBookmarks = true;
+const hasMoreBookmarks = {};
 let sectionBookmarks = {
     1: [], // Main bookmarks section
     2: []  // New section
@@ -8,7 +8,7 @@ const BOOKMARKS_PER_PAGE = 10;
 window.stripeCustomerId = "cus_ABC123";
 
 // Use a separate offset for each section so scrolling works for both tabs
-let sectionOffsets = { 1: 0, 2: 0 };
+const sectionOffsets = {};
 
 window.addEventListener('load', function () {
     window.scrollTo(0, 0);
@@ -37,7 +37,7 @@ function createContextMenu() {
         </div>
         <div class="context-menu-divider"></div>
         <div class="context-menu-item danger" data-action="delete">
-            <span>🗑️</span>
+            <span>❌</span>
             <span>Delete Section</span>
         </div>
     `;
@@ -45,43 +45,128 @@ function createContextMenu() {
     document.body.appendChild(contextMenu);
 }
 
+function getCurrentUserId() {
+    return window.stripeCustomerId;
+}
+
 // Basic initialization function for bookmarks page
 function initBookmarks() {
     console.log("🔖 Loading bookmarks...");
 
     createContextMenu();
-    insertTabsUI();
-    setupTabEvents();
     setupContextMenuHandlers();
 }
 
 // Function to create and insert the tabs UI
-function insertTabsUI() {
-    // Check if tabs already exist
-    if (document.querySelector('.tabs-section')) {
-        return; // Don't insert again
-    }
-    // HTML for the tabs
-    const tabsHTML = `
-    <div class="tabs-section">
-      <div class="tab-container">
-        <div class="tab active">Bookmarks</div>
-        <div class="tab">New Section</div>
-      </div>
-      <div class="scroll-container-minimal">
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-    <polyline points="6 9 12 15 18 9"></polyline>
-  </svg>
-</div>
-    </div>
-  `;
-
-    // WHERE THE TAB IS BEING INSERTED
+async function insertTabsUI(tabsData) {
+    let tabContainer = document.querySelector('.tab-container');
     const contentContainer = document.querySelector('.results-container');
 
-    // Insert tabs before the main content
-    if (contentContainer) {
-        contentContainer.insertAdjacentHTML('beforebegin', tabsHTML);      
+    if (!tabContainer) {
+        const tabsSectionHTML = `
+            <div class="tabs-section">
+                <div class="tab-container">
+                </div>
+                <div class="scroll-container-minimal">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </div>
+            </div>
+        `;
+        if (contentContainer) {
+            contentContainer.insertAdjacentHTML('beforebegin', tabsSectionHTML);
+            tabContainer = document.querySelector('.tab-container');
+        } else {
+            return;
+        }
+    } else {
+        tabContainer.innerHTML = '';
+    }
+
+    tabsData.forEach((tab, index) => {
+        const newTabElement = document.createElement('div');
+        newTabElement.classList.add('tab');
+        if (index === 0) {
+            newTabElement.classList.add('active');
+        }
+        newTabElement.textContent = tab.name;
+        newTabElement.dataset.tabId = tab.id;
+        newTabElement.dataset.sortOrder = tab.sort_order;
+        tabContainer.appendChild(newTabElement);
+    });
+        
+    // Only add the + button if we have less than 8 tabs
+    if (tabsData.length < 8) {
+        const addSectionBtn = document.createElement('button');
+        addSectionBtn.className = 'add-section-btn';
+        addSectionBtn.title = 'Add New Section';
+        addSectionBtn.innerHTML = '<span class="plus-sign">+</span>';
+        tabContainer.appendChild(addSectionBtn);
+
+        addSectionBtn.removeEventListener('click', createNewSection);
+        addSectionBtn.addEventListener('click', createNewSection);
+    
+
+    if (addSectionBtn) {
+        addSectionBtn.removeEventListener('click', createNewSection);
+        addSectionBtn.addEventListener('click', createNewSection);
+    }
+    }
+    setupTabEvents();
+}
+
+async function initializeTabs() {
+    try {
+        const response = await fetch(`http://localhost:3000/api/sections/${stripeCustomerId}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        await insertTabsUI(data.sections);
+    } catch (error) {
+        console.error('Failed to load sections:', error);
+    }
+}
+
+// Create New Section button
+async function createNewSection() {
+    try {
+        const stripeCustomerId = getCurrentUserId(); 
+
+        const response = await fetch(`http://localhost:3000/api/sections/${stripeCustomerId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: 'New Section'
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log('New section created:', data.section);
+
+            // Create new tab element
+            const newTab = document.createElement('div');
+            newTab.className = 'tab';
+            newTab.textContent = 'New Section';
+
+            // Insert before the + button
+            const addButton = document.querySelector('.add-section-btn');
+            addButton.parentNode.insertBefore(newTab, addButton);
+            const urlParams = new URLSearchParams(window.location.search);
+            const sectionParam = urlParams.get('section');
+
+            initializeTabs();
+            loadSectionContent(parseInt(sectionParam));
+
+        } else {
+            console.error('Failed to create section');
+        }
+    } catch (error) {
+        console.error('Error creating section:', error);
     }
 }
 
@@ -119,8 +204,15 @@ function setupTabEvents() {
             });
 
             // Handle content switching based on tab position
-            const sectionId = index === 0 ? 1 : 2;
+            const sectionId = parseInt(this.dataset.tabId);
+            const sortOrder = parseInt(this.dataset.sortOrder);
+            console.log(`🔢 Switching to section ${sortOrder}...`);
             loadSectionContent(sectionId);
+
+            // URL update
+            const url = new URL(window.location);
+            url.searchParams.set('section', sectionId);
+            window.history.pushState({}, '', url);
         });
 
         // Double-click listener
@@ -138,11 +230,11 @@ function setupTabEvents() {
 
             contextMenu.dataset.currentTabIndex = index;
             contextMenu.dataset.currentTabText = this.textContent.trim();
-
+            contextMenu.dataset.currentSectionId = this.dataset.tabId;
             contextMenu.style.left = e.clientX + 'px';
             contextMenu.style.top = (e.pageY + 5) + 'px';  
             contextMenu.style.display = 'block';
-
+        
             // Keep menu within viewport
             const rect = contextMenu.getBoundingClientRect();
             if (rect.right > window.innerWidth) {
@@ -152,6 +244,20 @@ function setupTabEvents() {
                 contextMenu.style.top = (e.pageY - rect.height - 5) + 'px';  
             }
         });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const sectionParam = urlParams.get('section');
+        if (sectionParam) {
+            const targetTab = document.querySelector(`[data-tab-id="${sectionParam}"]`);
+            if (targetTab) {
+                // Remove active from all tabs
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                // Activate the target tab
+                targetTab.classList.add('active');
+                // Load its content
+                loadSectionContent(parseInt(sectionParam));
+            }
+        }
     });
 }
 
@@ -161,20 +267,57 @@ function setupContextMenuHandlers() {
 
     // Handle menu item clicks
     document.querySelectorAll('.context-menu-item').forEach(item => {
-        item.addEventListener('click', function () {
+        item.addEventListener('click', async function () {
             const action = this.dataset.action;
-
             if (action === 'rename') {
                 const newName = prompt('Enter new section name:');
                 if (newName && newName.trim() !== '') {
-                    console.log('Rename to:', newName);
-                    
-                    // Add your rename API call here
+                    const sectionId = contextMenu.dataset.currentSectionId;
+                    const userId = getCurrentUserId(); 
+
+                    try {
+                        const response = await fetch(`http://localhost:3000/api/sections/${userId}/${sectionId}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ name: newName })
+                        });
+
+                        const data = await response.json();
+                        if (data.success) {
+                            // Update the tab name in the UI
+                            const tab = document.querySelector(`[data-tab-id="${sectionId}"]`);
+                            if (tab) {
+                                tab.textContent = newName;
+                                console.log(`Renamed section to: ${newName}`);
+                            }
+    
+                        } else {
+                            alert('Failed to rename section: ' + (data.error || 'Unknown error'));
+                        }
+                    } catch (error) {
+                        console.error('Error renaming section:', error);
+                        alert('Failed to rename section');
+                    }
                 }
             } else if (action === 'delete') {
                 if (confirm('Delete this section? This will permanently delete the section bookmarks.')) {
-                    console.log('Delete section');
-                    // Add your delete API call here
+                    const sectionId = contextMenu.dataset.currentSectionId;
+                    const userId = getCurrentUserId(); 
+
+                    fetch(`http://localhost:3000/api/sections/${userId}/${sectionId}`, {
+                        method: 'DELETE'
+                    })
+                        .then(res => res.json())
+                        .then(data => {
+                            console.log('✅ Deleted:', data);
+                            initializeTabs(); 
+                            loadSectionContent(1, false);
+                        })
+                        .catch(err => {
+                            console.error('❌ Error deleting section:', err);
+                        });
                 }
             }
 
@@ -188,10 +331,16 @@ function setupContextMenuHandlers() {
             contextMenu.style.display = 'none';
         }
     });
+    // Hide context menu when right-clicking elsewhere
+    document.addEventListener('contextmenu', function (e) {
+        if (!e.target.closest('.tab-container')) {
+            contextMenu.style.display = 'none';
+        }
+    });
 }
 
 // Rename function that handles double-click and context menu
-function handleRename(tabIndex, currentName) {
+async function handleRename(tabIndex) {
     const tabs = document.querySelectorAll('.tab');
     const tab = tabs[tabIndex];
     if (!tab) return;
@@ -214,21 +363,53 @@ function handleRename(tabIndex, currentName) {
     tab.classList.add('editing');
 
     // Handle when user finishes editing
-    function finishEditing() {
+    async function finishEditing() {
         tab.contentEditable = false;
         tab.classList.remove('editing');
 
         const newText = tab.textContent.trim();
+
         if (newText === '' || newText === originalText) {
             // Restore original text if empty or unchanged
             tab.textContent = originalText;
             return;
         }
 
-        // Update with new name
-        tab.textContent = newText;
-        console.log(`Rename section to: ${newText}`);
-        // Add your API call here
+        // Update with new name and make API call
+        console.log(`Renamed section to: ${newText}`);
+
+        const sectionId = tab.dataset.tabId;
+        const userId = getCurrentUserId();
+
+        try {
+            const response = await fetch(`http://localhost:3000/api/sections/${userId}/${sectionId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name: newText })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Success - keep the new name
+                tab.textContent = newText;
+
+                // Clear sections cache if you have one
+                if (typeof invalidateSectionsCache === 'function') {
+                    invalidateSectionsCache();
+                }
+            } else {
+                // Revert on failure
+                tab.textContent = originalText;
+                alert('Failed to rename section: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error renaming section:', error);
+            tab.textContent = originalText;
+            alert('Failed to rename section');
+        }
     }
 
     // Listen for Enter key or blur (click away)
@@ -256,16 +437,19 @@ function setupBookmarksScrollListener() {
     function handleScroll() {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('page') !== 'bookmarks') return;
-        if (!hasMoreBookmarks || isLoading) return;
+
+        // Get sectionId before checking hasMoreBookmarks
+        const activeTab = document.querySelector('.tab.active');
+        if (!activeTab) return;
+        const allTabs = document.querySelectorAll('.tab');
+        const activeTabIndex = Array.from(allTabs).indexOf(activeTab);
+        const tabs = document.querySelectorAll('.tab');
+        const sectionId = tabs[activeTabIndex]?.dataset.tabId;
+
+        // Check the section-specific hasMoreBookmarks
+        if (!hasMoreBookmarks[sectionId] || isLoading) return;
 
         if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
-            const activeTab = document.querySelector('.tab.active');
-            if (!activeTab) return;
-
-            const allTabs = document.querySelectorAll('.tab');
-            const activeTabIndex = Array.from(allTabs).indexOf(activeTab);
-            const sectionId = activeTabIndex === 0 ? 1 : 2;
-
             loadSectionContent(sectionId, true);
         }
     }
@@ -278,8 +462,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const page = urlParams.get('page');
 
     if (page === 'bookmarks') {
-        initBookmarks();    
-        setupBookmarksScrollListener();   
+        initBookmarks();
+        setupBookmarksScrollListener();
+        initializeTabs();
     }
 });
 
@@ -305,9 +490,17 @@ function positionScrollIndicator() {
     indicator.style.left = '50%';
     indicator.style.transform = 'translateX(-50%)';
     
-    // Show/hide based on hasMoreBookmarks
+    // Get active section
+    const activeTab = document.querySelector('.tab.active');
+    if (!activeTab) {
+        indicator.style.display = 'none';
+        return;
+    }
+    const sectionId = activeTab.dataset.tabId;
+
+    // Check section-specific hasMoreBookmarks
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('page') === 'bookmarks' && hasMoreBookmarks) {
+    if (urlParams.get('page') === 'bookmarks' && hasMoreBookmarks[sectionId]) {
         indicator.style.display = 'flex';
     } else {
         indicator.style.display = 'none';
@@ -347,21 +540,6 @@ function handleDragStart(e) {
     this.style.zIndex = '1000';
 }
 
-function handleDragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-
-    const afterElement = getDragAfterElement(e.clientY);
-    const dragging = document.querySelector('.dragging');
-    const resultsContainer = document.querySelector('.results-container');
-
-    if (afterElement == null) {
-        resultsContainer.appendChild(dragging);
-    } else {
-        resultsContainer.insertBefore(dragging, afterElement);
-    }
-}
-
 function handleDrop(e) {
     e.preventDefault();
 
@@ -384,25 +562,6 @@ function handleDrop(e) {
     updateBookmarkOrder(sectionId);
 
     console.log(`Moved bookmark from position ${currentIndex} to ${newIndex} in section ${sectionId}`);
-}
-
-function handleDragEnd(e) {
-    document.body.classList.remove('dragging-active');
-    // Reset all styling
-    this.style.opacity = '';
-    this.style.cursor = 'grab';
-    this.style.transform = '';
-    this.style.boxShadow = '';
-    this.style.zIndex = '';
-    this.classList.remove('dragging');
-
-    // Update all card indices
-    document.querySelectorAll('.result-card').forEach((card, index) => {
-        card.dataset.originalIndex = index;
-    });
-
-    draggedElement = null;
-    draggedIndex = null;
 }
 
 function getDragAfterElement(y) {
@@ -445,21 +604,15 @@ function updateBookmarkOrder(sectionId) {
 }
 
 async function addSectionDropdowns() {
-    // Use stripeCustomerId consistently
     const stripeCustomerId = window.stripeCustomerId;
     let userSections = [];
-
     try {
         const response = await fetch(`http://localhost:3000/api/sections/${stripeCustomerId}`);
         const data = await response.json();
         userSections = data.sections || [];
     } catch (error) {
         console.error('Error fetching sections:', error);
-        // Fallback to default sections
-        userSections = [
-            { id: 1, name: 'Bookmarks' },
-            { id: 2, name: 'New Section' }
-        ];
+        userSections = [];
     }
 
     const bookmarkCards = document.querySelectorAll('.result-card');
@@ -540,16 +693,23 @@ function setupDropdownEvents() {
             e.preventDefault();
             e.stopPropagation();
 
-            const sectionName = this.textContent.trim();
-            const sectionId = sectionName === 'Bookmarks' ? 1 : 2;
+            const sectionId = this.getAttribute('data-section-id');
+
+            if (sectionId === 'create') {
+                createNewSection();
+                // Hide the dropdown
+                const dropdown = this.closest('.section-dropdown');
+                dropdown.style.display = 'none';
+                return; 
+            }
 
             const card = this.closest('.result-card');
             const bookmarkId = card.dataset.bookmarkId;
 
             // Get current tab to see if we're moving TO a different section
             const activeTab = document.querySelector('.tab.active');
-            const currentTabName = activeTab.textContent.trim();
-            const isMovingToADifferentSection = currentTabName !== sectionName;
+            const currentSectionId = activeTab.dataset.tabId;
+            const isMovingToADifferentSection = currentSectionId !== sectionId;
 
             fetch(`http://localhost:3000/api/bookmarks/${bookmarkId}/section`, {
                 method: 'PUT',
@@ -698,14 +858,13 @@ function applyStaggeredAnimation(selector, classToAdd, delayBetween = 10) {
 // Unified loading function for both sections
 function loadSectionContent(sectionId, isLoadMore = false) {
     if (isLoading) return;
-    console.log(`Loading section ${sectionId} content...`);
     const resultsContainer = document.querySelector('.results-container');
     const userId = window.stripeCustomerId;
 
     // If not loading more, reset the offset for this section
     if (!isLoadMore) {
         sectionOffsets[sectionId] = 0;
-        hasMoreBookmarks = true;
+        hasMoreBookmarks[sectionId] = true;
         resultsContainer.textContent = '';
         showError("Loading bookmarks...");
     }
@@ -717,6 +876,15 @@ function loadSectionContent(sectionId, isLoadMore = false) {
         .then(response => response.text())
         .then(rawText => {
             const data = JSON.parse(rawText);
+
+            if (!data.bookmarks || data.bookmarks.length === 0) {
+                hasMoreBookmarks[sectionId] = false;
+                if (!isLoadMore) {
+                    showError("No bookmarks found. Start bookmarking posts to see them here.");
+                }
+                isLoading = false;
+                return;
+            }
 
             if (data.bookmarks && data.bookmarks.length > 0) {
                 // Add to our section-specific array
@@ -781,11 +949,12 @@ function loadSectionContent(sectionId, isLoadMore = false) {
                     }
                 });
 
-                // Increase the offset for this section by 10 for the next scroll
-                sectionOffsets[sectionId] += 10;
-
+                // Increase the offset for this section by 10
                 if (data.bookmarks.length < 10) {
-                    hasMoreBookmarks = false;
+                    hasMoreBookmarks[sectionId] = false;
+                } else {
+                    sectionOffsets[sectionId] += 10;
+                    hasMoreBookmarks[sectionId] = true;
                 }
 
             } else if (!isLoadMore) {
