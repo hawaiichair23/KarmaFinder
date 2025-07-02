@@ -3,6 +3,9 @@ const { promisify } = require('util');
 const util = require('util');
 const fs = require('fs');
 const tmp = require('tmp-promise');
+const jwt = require('jsonwebtoken');
+const { Resend } = require('resend');
+const crypto = require('crypto');
 const execAsync = promisify(exec);
 const express = require('express');
 const cors = require('cors');
@@ -33,6 +36,8 @@ require('./cron-cleanup');
 
 const REDDIT_ANDROID_CLIENT_ID = process.env.REDDIT_CLIENT_ID;
 const REDDIT_CLIENT_SECRET = process.env.REDDIT_CLIENT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET;
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/113.0.0.0 Safari/537.36',
@@ -1644,15 +1649,85 @@ function combineWithFfmpeg(videoUrl, audioUrl, outputPath) {
     });
 }
 
+app.post('/api/auth/magic-link', async (req, res) => {
+    const { email } = req.body;
+
+    // Generate token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 20 * 60 * 1000); // 20 minutes
+
+    try {
+        // Save token to database
+        await pool.query(`
+      INSERT INTO magic_links (email, token, expires_at) 
+      VALUES ($1, $2, $3)
+    `, [email, token, expiresAt]);
+        console.log('Token saved to database'); 
+
+        // Send email
+        await resend.emails.send({
+            from: 'login@karmafinder.site',
+            to: email,
+            subject: 'Log in to KarmaFinder',
+            html: `
+        <p>Click the link below to log in:</p>
+        <a href="http://localhost:3000/auth/verify/${token}">Log in to KarmaFinder</a>
+        <p>This link expires in 20 minutes.</p>
+      `
+        });
+        console.log('Email sent successfully');
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to send magic link' });
+    }
+});
+
+app.post('/api/auth/verify/:token', async (req, res) => {
+    const { token } = req.params;
+
+    try {
+        // Check if token exists and is valid
+        const result = await pool.query(`
+      SELECT email FROM magic_links 
+      WHERE token = $1 
+      AND expires_at > NOW() 
+      AND used = FALSE
+    `, [token]);
+
+        if (result.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid or expired link' });
+        }
+
+        const email = result.rows[0].email;
+
+        // Mark token as used
+        await pool.query(`
+      UPDATE magic_links SET used = TRUE WHERE token = $1
+    `, [token]);
+
+        // Create session/JWT
+        const sessionToken = jwt.sign({ email }, JWT_SECRET);
+
+        res.json({ success: true, sessionToken, email });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Verification failed' });
+    }
+});
+
 app.get('/api/rare-line', (req, res) => {
     const rareChance = Math.random();
     if (rareChance < 0.005) {
-        const randomLine = Math.floor(Math.random() * 5) + 1;
-        if (randomLine <= 4) {
-            const line = process.env[`HERMES_RARE_LINE_${randomLine}`];
+        const randomChoice = Math.random();
+
+        if (randomChoice < 0.7) { // 70% chance for lines 1-4 and 8 (random)
+            const randomLines = [1, 2, 3, 4, 8];
+            const selectedLine = randomLines[Math.floor(Math.random() * randomLines.length)];
+            const line = process.env[`HERMES_RARE_LINE_${selectedLine}`];
             res.json({ line: line });
-        } else {
-            // Sequential lines 5, 6, 7
+        } else { // 30% chance for sequential lines 5, 6, 7
             res.json({
                 sequential: [
                     process.env.HERMES_RARE_LINE_5,
