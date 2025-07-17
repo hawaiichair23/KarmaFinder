@@ -1,6 +1,10 @@
 require('dotenv').config();
 const cron = require('node-cron');
-const client = require('./db'); 
+const client = require('./db');
+const fs = require('fs');
+const path = require('path');
+
+const tempDir = path.join(__dirname, 'temp');
 
 const deleteOldEntries = async () => {
     try {
@@ -96,3 +100,75 @@ async function cleanOldPosts() {
 
 // Run every 7 minutes
 setInterval(cleanOldPosts, 7 * 60 * 1000);
+
+// Clean up old files every 5 minutes
+cron.schedule('*/5 * * * *', async () => {
+    console.log('🧹 Running temp folder cleanup...');
+    await cleanupTempFiles();
+});
+
+async function cleanupTempFiles() {
+    try {
+        // Check if temp directory exists
+        if (!fs.existsSync(tempDir)) {
+            console.log('📁 Temp directory does not exist, skipping cleanup');
+            return;
+        }
+
+        const files = await fs.promises.readdir(tempDir);
+        const now = Date.now();
+        const maxAge = 7 * 60 * 1000; // 7 minutes in milliseconds
+
+        let deletedCount = 0;
+
+        for (const file of files) {
+            const filePath = path.join(tempDir, file);
+
+            try {
+                const stats = await fs.promises.stat(filePath);
+                const fileAge = now - stats.mtime.getTime();
+
+                if (fileAge > maxAge) {
+                    await fs.promises.unlink(filePath);
+                    console.log(`🗑️ Deleted old file: ${file} (${Math.round(fileAge / 60000)} minutes old)`);
+                    deletedCount++;
+                }
+            } catch (err) {
+                console.log(`❌ Error processing ${file}:`, err.message);
+            }
+        }
+
+        if (deletedCount > 0) {
+            console.log(`✅ Cleanup complete: ${deletedCount} files deleted`);
+        } else {
+            console.log(`✅ Cleanup complete: No old files found`);
+        }
+
+    } catch (err) {
+        console.error('❌ Cleanup error:', err);
+    }
+}
+
+// Run cleanup once on startup to clear any leftover files
+(async () => {
+    console.log('🧹 Running startup cleanup...');
+    await cleanupTempFiles();
+})();
+
+// Export the scheduleFileDeletion function for use in server
+module.exports = {
+    scheduleFileDeletion: function (outputPath, outputFileName) {
+        setTimeout(async () => {
+            try {
+                if (fs.existsSync(outputPath)) {
+                    await fs.promises.unlink(outputPath);
+                    console.log(`🗑️ Timer deleted: ${outputFileName}`);
+                } else {
+                    console.log(`ℹ️ File already deleted: ${outputFileName}`);
+                }
+            } catch (err) {
+                console.log(`❌ Timer delete failed for ${outputFileName}:`, err.message);
+            }
+        }, 7 * 60 * 1000);
+    }
+};

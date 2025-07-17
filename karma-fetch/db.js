@@ -7,9 +7,7 @@ const pool = new Pool({
     database: process.env.PGDATABASE,
     password: process.env.PGPASSWORD,
     port: process.env.PGPORT,
-    max: 100, 
-    idleTimeoutMillis: 0, 
-    connectionTimeoutMillis: 2000, 
+    max: 20
 });
 
 setInterval(() => {
@@ -18,15 +16,21 @@ setInterval(() => {
         rss: `${Math.round(used.rss / 1024 / 1024)}MB`,
         heap: `${Math.round(used.heapUsed / 1024 / 1024)}MB`
     });
-}, 60000); // Every minute
+}, 60000); 
 
 setInterval(() => {
     console.log('Still alive:', new Date().toLocaleTimeString());
 }, 10000);
 
 // Pool event handlers
-pool.on('connect', () => {
+pool.on('connect', (client) => {
     console.log('🟢 New pool connection established to PostgreSQL');
+
+    // Handle client-level errors
+    client.on('error', (err) => {
+        console.error('💥 Client connection error (handled):', err.message);
+        // Don't crash - just log and continue
+    });
 });
 
 pool.on('error', (err) => {

@@ -12,12 +12,166 @@ const cors = require('cors');
 const fetch = require('node-fetch');
 const path = require('path');
 const pool = require('./db');
+const os = require('os');
 const app = express();
+const { execSync } = require('child_process');
+const { scheduleFileDeletion } = require('./cron-cleanup.js');
+
 const PORT = 3000;
 
 const axios = require('axios');
 const cheerio = require('cheerio');
         
+require('dotenv').config();
+require('./daddy-bot');
+require('./cron-cleanup');
+
+const Stripe = require('stripe');
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+// Track requests per minute
+let requestCount = 0;
+let lastMinute = Date.now();
+
+// Add this middleware to your main server (before your routes)
+app.use((req, res, next) => {
+    requestCount++;
+
+    // Check every minute
+    const now = Date.now();
+    if (now - lastMinute > 60000) { // 1 minute
+        const rpm = requestCount;
+
+        // Log traffic data
+        const time = new Date().toLocaleTimeString();
+        pool.query(`
+            INSERT INTO monitoring_logs (log_level, endpoint, error_message) 
+            VALUES ($1, $2, $3)
+        `, ['info', '/traffic', `${time} - ${rpm} requests per minute`]);
+
+        requestCount = 0;
+        lastMinute = now;
+    }
+
+    next();
+});
+
+// Stripe webhook
+app.use('/api/webhook', express.raw({ type: 'application/json' }));
+
+app.post('/api/webhook', async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    const endpointSecret = 'WEBHOOK_SECRET_REMOVED ';
+
+    let event;
+    try {
+        event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    } catch (err) {
+        console.log(`Webhook signature verification failed.`, err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle when someone completes checkout
+    if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+
+        try {
+            if (!session.customer || !session.subscription) {
+                console.log('⚠️ Incomplete checkout, skipping');
+                return res.json({ received: true });
+            }
+
+            const customer = await stripe.customers.retrieve(session.customer);
+            const subscription = await stripe.subscriptions.retrieve(session.subscription);
+
+            const existingSubscription = await pool.query(`
+               SELECT id FROM subscriptions WHERE email = $1
+           `, [customer.email]);
+
+            if (existingSubscription.rows.length > 0) {
+                console.log(`⚠️ Subscription already exists for ${customer.email}, skipping`);
+                return res.json({ received: true });
+            }
+
+            const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+            const priceId = lineItems.data[0]?.price?.id;
+
+            let planType;
+            if (priceId === 'price_1RhNDFD1lLWsoPSHMdd7uPvD') {
+                planType = 'premium';
+            } else if (priceId === 'price_1RhNE2D1lLWsoPSHJq3zAUpc') {
+                planType = 'pro';
+            } else {
+                console.log(`⚠️ Unknown price ID: ${priceId}`);
+                planType = 'unknown';
+            }
+
+            await pool.query(`
+               INSERT INTO subscriptions (email, user_id, plan_type, stripe_subscription_id)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (email) DO UPDATE SET
+                   user_id = EXCLUDED.user_id,
+                   plan_type = EXCLUDED.plan_type,
+                   stripe_subscription_id = EXCLUDED.stripe_subscription_id
+           `, [customer.email, customer.id, planType, subscription.id]);
+
+            console.log(`✅ Subscription created for ${customer.email} - Plan: ${planType}`);
+
+        } catch (error) {
+            console.error('Error creating subscription record:', error);
+        }
+    }
+
+    // Customer changes plan
+    if (event.type === 'customer.subscription.updated') {
+        const subscription = event.data.object;
+        try {
+            const customer = await stripe.customers.retrieve(subscription.customer);
+            const priceId = subscription.items.data[0]?.price?.id;
+
+            let planType;
+            if (priceId === 'price_1RhNDFD1lLWsoPSHMdd7uPvD') {
+                planType = 'premium';
+            } else if (priceId === 'price_1RhNE2D1lLWsoPSHJq3zAUpc') {
+                planType = 'pro';
+            } else {
+                console.log(`⚠️ Unknown price ID: ${priceId}`);
+                planType = 'unknown';
+            }
+
+            await pool.query(`
+               UPDATE subscriptions 
+               SET plan_type = $1, stripe_subscription_id = $2
+               WHERE email = $3
+           `, [planType, subscription.id, customer.email]);
+
+            console.log(`✅ Subscription updated for ${customer.email} - New Plan: ${planType}`);
+        } catch (error) {
+            console.error('Error updating subscription record:', error);
+        }
+    }
+
+    // Handle when subscription gets cancelled/deleted
+    if (event.type === 'customer.subscription.deleted') {
+        const subscription = event.data.object;
+
+        try {
+            const customer = await stripe.customers.retrieve(subscription.customer);
+
+            await pool.query(`
+               DELETE FROM subscriptions 
+               WHERE email = $1
+           `, [customer.email]);
+
+            console.log(`🗑️ Subscription deleted for ${customer.email}`);
+        } catch (error) {
+            console.error('Error deleting subscription record:', error);
+        }
+    }
+
+    res.json({ received: true });
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -30,9 +184,6 @@ app.use(cors({
 
 app.options('*', cors());
 app.use(express.static(path.join(__dirname, '../html')));
-
-require('dotenv').config();
-require('./cron-cleanup');
 
 const REDDIT_ANDROID_CLIENT_ID = process.env.REDDIT_CLIENT_ID;
 const REDDIT_CLIENT_SECRET = process.env.REDDIT_CLIENT_SECRET;
@@ -258,91 +409,79 @@ app.get('/api/get-cached-image/:reddit_post_id', async (req, res) => {
     }
 });
 
-app.get('/api/get-cached-posts', async (req, res) => {
-    try {
-        const result = await pool.query(`
-        SELECT 
-            p.*, 
-            m.animated, 
-            m.frame_count,
-            m.duration
-        FROM posts p
-        LEFT JOIN media_analysis m ON p.url = m.url
-        WHERE m.animated IS NOT NULL
-        `);
-        res.json(result.rows);
-    } catch (err) {
-        console.error('❌ DB fetch error:', err.message);
-        res.status(500).json({ error: 'Failed to fetch cached posts' });
-    }
-});
-
-
 app.get('/reddit/icons', async (req, res) => {
+    try {
+        const subreddits = req.query.subreddits?.split(',').filter(s => s && s.trim()) || [];
+        const icons = {};
 
-    const subreddits = req.query.subreddits?.split(',').filter(s => s && s.trim()) || [];
-    const icons = {};
-    if (subreddits.length === 0) {
-        return res.json({});
-    }
-
-    for (const subreddit of subreddits) {
-        console.log(`🚨 Processing subreddit: ${subreddit}`);
-        try {
-            console.log(`🔎 Checking icon for r/${subreddit}`);
-
-            // Check DB first
-            const iconRes = await pool.query(
-                'SELECT icon_url FROM subreddit_icons WHERE subreddit = $1',
-                [subreddit]
-            );
-
-            if (iconRes.rows.length > 0) {
-                icons[subreddit] = iconRes.rows[0].icon_url;
-                console.log(`📦 Found cached icon for r/${subreddit}`);
-            } else {
-                // Fetch from Reddit
-                const token = await getRedditAppToken();
-                const aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
-                    headers: {
-                        ...headers,
-                        'Authorization': `Bearer ${token}`,
-                        'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
-                    }
-                });
-
-                const aboutData = await aboutRes.json();
-                const rawIcon = (
-                    aboutData.data.icon_img ||
-                    aboutData.data.community_icon ||
-                    aboutData.data.mobile_banner_image ||
-                    aboutData.data.header_img ||
-                    aboutData.data.banner_img ||
-                    ''
-                ).replace(/&amp;/g, '&').trim();
-
-                const iconUrl = rawIcon || null;
-                icons[subreddit] = iconUrl;
-
-
-                console.log(`🔍 About to save: subreddit="${subreddit}", iconUrl="${iconUrl}"`);
-                // Cache it
-                await pool.query(`
-                   INSERT INTO subreddit_icons (subreddit, icon_url, created_at)
-                   VALUES ($1, $2, NOW())
-                   ON CONFLICT (subreddit)
-                   DO UPDATE SET icon_url = EXCLUDED.icon_url, created_at = NOW()
-               `, [subreddit, iconUrl]);
-
-                console.log(`💾 Saved icon for r/${subreddit}`);
-            }
-        } catch (err) {
-            console.error(`❌ Failed to fetch icon for r/${subreddit}:`, err.message);
-            icons[subreddit] = null;
+        if (subreddits.length === 0) {
+            return res.json({});
         }
-    }
 
-    res.json(icons);
+        for (const subreddit of subreddits) {
+            console.log(`🚨 Processing subreddit: ${subreddit}`);
+            try {
+                console.log(`🔎 Checking icon for r/${subreddit}`);
+
+                // Check DB first
+                const iconRes = await pool.query(
+                    'SELECT icon_url FROM subreddit_icons WHERE subreddit = $1',
+                    [subreddit]
+                );
+
+                if (iconRes.rows.length > 0) {
+                    icons[subreddit] = iconRes.rows[0].icon_url;
+                    console.log(`📦 Found cached icon for r/${subreddit}`);
+                } else {
+                    // Add 5ms delay before Reddit API call
+                    await new Promise(resolve => setTimeout(resolve, 5));
+
+                    // Fetch from Reddit
+                    const token = await getRedditAppToken();
+                    const aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
+                        headers: {
+                            ...headers,
+                            'Authorization': `Bearer ${token}`,
+                            'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
+                        }
+                    });
+
+                    const aboutData = await aboutRes.json();
+                    const rawIcon = (
+                        aboutData.data.community_icon ||
+                        aboutData.data.icon_img ||
+                        aboutData.data.mobile_banner_image ||
+                        aboutData.data.header_img ||
+                        aboutData.data.banner_img ||
+                        ''
+                    ).replace(/&amp;/g, '&').trim();
+
+                    const iconUrl = rawIcon || null;
+                    icons[subreddit] = iconUrl;
+
+                    console.log(`🔍 About to save: subreddit="${subreddit}", iconUrl="${iconUrl}"`);
+
+                    // Cache it
+                    await pool.query(`
+                      INSERT INTO subreddit_icons (subreddit, icon_url, created_at)
+                      VALUES ($1, $2, NOW())
+                      ON CONFLICT (subreddit)
+                      DO UPDATE SET icon_url = EXCLUDED.icon_url, created_at = NOW()
+                  `, [subreddit, iconUrl]);
+
+                    console.log(`💾 Saved icon for r/${subreddit}`);
+                }
+            } catch (err) {
+                console.error(`❌ Failed to fetch icon for r/${subreddit}:`, err.message);
+                icons[subreddit] = null;
+            }
+        }
+
+        res.json(icons);
+    } catch (error) {
+        console.error('Icons route error:', error);
+        res.status(500).json({ error: 'Failed to fetch icons' });
+    }
 });
 
 app.get('/reddit', async (req, res) => {
@@ -389,6 +528,8 @@ app.get('/reddit', async (req, res) => {
 
         for (let attempt = 1; attempt <= 3; attempt++) {
             try {
+                // Add 10ms delay before Reddit API call
+                await new Promise(resolve => setTimeout(resolve, 5));
                 response = await dogFetch(decodedUrl, {
                     headers: {
                         ...headers,
@@ -408,6 +549,12 @@ app.get('/reddit', async (req, res) => {
         }
 
         if (response.status === 429) {
+            const now = new Date().toLocaleTimeString();
+            await pool.query(`
+   INSERT INTO monitoring_logs (log_level, endpoint, error_message) 
+   VALUES ($1, $2, $3)
+`, ['warning', '/reddit', `Reddit API rate limit hit at ${now}`]);
+
             console.log('🚫 429 TOO MANY REQUESTS');
             return res.status(429).send('Rate limited by Reddit');
         }
@@ -467,6 +614,10 @@ app.get('/reddit', async (req, res) => {
         res.json(data);
 
     } catch (err) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/reddit ECONNRESET', `${now} - ${err.message}`]);
+
         if (err.code === 'ECONNRESET') {
             console.error('❌ Reddit closed the connection after 3 attempts');
             return res.status(503).json({ error: 'Reddit connection lost. Please try again.' });
@@ -528,6 +679,8 @@ app.get('/search', async (req, res) => {
 
         const token = await getRedditAppToken();
         const oauthUrl = redditUrl.replace('https://www.reddit.com', 'https://oauth.reddit.com');
+        // Add delay between Reddit requests
+        await new Promise(resolve => setTimeout(resolve, 5));
         const response = await dogFetch(oauthUrl, {
             headers: {
                 ...headers,
@@ -558,8 +711,8 @@ app.get('/search', async (req, res) => {
 
         // Update the title and meta tags for SEO
         const titleText = subreddit
-            ? `KarmaFinder - "${searchQuery}" in r/${subreddit} Search Results`
-            : `KarmaFinder - "${searchQuery}" Search Results`;
+            ? `${searchQuery} in r/${subreddit} - KarmaFinder`
+            : `${searchQuery} | KarmaFinder - Better than Reddit Search`;
 
         const descriptionText = subreddit
             ? `Reddit search results for '${searchQuery}' in r/${subreddit} - Find discussions and posts about ${searchQuery} in the ${subreddit} subreddit`
@@ -594,6 +747,48 @@ app.get('/search', async (req, res) => {
     } catch (err) {
         console.error('SEO search error:', err);
         res.status(500).send('Search failed: ' + err.message);
+    }
+});
+
+app.get('/sitemap.xml', async (req, res) => {
+    try {
+        const searches = await pool.query(`
+            SELECT DISTINCT query 
+            FROM search_suggestions 
+            WHERE query != '' AND query IS NOT NULL
+            ORDER BY score DESC
+        `);
+
+        let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
+
+        // Add your main pages
+        sitemap += `
+    <url>
+        <loc>https://karmafinder.site</loc>
+        <changefreq>daily</changefreq>
+        <priority>1.0</priority>
+    </url>`;
+
+        // Add search URLs for each query
+        searches.rows.forEach(row => {
+            const encodedQuery = encodeURIComponent(row.query);
+            sitemap += `
+    <url>
+        <loc>https://karmafinder.site/search?q=${encodedQuery}</loc>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>`;
+        });
+
+        sitemap += `
+</urlset>`;
+
+        res.set('Content-Type', 'text/xml');
+        res.send(sitemap);
+    } catch (error) {
+        console.error('Sitemap error:', error);
+        res.status(500).send('Error generating sitemap');
     }
 });
 
@@ -650,6 +845,10 @@ app.get('/image', async (req, res) => {
 
         res.send(Buffer.from(mediaBuffer));
     } catch (err) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/image', `${now} - ${err.message}`]);
+
         res.setHeader('Access-Control-Allow-Origin', '*');
         console.error('[🔥] Error fetching media:', err.message);
         res.status(500).send('Error fetching media: ' + err.message);
@@ -772,6 +971,10 @@ app.post('/api/save-posts', async (req, res) => {
             console.log("Connection released");
         }
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/save-posts', `${now} - ${error.message}`]);
+
         console.error('Error saving posts:', error);
         return res.status(500).json({ success: false, error: error.message });
     }
@@ -879,6 +1082,10 @@ app.get('/api/db-posts', async (req, res) => {
         }
 
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/db-posts', `${now} - ${error.message}`]);
+
         console.error('Error in db-posts endpoint:', error);
         res.status(500).json({ error: error.message });
     }
@@ -928,90 +1135,11 @@ app.get('/api/top-searches', async (req, res) => {
         `);
         res.json(result.rows);
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/suggestions', `${now} - ${error.message}`]);
+
         res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/analyze-media', async (req, res) => {
-    const { url } = req.body;
-    if (!url || typeof url !== 'string') {
-        return res.status(400).json({ success: false, message: 'Invalid or missing URL' });
-    }
-
-    try {
-        // Create temp file
-        const { path: filePath, cleanup } = await tmp.file({ postfix: '.media' });
-
-        // Filter out Reddit videos
-        if (url.includes('v.redd.it')) {
-            throw new Error('Reddit videos are not supported');
-        }
-
-        // Filter out Reddit images
-        if (url.includes('i.redd.it')) {
-            throw new Error('Reddit videos are not supported');
-        }
-
-        // Download media
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-            }
-        });
-
-        if (!response.ok) {
-            const body = await response.text().catch(() => '[binary]');
-            throw new Error(`Fetch failed: ${response.status} ${response.statusText}\n${body}`);
-        }
-
-        const buffer = await response.buffer();
-        await fs.promises.writeFile(filePath, buffer);
-
-        // Check if file is actually video before FFprobe
-        if (buffer.length < 1000) {
-            throw new Error('Downloaded file too small, probably not a video');
-        }
-        
-        // Check for common video file signatures
-        const header = buffer.toString('hex', 0, 12);
-        if (!header.includes('000018667479') && // MP4
-            !header.includes('1a45dfa3') &&     // WebM
-            !header.includes('464c5601')) {     // FLV
-            throw new Error('Downloaded file is not a valid video format');
-        }
-
-        // Run ffprobe
-        const ffprobeCmd = `ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames,width,height,duration -of default=noprint_wrappers=1 "${filePath}"`;
-        const { stdout } = await execAsync(ffprobeCmd);
-
-        const result = {};
-        stdout.split('\n').forEach(line => {
-            const [key, val] = line.trim().split('=');
-            if (key && val) result[key] = val;
-        });
-
-        const frameCount = parseInt(result.nb_read_frames || '0', 10);
-        const animated = frameCount > 1;
-        const width = parseInt(result.width || '0', 10);
-        const height = parseInt(result.height || '0', 10);
-        const duration = parseFloat(result.duration || '0');
-
-        // Save to DB
-        await pool.query(`
-            INSERT INTO media_analysis (url, type, frame_count, animated, width, height, duration)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            ON CONFLICT (url) DO NOTHING
-        `, [url, 'video', frameCount, animated, width, height, duration]);
-
-        res.status(200).json({
-            success: true,
-            message: 'Media analyzed',
-            data: { url, frameCount, animated, width, height, duration }
-        });
-
-    } catch (err) {
-        console.error('❌ Media analysis failed:', err.message);
-        res.status(500).json({ success: false, message: 'Media analysis failed' });
     }
 });
 
@@ -1055,6 +1183,10 @@ app.get('/api/get-comments/:permalink(*)', async (req, res) => {
         });
 
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/get-comments', `${now} - ${error.message}`]);
+
         console.error('Error getting comments:', error);
         res.status(500).json({ error: error.message });
     }
@@ -1116,7 +1248,11 @@ app.post('/api/save-comments', async (req, res) => {
             console.error("Database transaction error:", e);
             throw e;
         }
-    } catch (error) {
+    } catch (error) { 
+        const now = new Date().toLocaleTimeString(); 
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/save-comments', `${now} - ${error.message}`]);
+
         console.error('Error saving comments:', error);
         return res.status(500).json({ success: false, error: error.message });
     }
@@ -1153,8 +1289,8 @@ app.post('/api/bookmarks', async (req, res) => {
         } = req.body;
 
         const defaultSectionResult = await pool.query(
-            'SELECT id FROM sections WHERE user_id = $1 AND name = $2',
-            [stripeCustomerId, 'Bookmarks']
+            'SELECT id FROM sections WHERE user_id = $1 ORDER BY sort_order ASC LIMIT 1',
+            [stripeCustomerId]
         );
         const sectionId = defaultSectionResult.rows[0]?.id;
 
@@ -1176,25 +1312,36 @@ app.post('/api/bookmarks', async (req, res) => {
         const crosspostList = (crosspost_parent_list && crosspost_parent_list !== null && crosspost_parent_list.length > 0) ? JSON.stringify(crosspost_parent_list) : null;
         const previewData = (preview && preview !== null && Object.keys(preview || {}).length > 0) ? JSON.stringify(preview) : null;
 
+        // Get the next sort_order for this section
+        const maxSortResult = await pool.query(
+            'SELECT COALESCE(MAX(sort_order), -1) + 1 as next_sort_order FROM bookmarks WHERE user_id = $1 AND section_id = $2',
+            [stripeCustomerId, sectionId]
+        );
+        const nextSortOrder = maxSortResult.rows[0].next_sort_order;
+
         // Insert bookmark
         await pool.query(
             `INSERT INTO bookmarks (
                 user_id, reddit_post_id, title, url, permalink, subreddit, score,
                 is_video, domain, author, created_utc, num_comments, over_18,
                 selftext, body, is_gallery, gallery_data, media_metadata,
-                crosspost_parent_list, content_type, icon_url, locked, stickied, preview, section_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+                crosspost_parent_list, content_type, icon_url, locked, stickied, preview, section_id, sort_order
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
             ON CONFLICT (user_id, reddit_post_id) DO NOTHING`,
             [
                 stripeCustomerId, postId, title, url, permalink, subreddit, score,
                 is_video, domain, author, created_utc, num_comments, over_18,
                 selftext, body, is_gallery, galleryData, mediaMetadata,
-                crosspostList, content_type, icon_url, locked, stickied, previewData, sectionId
+                crosspostList, content_type, icon_url, locked, stickied, previewData, sectionId, nextSortOrder
             ]
         );
 
         res.json({ success: true, message: 'Bookmark added' });
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/bookmarks', `${now} - ${error.message}`]);
+
         console.error('Error adding bookmark:', error);
         res.status(500).json({ success: false, error: error.message });
     }
@@ -1221,6 +1368,10 @@ app.delete('/api/bookmarks/:stripeCustomerId/:reddit_post_id', async (req, res) 
 
         res.json({ success: true, message: 'Bookmark removed' });
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/bookmarks/:stripeCustomerId/:reddit_post_id', `${now} - ${error.message}`]);
+
         console.error('Error removing bookmark:', error);
         res.status(500).json({ success: false, error: error.message });
     }
@@ -1245,6 +1396,10 @@ app.get('/api/bookmarks/:stripeCustomerId', async (req, res) => {
 
         res.json({ bookmarks: result.rows });
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/bookmarks/:stripeCustomerId', `${now} - ${error.message}`]);
+
         console.error('GET bookmarks error:', error);
         res.status(500).json({ error: error.message });
     }
@@ -1273,6 +1428,10 @@ app.get('/api/bookmarks/:stripeCustomerId/section/:sectionId', async (req, res) 
 
         res.json({ bookmarks: result.rows });
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/bookmarks/:stripeCustomerId/section/:sectionId', `${now} - ${error.message}`]);
+
         console.error('GET bookmarks by section error:', error);
         res.status(500).json({ error: error.message });
     }
@@ -1300,33 +1459,16 @@ app.post('/api/bookmarks/:stripeCustomerId/reorder', async (req, res) => {
 
         res.json({ success: true, message: 'Bookmark order updated' });
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/bookmarks/:stripeCustomerId/reorder', `${now} - ${error.message}`]);
+
         console.error('Error updating bookmark order:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// 6. Get bookmarks by section
-app.get('/api/bookmarks/:userId/section/:sectionId', async (req, res) => {
-    try {
-        const { userId, sectionId } = req.params;
-        const offset = parseInt(req.query.offset) || 0;
-        const limit = parseInt(req.query.limit) || 10;
-        console.log('userId:', userId, 'sectionId:', sectionId, 'limit:', limit, 'offset:', offset);
-        const result = await pool.query(`
-            SELECT * FROM bookmarks
-            WHERE user_id = $1 AND section_id = $2
-            ORDER BY sort_order ASC, created_utc ASC, reddit_post_id
-            LIMIT $3 OFFSET $4
-        `, [userId, sectionId, limit, offset]);
-        console.log('Returned bookmarks:', result.rows.length);
-        res.json({ bookmarks: result.rows });
-    } catch (error) {
-        console.error('Error fetching section bookmarks:', error);
-        res.status(500).json({ error: 'Failed to fetch bookmarks' });
-    }
-});
-
-// 7. Get all sections for a user
+// 6. Get all sections for a user
 app.get('/api/bookmarks/:userId/sections', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -1341,12 +1483,16 @@ app.get('/api/bookmarks/:userId/sections', async (req, res) => {
 
         res.json({ sections: result.rows });
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/bookmarks/:userId/sections', `${now} - ${error.message}`]);
+
         console.error('Error fetching sections:', error);
         res.status(500).json({ error: 'Failed to fetch sections' });
     }
 });
 
-// 8. Move bookmark to different section
+// 7. Move bookmark to different section
 app.put('/api/bookmarks/:bookmarkId/section', async (req, res) => {
     try {
         const { bookmarkId } = req.params;
@@ -1358,6 +1504,10 @@ app.put('/api/bookmarks/:bookmarkId/section', async (req, res) => {
         `, [sectionId, bookmarkId]); // Remove sort_order = 1
         res.json({ success: true });
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/bookmarks/:bookmarkId/section', `${now} - ${error.message}`]);
+
         console.error('Error updating bookmark section:', error);
         res.status(500).json({ error: 'Failed to update section' });
     }
@@ -1371,7 +1521,7 @@ app.get('/api/sections/:stripeCustomerId', async (req, res) => {
         const { stripeCustomerId } = req.params;
 
         const result = await pool.query(`
-            SELECT id, name, sort_order, created_at
+            SELECT id, name, emoji, sort_order, created_at
             FROM sections
             WHERE user_id = $1
             ORDER BY sort_order ASC
@@ -1379,6 +1529,10 @@ app.get('/api/sections/:stripeCustomerId', async (req, res) => {
 
         res.json({ sections: result.rows });
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/sections/:stripeCustomerId', `${now} - ${error.message}`]);
+
         console.error('GET sections error:', error);
         res.status(500).json({ error: error.message });
     }
@@ -1408,6 +1562,10 @@ app.post('/api/sections/:stripeCustomerId', async (req, res) => {
 
         res.json({ section: result.rows[0] });
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/sections/:stripeCustomerId', `${now} - ${error.message}`]);
+
         console.error('POST sections error:', error);
         res.status(500).json({ error: error.message });
     }
@@ -1457,6 +1615,10 @@ app.delete('/api/sections/:userId/:sectionId', async (req, res) => {
         res.json({ message: 'Section deleted and sort order updated' });
 
     } catch (err) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/sections/:userId/:sectionId', `${now} - ${err.message}`]);
+
         await client.query('ROLLBACK');
         console.error('❌ Error deleting section:', err);
         res.status(500).json({ message: 'Internal server error' });
@@ -1469,34 +1631,42 @@ app.delete('/api/sections/:userId/:sectionId', async (req, res) => {
 app.put('/api/sections/:userId/:sectionId', async (req, res) => {
     try {
         const { userId, sectionId } = req.params;
-        const { name } = req.body;
+        const { name, emoji } = req.body;
 
-        if (!name || name.trim() === '') {
-            return res.status(400).json({ error: 'Section name cannot be empty' });
+        // Build dynamic query based on what fields are provided
+        let query, values;
+
+        if (name && emoji) {
+            query = `UPDATE sections SET name = $1, emoji = $2 WHERE id = $3 AND user_id = $4 RETURNING id, name, emoji`;
+            values = [name.trim(), emoji, sectionId, userId];
+        } else if (name) {
+            query = `UPDATE sections SET name = $1 WHERE id = $2 AND user_id = $3 RETURNING id, name, emoji`;
+            values = [name.trim(), sectionId, userId];
+        } else if (emoji) {
+            query = `UPDATE sections SET emoji = $1 WHERE id = $2 AND user_id = $3 RETURNING id, name, emoji`;
+            values = [emoji, sectionId, userId];
+        } else {
+            return res.status(400).json({ error: 'No valid fields to update' });
         }
 
-        const query = `
-            UPDATE sections 
-            SET name = $1 
-            WHERE id = $2 AND user_id = $3
-            RETURNING id, name
-        `;
-
-        const result = await pool.query(query, [name.trim(), sectionId, userId]);
+        const result = await pool.query(query, values);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Section not found' });
         }
 
-        console.log(`✅ Renamed section ${sectionId} to "${name}" for user ${userId}`);
+        console.log(`✅ Updated section ${sectionId} for user ${userId}:`, result.rows[0]);
         res.json({ success: true, section: result.rows[0] });
 
     } catch (error) {
-        console.error('Error renaming section:', error);
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/sections/:userId/:sectionId', `${now} - ${error.message}`]);
+
+        console.error('Error updating section:', error);
         res.status(500).json({ error: error.message });
     }
 });
-
 
 const { spawn } = require('child_process');
 const tempDir = path.join(__dirname, 'temp');
@@ -1585,16 +1755,13 @@ app.get('/api/reddit-video/:videoId', async (req, res) => {
         res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
 
         // Auto delete after 7 minutes
-        setTimeout(async () => {
-            try {
-                await fs.promises.unlink(outputPath);
-                console.log(`🗑️ Deleted ${outputFileName}`);
-            } catch (err) {
-                console.log(`❌ Failed to delete ${outputFileName}:`, err.message);
-            }
-        }, 7 * 60 * 1000);
+        scheduleFileDeletion(outputPath, outputFileName);
 
     } catch (err) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/reddit-video/:videoId', `${now} - ${err.message}`]);
+
         console.error('❌ Error:', err);
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -1612,9 +1779,20 @@ function copyVideoOnly(videoUrl, outputPath) {
         ];
 
         const ff = spawn('ffmpeg', args);
+
+        // ADD TIMEOUT
+        const timeout = setTimeout(() => {
+            ff.kill('SIGKILL');
+            reject(new Error('FFmpeg timeout after 60 seconds'));
+        }, 60000);
+
         ff.stderr.on('data', d => process.stdout.write(d.toString()));
-        ff.on('error', reject);
+        ff.on('error', (err) => {
+            clearTimeout(timeout);
+            reject(err);
+        });
         ff.on('close', code => {
+            clearTimeout(timeout);
             if (code === 0) resolve();
             else reject(new Error(`FFmpeg exited with code ${code}`));
         });
@@ -1640,29 +1818,86 @@ function combineWithFfmpeg(videoUrl, audioUrl, outputPath) {
         ];
 
         const ff = spawn('ffmpeg', args);
+
+        // ADD TIMEOUT
+        const timeout = setTimeout(() => {
+            ff.kill('SIGKILL');
+            reject(new Error('FFmpeg timeout after 60 seconds'));
+        }, 60000);
+
         ff.stderr.on('data', d => process.stdout.write(d.toString()));
-        ff.on('error', reject);
+        ff.on('error', (err) => {
+            clearTimeout(timeout);
+            reject(err);
+        });
         ff.on('close', code => {
+            clearTimeout(timeout);
             if (code === 0) resolve();
             else reject(new Error(`FFmpeg exited with code ${code}`));
         });
     });
 }
 
-app.post('/api/auth/magic-link', async (req, res) => {
-    const { email } = req.body;
+app.get('/api/subscription/:email', async (req, res) => {
+    try {
+        const { email } = req.params;
 
-    // Generate token
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 20 * 60 * 1000); // 20 minutes
+        const subscriptionResult = await pool.query(`
+            SELECT user_id, plan_type 
+            FROM subscriptions 
+            WHERE email = $1
+        `, [email]);
+
+        const hasSubscription = subscriptionResult.rows.length > 0;
+        const planType = hasSubscription ? subscriptionResult.rows[0].plan_type : null;
+        const userId = hasSubscription ? subscriptionResult.rows[0].user_id : null;
+
+        res.json({
+            success: true,
+            hasSubscription,
+            planType,
+            userId
+        });
+    } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/subscription/:email', `${now} - ${error.message}`]);
+
+        console.error('Error fetching subscription:', error);
+        res.status(500).json({ error: 'Failed to fetch subscription data' });
+    }
+});
+
+app.post('/api/auth/magic-link', async (req, res) => {
+    const { email, redirect } = req.body;
 
     try {
+        // Check if email exists in subscriptions table
+        const emailCheck = await pool.query(`
+            SELECT email FROM subscriptions WHERE email = $1
+        `, [email]);
+
+        if (emailCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'No account found with this email address.' });
+        }
+
+        // Generate token
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + 20 * 60 * 1000); // 20 minutes
+
         // Save token to database
         await pool.query(`
-      INSERT INTO magic_links (email, token, expires_at) 
-      VALUES ($1, $2, $3)
-    `, [email, token, expiresAt]);
-        console.log('Token saved to database'); 
+           INSERT INTO magic_links (email, token, expires_at)
+           VALUES ($1, $2, $3)
+       `, [email, token, expiresAt]);
+
+        console.log('Token saved to database');
+
+        // Build magic link URL with optional redirect
+        let magicLinkUrl = `http://127.0.0.1:5500/html/karmafinder.html?token=${token}`;
+        if (redirect) {
+            magicLinkUrl += `&redirect=${redirect}`;
+        }
 
         // Send email
         await resend.emails.send({
@@ -1670,15 +1905,19 @@ app.post('/api/auth/magic-link', async (req, res) => {
             to: email,
             subject: 'Log in to KarmaFinder',
             html: `
-        <p>Click the link below to log in:</p>
-        <a href="http://localhost:3000/auth/verify/${token}">Log in to KarmaFinder</a>
-        <p>This link expires in 20 minutes.</p>
-      `
+               <p>Click the link below to log in:</p>
+               <a href="${magicLinkUrl}">Log in to KarmaFinder</a>
+               <p>This link expires in 20 minutes.</p>
+           `
         });
-        console.log('Email sent successfully');
 
+        console.log('Email sent successfully');
         res.json({ success: true });
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/auth/magic-link', `${now} - ${error.message}`]);
+
         console.error(error);
         res.status(500).json({ error: 'Failed to send magic link' });
     }
@@ -1686,15 +1925,14 @@ app.post('/api/auth/magic-link', async (req, res) => {
 
 app.post('/api/auth/verify/:token', async (req, res) => {
     const { token } = req.params;
-
     try {
         // Check if token exists and is valid
         const result = await pool.query(`
-      SELECT email FROM magic_links 
-      WHERE token = $1 
-      AND expires_at > NOW() 
-      AND used = FALSE
-    `, [token]);
+            SELECT email FROM magic_links
+            WHERE token = $1
+            AND expires_at > NOW()
+            AND used = FALSE
+        `, [token]);
 
         if (result.rows.length === 0) {
             return res.status(400).json({ error: 'Invalid or expired link' });
@@ -1702,32 +1940,207 @@ app.post('/api/auth/verify/:token', async (req, res) => {
 
         const email = result.rows[0].email;
 
+        // Check subscription status
+        const subscriptionResult = await pool.query(`
+            SELECT user_id, plan_type 
+            FROM subscriptions 
+            WHERE email = $1
+        `, [email]);
+
+        const hasSubscription = subscriptionResult.rows.length > 0;
+        const planType = hasSubscription ? subscriptionResult.rows[0].plan_type : null;
+        const userId = hasSubscription ? subscriptionResult.rows[0].user_id : null;
+
         // Mark token as used
         await pool.query(`
-      UPDATE magic_links SET used = TRUE WHERE token = $1
-    `, [token]);
+            UPDATE magic_links SET used = TRUE WHERE token = $1
+        `, [token]);
 
         // Create session/JWT
         const sessionToken = jwt.sign({ email }, JWT_SECRET);
 
-        res.json({ success: true, sessionToken, email });
+        res.json({
+            success: true,
+            sessionToken,
+            email,
+            hasSubscription,
+            planType,
+            userId
+        });
     } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/auth/verify/:token', `${now} - ${error.message}`]);
+
         console.error(error);
         res.status(500).json({ error: 'Verification failed' });
     }
 });
 
+app.post('/api/auto-login-after-payment', async (req, res) => {
+    try {
+        const { session_id } = req.body;
+
+        // Get session from Stripe to find the email
+        const session = await stripe.checkout.sessions.retrieve(session_id);
+        const customer = await stripe.customers.retrieve(session.customer);
+        const email = customer.email;
+
+        // Get subscription data from your database
+        const subscriptionResult = await pool.query(`
+            SELECT user_id, plan_type 
+            FROM subscriptions 
+            WHERE email = $1
+        `, [email]);
+
+        if (subscriptionResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Subscription not found' });
+        }
+
+        const subscription = subscriptionResult.rows[0];
+
+        // Send welcome email
+        let subject, greeting;
+        if (subscription.plan_type === 'pro') {
+            subject = 'Welcome to KarmaFinder Pro!';
+            greeting = 'Your Pro account is ready!';
+        } else {
+            subject = 'Welcome to KarmaFinder Premium!';
+            greeting = 'Your premium account is ready!';
+        }
+
+        await resend.emails.send({
+            from: 'welcome@karmafinder.site',
+            to: email,
+            subject: subject,
+            html: `
+       <h2>${greeting}</h2>
+       <p>Thanks for supporting KarmaFinder! You now have access to Enhanced Search, unlimited bookmarks, and themes.</p>
+       <p><a href="${req.headers.origin}/html/karmafinder.html">Start searching</a></p>
+       <p>Questions? Just reply to this email.</p>
+   `
+        });
+        
+        res.json({
+            success: true,
+            email: email,
+            hasSubscription: true,
+            planType: subscription.plan_type,
+            userId: subscription.user_id
+        });
+
+    } catch (error) {
+        console.error('Auto-login error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/create-checkout', async (req, res) => {
+    try {
+        const { type, email } = req.body;
+
+        if (email) {
+            const existingSubscription = await pool.query(`
+                SELECT plan_type FROM subscriptions WHERE email = $1
+            `, [email]);
+
+            if (existingSubscription.rows.length > 0) {
+                const customer = await stripe.customers.list({
+                    email: email,
+                    limit: 1
+                });
+
+                if (customer.data.length > 0) {
+                    const session = await stripe.billingPortal.sessions.create({
+                        customer: customer.data[0].id,
+                        return_url: `${req.headers.origin}/html/features.html`,
+                    });
+
+                    return res.json({ url: session.url, isPortal: true });
+                }
+            }
+        }
+
+        const sessionData = {
+            payment_method_types: ['card'],
+            line_items: [{
+                price: 'price_1RhNDFD1lLWsoPSHMdd7uPvD',
+                quantity: 1,
+            }],
+            mode: 'subscription',
+            success_url: `${req.headers.origin}/html/karmafinder.html?success=true&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${req.headers.origin}/html/features.html`,
+        };
+        const session = await stripe.checkout.sessions.create(sessionData);
+        res.json({ url: session.url });
+    } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/create-checkout', `${now} - ${error.message}`]);
+
+        console.error('Checkout error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/create-checkout-pro', async (req, res) => {
+    try {
+        const { type, email } = req.body;
+
+        if (email) {
+            const existingSubscription = await pool.query(`
+                SELECT plan_type FROM subscriptions WHERE email = $1
+            `, [email]);
+
+            if (existingSubscription.rows.length > 0) {
+                const customer = await stripe.customers.list({
+                    email: email,
+                    limit: 1
+                });
+
+                if (customer.data.length > 0) {
+                    const session = await stripe.billingPortal.sessions.create({
+                        customer: customer.data[0].id,
+                        return_url: `${req.headers.origin}/html/features.html`,
+                    });
+
+                    return res.json({ url: session.url, isPortal: true });
+                }
+            }
+        }
+
+        const sessionData = {
+            payment_method_types: ['card'],
+            line_items: [{
+                price: 'price_1RhNE2D1lLWsoPSHJq3zAUpc',
+                quantity: 1,
+            }],
+            mode: 'subscription',
+            success_url: `${req.headers.origin}/html/karmafinder.html?success=true&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${req.headers.origin}/html/features.html`,
+        };
+        const session = await stripe.checkout.sessions.create(sessionData);
+        res.json({ url: session.url });
+    } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/create-checkout-pro', `${now} - ${error.message}`]);
+
+        console.error('Pro checkout error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.get('/api/rare-line', (req, res) => {
     const rareChance = Math.random();
-    if (rareChance < 0.005) {
+    if (rareChance < 0.001) {
         const randomChoice = Math.random();
-
-        if (randomChoice < 0.7) { // 70% chance for lines 1-4 and 8 (random)
-            const randomLines = [1, 2, 3, 4, 8];
+        if (randomChoice < 0.7) {
+            const randomLines = [1, 2, 3, 4, 8, 9]; // Added 9 for Whitney Houston line
             const selectedLine = randomLines[Math.floor(Math.random() * randomLines.length)];
             const line = process.env[`HERMES_RARE_LINE_${selectedLine}`];
             res.json({ line: line });
-        } else { // 30% chance for sequential lines 5, 6, 7
+        } else {
             res.json({
                 sequential: [
                     process.env.HERMES_RARE_LINE_5,
@@ -1737,7 +2150,7 @@ app.get('/api/rare-line', (req, res) => {
             });
         }
     } else {
-        res.json({ line: null }); // No rare line
+        res.json({ line: null });
     }
 });
 
@@ -1748,7 +2161,52 @@ async function startServer() {
 
     app.listen(PORT, () => {
         console.log(`🚀 FETCH server running at http://localhost:${PORT}`);
+
+        // Start system monitoring AFTER server is running
+        setInterval(logSystemHealth, 5 * 60 * 1000);
+        console.log('💓 System health monitoring started');
     });
 }
+
+async function logSystemHealth() {
+    let cpuUsage = 0;
+    try {
+        const cpuOutput = execSync('wmic cpu get loadpercentage /value', { encoding: 'utf8' });
+        const match = cpuOutput.match(/LoadPercentage=(\d+)/);
+        cpuUsage = match ? parseInt(match[1]) : 0;
+    } catch (err) {
+        cpuUsage = 0;
+    }
+
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const memUsage = ((totalMem - freeMem) / totalMem) * 100;
+    const now = new Date().toLocaleTimeString();
+
+    await pool.query(`
+       INSERT INTO monitoring_logs (log_level, endpoint, error_message)
+       VALUES ($1, $2, $3)
+   `, ['info', '/system', `${now} - CPU: ${cpuUsage}%, Memory: ${memUsage.toFixed(1)}%`]);
+}
+
+// Memory monitoring and cleanup
+setInterval(() => {
+    const memUsage = process.memoryUsage();
+    const memoryInMB = {
+        rss: Math.round(memUsage.rss / 1024 / 1024),
+        heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
+    };
+
+    // Alert if memory usage is too high
+    if (memoryInMB.heapUsed > 300) { // 300MB threshold
+        console.warn('⚠️ High memory usage detected!', memoryInMB);
+
+        // Force garbage collection if available
+        if (global.gc) {
+            global.gc();
+            console.log('🧹 Forced garbage collection');
+        }
+    }
+}, 2 * 60 * 1000); // Check every 2 minutes
 
 startServer();

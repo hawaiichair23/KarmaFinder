@@ -1,6 +1,5 @@
 .env 
 node_modules/
-DOGFETCH.js
 blocklist.json
 temp/
 *.log 
