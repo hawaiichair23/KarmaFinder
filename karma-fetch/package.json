@@ -2,7 +2,7 @@
     "name": "karma-fetch",
     "main": "DOGFETCH.js",
     "scripts": {
-        "start": "node DOGFETCH.js"
+        "start": "node --experimental-global-webcrypto DOG"
     },
     "dependencies": {
         "an-array-of-english-words": "^2.0.0",
