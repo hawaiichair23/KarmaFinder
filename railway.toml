@@ -1,0 +1,5 @@
+[build]
+buildCommand = "cd karma-fetch && npm ci"
+
+[deploy]
+startCommand = "cd karma-fetch && node DOGFETCH.js"
