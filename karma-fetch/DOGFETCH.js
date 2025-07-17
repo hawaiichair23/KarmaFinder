@@ -61,11 +61,10 @@ app.use('/api/webhook', express.raw({ type: 'application/json' }));
 
 app.post('/api/webhook', async (req, res) => {
     const sig = req.headers['stripe-signature'];
-    const endpointSecret = 'WEBHOOK_SECRET_REMOVED ';
 
     let event;
     try {
-        event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+        event = stripe.webhooks.constructEvent(req.body, sig, process.env.ENDPOINTSECRET);
     } catch (err) {
         console.log(`Webhook signature verification failed.`, err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
