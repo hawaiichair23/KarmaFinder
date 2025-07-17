@@ -23,8 +23,8 @@ const axios = require('axios');
 const cheerio = require('cheerio');
         
 require('dotenv').config();
-require('./daddy-bot');
-require('./cron-cleanup');
+// require('./daddy-bot');
+// require('./cron-cleanup');
 
 const Stripe = require('stripe');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
