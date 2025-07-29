@@ -5,8 +5,9 @@ let sectionBookmarks = {
     1: [], // Main bookmarks section
     2: []  // New section
 };
-const BOOKMARKS_PER_PAGE = 10;
-window.stripeCustomerId = localStorage.getItem('userId');
+// Ask for 11 to confirm if there are any more after current group of 10
+const BOOKMARKS_PER_PAGE = 11;
+window.authToken = localStorage.getItem('authToken');
 // Use a separate offset for each section so scrolling works for both tabs
 const sectionOffsets = {};
 
@@ -38,9 +39,11 @@ if (urlParams.get('page') === 'bookmarks') {
         ogDescMeta.content = "Save and organize Reddit content with drag-and-drop bookmarking, custom categories, and visual organization.";
     }
     
-    // Kick you out if user id is cleared from localStorage
+    // Kick you out if auth token is cleared
     setInterval(() => {
-        if (!localStorage.getItem('userId')) {
+        const authToken = localStorage.getItem('authToken');
+        // If auth token is gone, treat as logged out
+        if (!authToken) {
             window.location.href = 'karmafinder.html';
         }
     }, 1000);
@@ -70,14 +73,12 @@ function createContextMenu() {
     document.body.appendChild(contextMenu);
 }
 
-function getCurrentUserId() {
-    return window.stripeCustomerId;
+function getAuthToken() {
+    return window.authToken || localStorage.getItem('authToken');
 }
 
 // Basic initialization function for bookmarks page
 function initBookmarks() {
-    console.log("🔖 Loading bookmarks...");
-
     preloadBookmarks();
     createContextMenu();
     setupContextMenuHandlers();
@@ -86,13 +87,14 @@ function initBookmarks() {
 
 function handleBookmarksPI(bookmarkCount) {
 
-    // Only 60% chance of any speech event occurring
-    if (Math.random() > 0.60) {
+    // Only 72% chance of any speech event occurring
+    if (Math.random() > 0.72) {
         return;
     }
 
     const generalResponses = [
         "Great choices.",
+        "Hittin' the books.",
         "I'm pulling up your files.",
         "I like your taste.",
         "How goes it.",
@@ -154,10 +156,11 @@ function handleTabSpecificPI(tabName) {
     ];
     const negativeResponses = [
         `${tabName}. Interesting.`,
-        `${tabName}? Uhh...`,
+        `${tabName}? Uhh.`,
         `Whatever floats your boat.`,
         `${tabName}, that's creative.`,
         `Heh.`,
+        `For research purposes?`,
         `${tabName}?`,
         "Really?",
         "Okay.",
@@ -249,6 +252,15 @@ async function insertTabsUI(tabsData) {
             }
         });
 
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('.section-selector')) {
+                const contextMenu = document.getElementById('contextMenu');
+                if (contextMenu) {
+                    contextMenu.style.display = 'none';
+                }
+            }
+        });
+
         tabContainer.appendChild(newTabElement);
     });
         
@@ -275,21 +287,37 @@ async function insertTabsUI(tabsData) {
 
 async function initializeTabs() {
     try {
-        const response = await fetch(`http://localhost:3000/api/sections/${stripeCustomerId}`);
+        const authToken = getAuthToken();
+
+        const response = await fetch(`http://localhost:3000/api/sections`, {
+            headers: {
+                'Authorization': authToken
+            }
+        });
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
+
         const data = await response.json();
 
         // If user has no sections, create a default "Bookmarks" section
         if (data.sections.length === 0) {
-            await fetch(`http://localhost:3000/api/sections/${stripeCustomerId}`, {
+            await fetch(`http://localhost:3000/api/sections`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': authToken
+                },
                 body: JSON.stringify({ name: 'Bookmarks' })
             });
+
             // Fetch sections again to get the newly created one
-            const newResponse = await fetch(`http://localhost:3000/api/sections/${stripeCustomerId}`);
+            const newResponse = await fetch(`http://localhost:3000/api/sections`, {
+                headers: {
+                    'Authorization': authToken
+                }
+            });
             const newData = await newResponse.json();
             await insertTabsUI(newData.sections);
         } else {
@@ -303,12 +331,12 @@ async function initializeTabs() {
 // Create New Section button
 async function createNewSection() {
     try {
-        const stripeCustomerId = getCurrentUserId(); 
-
-        const response = await fetch(`http://localhost:3000/api/sections/${stripeCustomerId}`, {
+        const authToken = getAuthToken();
+        const response = await fetch(`http://localhost:3000/api/sections`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': authToken
             },
             body: JSON.stringify({
                 name: 'New Section'
@@ -317,12 +345,12 @@ async function createNewSection() {
 
         if (response.ok) {
             const data = await response.json();
-            console.log('New section created:', data.section);
+            //console.log('New section created:', data.section);
 
             const urlParams = new URLSearchParams(window.location.search);
             const sectionParam = urlParams.get('section');
 
-            initializeTabs(); 
+            initializeTabs();
             loadSectionContent(parseInt(sectionParam));
         } else {
             console.error('Failed to create section');
@@ -337,6 +365,8 @@ function setupTabEvents() {
     document.querySelectorAll('.tab').forEach((tab, index) => {
         // Left-click listener for tab switching
         tab.addEventListener('click', function () {
+
+            cleanupEventListeners();
             // Don't reload if this tab is already active
             if (this.classList.contains('active')) {
                 return;
@@ -375,7 +405,7 @@ function setupTabEvents() {
             // Handle content switching based on tab position
             const sectionId = parseInt(this.dataset.tabId);
             const sortOrder = parseInt(this.dataset.sortOrder);
-            console.log(`🔢 Switching to section ${sortOrder}...`);
+            //console.log(`🔢 Switching to section ${sortOrder}...`);
             loadSectionContent(sectionId);
 
             // URL update
@@ -440,17 +470,28 @@ function setupContextMenuHandlers() {
     document.querySelectorAll('.context-menu-item').forEach(item => {
         item.addEventListener('click', async function () {
             const action = this.dataset.action;
+
             if (action === 'rename') {
-                const newName = prompt('Enter new section name:');
+                const { value: newName } = await Swal.fire({
+                    title: 'Rename Section',
+                    input: 'text',
+                    inputLabel: 'Enter new section name:',
+                    inputPlaceholder: 'Section name',
+                    showCancelButton: true,
+                    confirmButtonText: 'Rename',
+                    cancelButtonText: 'Cancel'
+                });
+
                 if (newName && newName.trim() !== '') {
                     const sectionId = contextMenu.dataset.currentSectionId;
-                    const userId = getCurrentUserId(); 
+                    const authToken = getAuthToken();
 
                     try {
-                        const response = await fetch(`http://localhost:3000/api/sections/${userId}/${sectionId}`, {
+                        const response = await fetch(`http://localhost:3000/api/sections/${sectionId}`, {
                             method: 'PUT',
                             headers: {
-                                'Content-Type': 'application/json'
+                                'Content-Type': 'application/json',
+                                'Authorization': authToken
                             },
                             body: JSON.stringify({ name: newName })
                         });
@@ -466,38 +507,53 @@ function setupContextMenuHandlers() {
                                 } else {
                                     tab.textContent = newName; // fallback
                                 }
-                                console.log(`Renamed section to: ${newName}`);
-
                                 // Refresh tabs and dropdowns to reflect the new name
                                 initializeTabs();
                             }
                         } else {
-                            alert('Failed to rename section: ' + (data.error || 'Unknown error'));
+                            Swal.fire('Error', 'Failed to rename section: ' + (data.error || 'Unknown error'));
                         }
                     } catch (error) {
                         console.error('Error renaming section:', error);
-                        alert('Failed to rename section');
+                        Swal.fire('Error', 'Failed to rename section');
                     }
                 }
             } else if (action === 'delete') {
-                if (confirm('Delete this section? This will permanently delete the section bookmarks.')) {
-                    const sectionId = contextMenu.dataset.currentSectionId;
-                    const userId = getCurrentUserId(); 
+                const result = await Swal.fire({
+                    title: 'Delete Section?',
+                    text: 'This will permanently delete the section and all its bookmarks.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Delete',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#ef4444'
+                });
 
-                    fetch(`http://localhost:3000/api/sections/${userId}/${sectionId}`, {
-                        method: 'DELETE'
+                if (result.isConfirmed) {
+                    const sectionId = contextMenu.dataset.currentSectionId;
+                    const authToken = getAuthToken();
+
+                    fetch(`http://localhost:3000/api/sections/${sectionId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': authToken
+                        }
                     })
                         .then(res => res.json())
                         .then(data => {
-                            console.log('✅ Deleted:', data);
                             initializeTabs().then(() => {
-                                fetch(`http://localhost:3000/api/sections/${userId}`)
+                                fetch(`http://localhost:3000/api/sections`, {
+                                    headers: {
+                                        'Authorization': authToken
+                                    }
+                                })
                                     .then(response => response.json())
                                     .then(data => {
-                                        const firstSectionId = data.sections[0]?.id;
-                                        if (firstSectionId) {
-                                            loadSectionContent(firstSectionId, false);
-                                        }
+                                        const activeTab = document.querySelector('.tab.active');
+                                        const allTabs = document.querySelectorAll('.tab');
+                                        const activeTabIndex = Array.from(allTabs).indexOf(activeTab);
+                                        const tabs = document.querySelectorAll('.tab');
+                                        const sectionId = tabs[activeTabIndex]?.dataset.tabId;
+                                        loadSectionContent(sectionId, false);
                                     });
                             });
                         })
@@ -553,8 +609,6 @@ function setupBookmarksScrollListener() {
 document.addEventListener('DOMContentLoaded', function () {
     const urlParams = new URLSearchParams(window.location.search);
     const page = urlParams.get('page');
-    const savedTheme = localStorage.getItem('selectedTheme') || 'default';
-    applyTheme(savedTheme);
 
     if (page === 'bookmarks') {
         initBookmarks();
@@ -564,7 +618,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function positionScrollIndicator() {
     const indicator = document.querySelector('.scroll-container-minimal');
-    if (!indicator) return;
 
     const body = document.body;
     const html = document.documentElement;
@@ -580,7 +633,7 @@ function positionScrollIndicator() {
 
     // Position it near the bottom of content
     indicator.style.position = 'absolute';
-    indicator.style.top = (documentHeight - 300) + 'px';
+    indicator.style.top = (documentHeight + 1005) + 'px';
     indicator.style.left = '50%';
     indicator.style.transform = 'translateX(-50%)';
     
@@ -595,21 +648,32 @@ function positionScrollIndicator() {
     // Check section-specific hasMoreBookmarks
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('page') === 'bookmarks' && hasMoreBookmarks[sectionId]) {
-        indicator.style.display = 'flex';
+        setTimeout(() => {
+            indicator.style.display = 'flex';
+            indicator.style.opacity = '1';
+
+        }, 1000);
     } else {
         indicator.style.display = 'none';
     }
 }
+function preloadBookmarks(callback) {
+    const authToken = getAuthToken();
 
-function preloadBookmarks(stripeCustomerId, callback) {
-    stripeCustomerId = window.stripeCustomerId;
-    if (!stripeCustomerId) {
-        console.log('No customer ID available, skipping bookmark preload');
+    if (!authToken) {
+        sessionStorage.removeItem('bookmarks');
+        document.querySelectorAll('.bookmark-icon').forEach(icon => {
+            icon.classList.remove('saved');
+        });
         if (callback) callback();
         return;
     }
 
-    fetch(`http://localhost:3000/api/bookmarks/${stripeCustomerId}?limit=1000`)
+    fetch(`http://localhost:3000/api/bookmarks?limit=1000`, {
+        headers: {
+            'Authorization': authToken
+        }
+    })
         .then(res => res.json())
         .then(data => {
             const bookmarks = {};
@@ -619,7 +683,7 @@ function preloadBookmarks(stripeCustomerId, callback) {
 
             sessionStorage.setItem('bookmarks', JSON.stringify(bookmarks));
 
-            // ✅ Apply bookmarks to any currently rendered icons
+            // Apply bookmarks to any currently rendered icons
             document.querySelectorAll('.bookmark-icon').forEach(icon => {
                 const postId = icon.dataset.postId;
                 if (bookmarks[postId]) {
@@ -679,71 +743,72 @@ function handleDragStart(e) {
 function handleDrop(e) {
     e.preventDefault();
 
-    // Get the new position and section ID
-    const allCards = Array.from(document.querySelectorAll('.result-card'));
-    const newIndex = allCards.indexOf(draggedElement);
+    if (!draggedElement) return;
+
     const sectionId = parseInt(draggedElement.dataset.sectionId);
 
-    // Find the current index in the sectionBookmarks array by matching the bookmark ID
-    const draggedBookmarkId = draggedElement.dataset.bookmarkId;
-    const currentIndex = sectionBookmarks[sectionId].findIndex(bookmark =>
-        bookmark.reddit_post_id === draggedBookmarkId
+    // Get the current DOM order - this is what the user sees
+    const allCards = Array.from(document.querySelectorAll('.result-card'));
+    const orderedIds = allCards.map(card => card.dataset.bookmarkId);
+
+    // Update the sectionBookmarks array to match DOM order
+    sectionBookmarks[sectionId] = orderedIds.map(id =>
+        sectionBookmarks[sectionId].find(bookmark => bookmark.reddit_post_id === id)
     );
 
-    // Reorder the section-specific bookmarks array
-    const draggedBookmark = sectionBookmarks[sectionId].splice(currentIndex, 1)[0];
-    sectionBookmarks[sectionId].splice(newIndex, 0, draggedBookmark);
-
-    // Update the backend with new order
+    // Save to backend
     updateBookmarkOrder(sectionId);
-
-    console.log(`Moved bookmark from position ${currentIndex} to ${newIndex} in section ${sectionId}`);
 }
 
 function getDragAfterElement(y) {
     const draggableElements = [...document.querySelectorAll('.result-card:not(.dragging)')];
 
-    return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
+    for (let i = 0; i < draggableElements.length; i++) {
+        const element = draggableElements[i];
+        const box = element.getBoundingClientRect();
 
-        if (offset < 0 && offset > closest.offset) {
-            return { offset: offset, element: child };
-        } else {
-            return closest;
+        // If mouse Y is above the center of this element, insert before it
+        if (y < box.top + box.height / 2) {
+            return element;
         }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    // If we're past all elements, return null (append to end)
+    return null;
 }
 
 // Function to update bookmark order in backend
 function updateBookmarkOrder(sectionId) {
-    const userId = window.stripeCustomerId;
+    const authToken = getAuthToken();
     const orderedIds = sectionBookmarks[sectionId].map(bookmark => bookmark.reddit_post_id);
 
-    fetch(`http://localhost:3000/api/bookmarks/${userId}/reorder`, {
+    fetch(`http://localhost:3000/api/bookmarks/reorder`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': authToken
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
             orderedIds,
-            sectionId: sectionId 
+            sectionId: sectionId
         })
     })
         .then(response => response.json())
-        .then(data => {
-            console.log(`✅ Bookmark order updated successfully for section ${sectionId}`);
-        })
         .catch(error => {
             console.error(`❌ Error updating bookmark order for section ${sectionId}:`, error);
         });
 }
 
 async function addSectionDropdowns() {
-    const stripeCustomerId = window.stripeCustomerId;
+    const authToken = getAuthToken();
     let userSections = [];
+
     try {
-        const response = await fetch(`http://localhost:3000/api/sections/${stripeCustomerId}`);
+        const response = await fetch(`http://localhost:3000/api/sections`, {
+            headers: {
+                'Authorization': authToken
+            }
+        });
         const data = await response.json();
         userSections = data.sections || [];
     } catch (error) {
@@ -815,6 +880,7 @@ function setupDropdownEvents() {
             if (!dropdown) return;
             const parentCard = this.closest('.result-card');
             const isCurrentlyOpen = dropdown.style.display === 'block';
+
             // Close all other dropdowns first
             document.querySelectorAll('.section-dropdown').forEach(d => {
                 if (d !== dropdown) {
@@ -823,6 +889,7 @@ function setupDropdownEvents() {
                     if (card) card.style.zIndex = '';
                 }
             });
+
             // Toggle this dropdown
             if (!isCurrentlyOpen) {
                 dropdown.style.display = 'block';
@@ -830,6 +897,17 @@ function setupDropdownEvents() {
             } else {
                 dropdown.style.display = 'none';
                 parentCard.style.zIndex = '';
+            }
+
+            // Close context menu AFTER dropdown logic
+            const contextMenu = document.getElementById('contextMenu');
+            if (contextMenu) {
+                contextMenu.style.display = 'none';
+            }
+
+            const hermesContextMenu = document.getElementById('hermesContextMenu');
+            if (hermesContextMenu) {
+                hermesContextMenu.style.display = 'none';
             }
         });
     });
@@ -852,7 +930,7 @@ function setupDropdownEvents() {
                 // Hide the dropdown
                 const dropdown = this.closest('.section-dropdown');
                 dropdown.style.display = 'none';
-                return; 
+                return;
             }
 
             const card = this.closest('.result-card');
@@ -862,42 +940,49 @@ function setupDropdownEvents() {
             const activeTab = document.querySelector('.tab.active');
             const currentSectionId = activeTab.dataset.tabId;
             const isMovingToADifferentSection = currentSectionId !== sectionId;
+            const authToken = getAuthToken();
 
             fetch(`http://localhost:3000/api/bookmarks/${bookmarkId}/section`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': authToken
+                },
                 body: JSON.stringify({ sectionId: sectionId })
             })
                 .then(response => response.json())
                 .then(data => {
-                    console.log('Bookmark moved:', data);
+                    //console.log('Bookmark moved:', data);
                     if (isMovingToADifferentSection) {
-            
+
                         // Wait a bit for the section move to complete, then reorder
                         setTimeout(() => {
-                            const userId = window.stripeCustomerId;
-                            fetch(`http://localhost:3000/api/bookmarks/${userId}/section/${sectionId}?offset=0&limit=100`)
+                            fetch(`http://localhost:3000/api/bookmarks/section/${sectionId}?offset=0&limit=100`, {
+                                headers: {
+                                    'Authorization': authToken
+                                }
+                            })
                                 .then(response => response.json())
                                 .then(sectionData => {
                                     const allIds = sectionData.bookmarks.map(b => b.reddit_post_id);
                                     const filteredIds = allIds.filter(id => id !== bookmarkId);
                                     const orderedIds = [bookmarkId, ...filteredIds];
-                                    console.log('Moving bookmark:', bookmarkId);
-                                    console.log('Existing IDs:', allIds);
-                                    console.log('Final ordered IDs:', orderedIds);
 
-                                    return fetch(`http://localhost:3000/api/bookmarks/${userId}/reorder`, {
+                                    return fetch(`http://localhost:3000/api/bookmarks/reorder`, {
                                         method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Authorization': authToken
+                                        },
                                         body: JSON.stringify({
                                             orderedIds,
                                             sectionId: sectionId
                                         })
                                     });
                                 })
-                                .then(response => response.json()) // <- Add this
-                                .then(reorderResult => {           // <- And this
-                                    console.log('Reorder result:', reorderResult);
+                                .then(response => response.json())
+                                .then(reorderResult => {
+                                    //console.log('Reorder result:', reorderResult);
                                 })
                                 .catch(error => {
                                     console.error('Error in reorder process:', error);
@@ -1004,10 +1089,8 @@ function createEmojiPicker() {
     // Add event listeners
     setupEmojiPickerEvents();
 }
-
 function setupEmojiPickerEvents() {
     const picker = document.getElementById('emojiPicker');
-
     document.querySelectorAll('.emoji-option').forEach(option => {
         option.addEventListener('click', async (e) => {
             const selectedEmoji = e.target.dataset.emoji;
@@ -1018,14 +1101,15 @@ function setupEmojiPickerEvents() {
                 // Get the section ID from the parent tab
                 const tab = currentEmojiTarget.closest('.tab');
                 const sectionId = tab.dataset.tabId;
-                const userId = getCurrentUserId();
+                const authToken = getAuthToken();
 
                 // Save to backend
                 try {
-                    const response = await fetch(`http://localhost:3000/api/sections/${userId}/${sectionId}`, {
+                    const response = await fetch(`http://localhost:3000/api/sections/${sectionId}`, {
                         method: 'PUT',
                         headers: {
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
+                            'Authorization': authToken
                         },
                         body: JSON.stringify({ emoji: selectedEmoji })
                     });
@@ -1033,8 +1117,8 @@ function setupEmojiPickerEvents() {
                     if (!response.ok) {
                         throw new Error('Failed to save emoji');
                     }
-
-                    console.log(`✅ Emoji updated for section ${sectionId}`);
+                    // Update emoji for the dropdowns
+                    initializeTabs();
                 } catch (error) {
                     console.error('❌ Failed to save emoji:', error);
                     // Revert UI on failure
@@ -1104,8 +1188,8 @@ function handleDragOver(e) {
     e.preventDefault();
 
     // Auto-scroll logic
-    const scrollThreshold = 100; // pixels from edge
-    const scrollSpeed = 20;
+    const scrollThreshold = 90; // pixels from edge
+    const scrollSpeed = 10;
     
     if (e.clientY < scrollThreshold) {
         // Scroll up
@@ -1163,6 +1247,48 @@ function handleDragEnd(e) {
     draggedIndex = null;
 }
 
+function cleanupEventListeners() {
+    // Clear any auto-scroll intervals
+    if (autoScrollInterval) {
+        clearInterval(autoScrollInterval);
+        autoScrollInterval = null;
+    }
+
+    // Reset drag state
+    draggedElement = null;
+    draggedIndex = null;
+    currentEmojiTarget = null;
+
+    // Hide any open UI elements
+    const contextMenu = document.getElementById('contextMenu');
+    if (contextMenu) {
+        contextMenu.style.display = 'none';
+    }
+
+    const emojiPicker = document.getElementById('emojiPicker');
+    if (emojiPicker) {
+        emojiPicker.style.display = 'none';
+    }
+
+    // Close all dropdowns and reset z-index
+    document.querySelectorAll('.section-dropdown').forEach(dropdown => {
+        dropdown.style.display = 'none';
+        const card = dropdown.closest('.result-card');
+        if (card) card.style.zIndex = '';
+    });
+
+    // Remove dragging classes from any elements that might still have them
+    document.querySelectorAll('.dragging').forEach(el => {
+        el.classList.remove('dragging');
+        el.style.opacity = '';
+        el.style.transform = '';
+        el.style.zIndex = '';
+        el.style.cursor = 'grab'; // Reset cursor
+    });
+
+    document.body.classList.remove('dragging-active');
+}
+
 // Function to apply staggered animation to elements
 function applyStaggeredAnimation(selector, classToAdd, delayBetween = 10) {
     const elements = document.querySelectorAll(selector);
@@ -1180,7 +1306,7 @@ function loadSectionContent(sectionId, isLoadMore = false) {
 
     if (isLoading) return;
     const resultsContainer = document.querySelector('.results-container');
-    const userId = window.stripeCustomerId;
+    const authToken = getAuthToken();
 
     // If not loading more, reset the offset for this section
     if (!isLoadMore) {
@@ -1197,7 +1323,11 @@ function loadSectionContent(sectionId, isLoadMore = false) {
     isLoading = true;
 
     // Fetch bookmarks with pagination using the correct offset for this section
-    fetch(`http://localhost:3000/api/bookmarks/${userId}/section/${sectionId}?offset=${sectionOffsets[sectionId]}&limit=${BOOKMARKS_PER_PAGE}`)
+    fetch(`http://localhost:3000/api/bookmarks/section/${sectionId}?offset=${sectionOffsets[sectionId]}&limit=${BOOKMARKS_PER_PAGE}`, {
+        headers: {
+            'Authorization': authToken
+        }
+    })
         .then(response => response.text())
         .then(rawText => {
             const data = JSON.parse(rawText);
@@ -1219,11 +1349,12 @@ function loadSectionContent(sectionId, isLoadMore = false) {
                     sectionBookmarks[sectionId] = data.bookmarks;
                 }
 
-                // Always show all loaded bookmarks for the section
-                const bookmarksToTransform = isLoadMore ? data.bookmarks : sectionBookmarks[sectionId]; // Only new ones when loading more
+                // Only show first 10 bookmarks to user
+                const bookmarksToShow = isLoadMore ? data.bookmarks.slice(0, 10) : sectionBookmarks[sectionId].slice(0, Math.min(sectionBookmarks[sectionId].length, 10));
+
                 const transformedData = {
                     data: {
-                        children: bookmarksToTransform.map(bookmark => ({
+                        children: bookmarksToShow.map(bookmark => ({
                             data: {
                                 id: bookmark.reddit_post_id,
                                 title: bookmark.title,
@@ -1257,7 +1388,6 @@ function loadSectionContent(sectionId, isLoadMore = false) {
 
                 setTimeout(() => {
                     makeBookmarksDraggable(sectionId);
-                    positionScrollIndicator();
                     addSectionDropdowns().then(() => {
                         setupDropdownEvents();
                     });
@@ -1274,23 +1404,14 @@ function loadSectionContent(sectionId, isLoadMore = false) {
                     }
                 });
 
-                // Increase the offset for this section by 10
-                if (data.bookmarks.length < 10) {
+                if (data.bookmarks.length < 11) {
                     hasMoreBookmarks[sectionId] = false;
-                    const indicator = document.querySelector('.scroll-container-minimal');
-                    if (indicator) {
-                        indicator.style.opacity = '0';
-                    }
                 } else {
                     sectionOffsets[sectionId] += 10;
                     hasMoreBookmarks[sectionId] = true;
-                    positionScrollIndicator();
-                    const indicator = document.querySelector('.scroll-container-minimal');
-                    if (indicator) {
-                        indicator.style.opacity = '1';
-                    }
                 }
-            
+                positionScrollIndicator();
+
             } else if (!isLoadMore) {
                 showError("No bookmarks found. Start bookmarking posts to see them here.")
             }

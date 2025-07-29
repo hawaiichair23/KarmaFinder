@@ -1,6 +1,6 @@
 require('dotenv').config();
 const cron = require('node-cron');
-const client = require('./db');
+const { pool } = require('./db');
 const fs = require('fs');
 const path = require('path');
 
@@ -8,7 +8,7 @@ const tempDir = path.join(__dirname, 'temp');
 
 const deleteOldEntries = async () => {
     try {
-        const result = await client.query(`
+        const result = await pool.query(`
             DELETE FROM image_news_cache
             WHERE created_at < NOW() - INTERVAL '24 hours'
         `);
@@ -25,7 +25,7 @@ cron.schedule('0 2 * * *', deleteOldEntries);
 
 cron.schedule('0 3 * * *', async () => {
     try {
-        const result = await client.query(`
+        const result = await pool.query(`
             DELETE FROM media_analysis
             WHERE created_at < NOW() - INTERVAL '5 days'
         `);
@@ -40,7 +40,7 @@ cron.schedule('0 3 * * *', async () => {
 
 cron.schedule('0 * * * *', async () => {
     try {
-        const result = await client.query(`
+        const result = await pool.query(`
             DELETE FROM subreddit_search_cache
             WHERE created_at < NOW() - INTERVAL '24 hours'
         `);
@@ -53,15 +53,15 @@ cron.schedule('0 * * * *', async () => {
     }
 });
 
-cron.schedule('0 0 */10 * *', async () => {
+cron.schedule('0 0 */14 * *', async () => {
     try {
-        const result = await client.query(`
+        const result = await pool.query(`
             DELETE FROM subreddit_icons
-            WHERE created_at < NOW() - INTERVAL '10 days'
+            WHERE created_at < NOW() - INTERVAL '14 days'
         `);
         const now = new Date();
         const readable = now.toLocaleString();
-        console.log(`🧹 Deleted ${result.rowCount} ICONS older than 10 days at ${readable}`);
+        console.log(`🧹 Deleted ${result.rowCount} ICONS older than 14 days at ${readable}`);
     } catch (err) {
         console.error('❌ Error deleting old icons:', err.message);
     }
@@ -69,7 +69,7 @@ cron.schedule('0 0 */10 * *', async () => {
 
 cron.schedule('*/7 * * * *', async () => {
     try {
-        const result = await client.query(`
+        const result = await pool.query(`
             DELETE FROM comments 
             WHERE indexed_at < NOW() - INTERVAL '7 minutes'
         `);
@@ -84,7 +84,7 @@ cron.schedule('*/7 * * * *', async () => {
 
 async function cleanOldPosts() {
     try {
-        const result = await client.query(`
+        const result = await pool.query(`
             DELETE FROM posts
             WHERE indexed_at < NOW() - INTERVAL '7 minutes'
         `);

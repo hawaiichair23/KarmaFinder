@@ -5,8 +5,10 @@
         "start": "node DOGFETCH.js"
     },
     "dependencies": {
+        "@qdrant/js-client-rest": "^1.14.1",
+        "@supabase/supabase-js": "^2.51.0",
         "an-array-of-english-words": "^2.0.0",
-        "axios": "^1.9.0",
+        "axios": "^1.10.0",
         "cheerio": "^1.0.0",
         "cors": "^2.8.5",
         "dotenv": "^16.6.1",
@@ -16,11 +18,18 @@
         "jsonwebtoken": "^9.0.2",
         "node-cron": "^4.0.0",
         "node-fetch": "^2.7.0",
-        "pg": "^8.15.6",
+        "pg": "^8.16.3",
+        "redis": "^5.6.1",
         "resend": "^4.6.0",
         "stripe": "^18.3.0",
         "tmp-promise": "^3.0.3",
         "twilio": "^5.7.3",
         "uuid": "^11.1.0"
-    }
+    },
+    "version": "1.0.0",
+    "description": "",
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "commonjs"
 }

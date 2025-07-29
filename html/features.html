@@ -148,7 +148,8 @@ header {
 }
 
 .logo {
-    font-size: 2.8rem;
+    font-size: 3.2rem;
+    margin-left: 3px;
     font-weight: bold;
     color: var(--primary-color);
     text-decoration: none;
@@ -174,7 +175,7 @@ header a,
 
 .logo h1 {
     margin: 25px 0 11px;
-    font-size: 2.5rem;
+    font-size: 2.7rem;
     color: var(--primary-color);
 }
 
@@ -199,7 +200,7 @@ header a,
         }
 
         .hero-tagline {
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             color: var(--light-text);
             margin-bottom: 40px;
             max-width: 600px;
@@ -214,7 +215,6 @@ header a,
             overflow: hidden;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
             border: 1px solid var(--border-color);
-            background: white;
         }
 
         .app-preview img {
@@ -236,6 +236,25 @@ header a,
             font-size: 1.5rem;
         }
 
+        .app-preview2 {
+            display: inline-block;  /* Add this to shrink container to video size */
+            margin: 0;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--border-color);
+            background: transparent;
+        }
+
+        .app-preview video {
+            width: 100%;  /* Change from 95% to 100% */
+            height: auto;  /* Change from 95% to auto */
+            object-fit: contain;  
+            display: block;
+            border-radius: 24px;
+            margin: 0;  /* Remove auto centering since container will be sized to video */
+        }
+
         /* Video Section */
         .video-section {
             padding: 10px;
@@ -245,7 +264,7 @@ header a,
         }
 
         .video-title {
-            font-size: 2.5rem;
+            font-size: 2.7rem;
             color: var(--text-primary);
             margin-bottom: 20px;
             font-weight: 600;
@@ -301,7 +320,7 @@ header a,
 
         .features-title {
             text-align: center;
-            font-size: 2.5rem;
+            font-size: 2.7rem;
             color: var(--text-primary);
             margin-bottom: 20px;
             font-weight: 600;
@@ -328,8 +347,7 @@ header a,
             margin-bottom: 80px;
         }
 
-        .feature-card {
-            background: var(--card-color);
+        .feature-card-bluebird {
             border-radius: 20px;
             padding: 60px 40px;
             text-align: center;
@@ -340,39 +358,140 @@ header a,
             width: 420px;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            position: relative; /* Add this */
+            justify-content: flex-end;
+            position: relative;
             overflow: hidden;
+            
+            /* Add the screenshot as background */
+            background-image: url('../assets/menupic.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
         }
 
-        .feature-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1), inset 0 0 1px var(--inset-shadow);
-    }
+        .feature-card-vector {
+            border-radius: 20px;
+            padding: 60px 40px;
+            text-align: center;
+            border: 1.5px solid var(--border-color);
+            box-shadow: inset 0 0 1px var(--inset-shadow);
+            transition: all 0.3s ease;
+            height: 550px;
+            width: 420px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* Push text to bottom */
+            position: relative;
+            overflow: hidden;
+            
+            /* Add the screenshot as background */
+            background-image: url('../assets/vector.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
 
-    .feature-icon {
-        margin-bottom: 30px; /* Increased spacing to push text down more */
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 260px; /* Set a consistent height for the image area */
-    }
+        }
 
-    .feature-screenshot {
-        border-radius: 20px;
-        object-fit: cover;  
-        
-    }
+        .feature-card-bookmarks {
+            border-radius: 20px;
+            padding: 60px 40px;
+            text-align: center;
+            border: 1.5px solid var(--border-color);
+            box-shadow: inset 0 0 1px var(--inset-shadow);
+            transition: all 0.3s ease;
+            height: 550px;
+            width: 420px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* Push text to bottom */
+            position: relative;
+            overflow: hidden;
+            
+            /* Add the screenshot as background */
+            background-image: url('../assets/bookmarkspng.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+
+        }
+            
+        .feature-card-bluebird:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1), inset 0 0 1px var(--inset-shadow);
+        }
+        .feature-card-bookmarks:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1), inset 0 0 1px var(--inset-shadow);
+        }
+        .feature-card-vector:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1), inset 0 0 1px var(--inset-shadow);
+        }
+
+        body.dark-mode .feature-card-vector:hover {
+            border-color: #333;
+            box-shadow: 0 20px 60px rgba(255, 255, 255, 0.1);
+        }
+
+        body.dark-mode .feature-card-bookmarks:hover {
+            border-color: #333;
+            box-shadow: 0 20px 60px rgba(255, 255, 255, 0.1);
+        }
+
+        body.dark-mode .feature-card-bluebird:hover {
+            border-color: #333;
+            box-shadow: 0 20px 60px rgba(255, 255, 255, 0.1);
+        }
+
+        body.dark-mode .feature-card-bookmarks {
+            border-color: #333;
+        }
+
+        body.dark-mode .feature-card-vector {
+            border-color: #333;
+        }
+
+        body.dark-mode .feature-card-bluebird {
+            border-color: #333;
+        }
+
+        .feature-screenshot {
+            object-fit: contain; 
+        }
+
         .feature-title {
-            font-size: 1.8rem;
+            font-size: 2rem;
             color: var(--text-color);
             margin-bottom: 15px;
             font-weight: 600;
             text-align: left;
         }
 
+        .feature-title-bluebird {
+            font-size: 2rem;
+            color: rgb(12, 58, 90);
+            margin-bottom: 15px;
+            font-weight: 600;
+            text-align: left;
+        }
+
+        .feature-title-bookmarks {
+            font-size: 2rem;
+            color: white;
+            margin-bottom: 15px;
+            font-weight: 600;
+            text-align: left;
+        }
+
         .feature-description {
-            color: rgb(161, 161, 161);
+            color: rgb(142, 142, 147);
+            font-size: 1.1rem;
+            line-height: 1.6;
+            text-align: left;
+        }
+
+        .feature-description-bluebird {
+            color: rgb(102, 161, 210);
             font-size: 1.1rem;
             line-height: 1.6;
             text-align: left;
@@ -399,9 +518,9 @@ header a,
 
         .donation-section h2 {
             text-align: center;
-            font-size: 2.5rem;
+            font-size: 2.7rem;
             color: var(--text-primary);
-            margin-bottom: 10px;
+            margin-bottom: 20px;
             margin-left: 0;
             font-weight: 600;
         }
@@ -414,8 +533,8 @@ header a,
         .donation-section > p {
             text-align: center;
             color: var(--light-text);
-            margin-bottom: 30px;
-            font-size: 1.1rem;
+            margin-bottom: 40px;
+            font-size: 1.2rem;
         }
 
         .footnote {
@@ -592,7 +711,7 @@ header a,
 
         @media (max-width: 768px) {
             .logo h1 {
-                font-size: 3rem;
+                font-size: 2.7rem;
             }
 
             .hero-tagline {
@@ -758,22 +877,23 @@ header a,
         <img id="themeIcon" alt="Toggle theme" />
     </button>
 
-    <!-- Hero Section -->
     <section class="hero-section">
         <div class="hero-content">
-            <div style="text-align: center;">
-                <a href="karmafinder.html" class="link-container" style="display: flex; justify-content: center; align-items: center; position: relative; padding: 0.3rem 0;">
-                    <div class="logo">KarmaFinder</div>
-                </a>
+<div style="text-align: center;">
+    <div class="link-container"
+        style="display: flex; justify-content: center; align-items: center; position: relative; padding: 0.3rem 0;">
+        <a href="karmafinder.html" class="logo">KarmaFinder</a>
+    </div>
+</div>
             <p class="hero-tagline">
                 The lightning-fast customizable Reddit search tool.
             </p>
 
             <div class="app-preview">
-                <!-- Replace this with actual app screenshot -->
-                <div>
-                    App Screenshot Placeholder
-                </div>
+                <video autoplay muted loop controls>
+                    <source src="../assets/cropped.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
             </div>
         </div>
 
@@ -784,7 +904,6 @@ header a,
         </div>
     </section>
 
-    <!-- Video Demo Section -->
     <section class="video-section">
         <h2 class="video-title">Bookmark Anything</h2>
         <p class="video-subtitle">
@@ -794,17 +913,11 @@ header a,
         <div class="app-preview">
             <img src="../assets/screenshot.png" alt="KarmaFinder Interface">
         </div>
-                <!-- 
-            Uncomment when you have your video:
-            <video autoplay muted loop>
-                <source src="your-demo-video.mp4" type="video/mp4">
-            </video>
-            -->
+
             </div>
         </div>
     </section>
 
-    <!-- Features Section -->
     <section class="features-section">
         <h2 class="features-title">Powerful Features</h2>
         <p class="features-subtitle">
@@ -812,44 +925,42 @@ header a,
         </p>
 
         <div class="features-grid">
-            <div class="feature-card">
+            <div class="feature-card-bookmarks">
                     <div class="feature-icon">
-                        <img src="../assets/bookmarkscreenshot.png" alt="Theme selector" class="feature-screenshot">
+                        <img class="feature-screenshot">
                     </div>
-                <h3 class="feature-title">Seamless Bookmarks</h3>
+                <h3 class="feature-title-bookmarks">Seamless Bookmarks</h3>
                 <p class="feature-description">
                     Save and organize your favorite Reddit posts with a rich, intuitive bookmarking system. Never
                     lose track of important content again.
                 </p>
             </div>
 
-            <div class="feature-card">
+            <div class="feature-card-vector">
                 <div class="feature-icon">
-                    <img src="../assets/capturewithcursor.png" alt="Theme selector" class="feature-screenshot">
+                    <img class="feature-screenshot">
                 </div>
-                <h3 class="feature-title">Enhanced Vector Search</h3>
+                <h3 class="feature-title">Enhanced Search</h3>
                 <p class="feature-description">
-                    Advanced search that understands context and meaning. Find exactly what you're looking for across
-                    all of Reddit.
+                    Search Reddit like Google with advanced search that understands context and meaning. Find exactly what you're looking for on Reddit.
                 </p>
             </div>
 
-            <div class="feature-card">
+            <div class="feature-card-bluebird">
                 <div class="feature-icon">
-                    <img src="../assets/capturewithcursor.png" alt="Theme selector" class="feature-screenshot">
+                    <img class="feature-screenshot">
                 </div>
-                <h3 class="feature-title">Color Themes</h3>
-                <p class="feature-description">
-                    Personalize your experience with beautiful color themes. Bluebird, Forest, and Default color
+                <h3 class="feature-title-bluebird">Color Themes</h3>
+                <p class="feature-description-bluebird">
+                    Personalize your experience with beautiful color themes. Bluebird & Forest color
                     schemes to match your style.
                 </p>
             </div>
     </section>
 
-<!-- Choice Section -->
 <section class="donation-section">
         <h2>Upgrade to KarmaFinder Premium ⭐</h2>
-        <p>Unlock Premium to create an account and access exclusive features</p>
+        <p>Unlock Premium to create an account and access exclusive features.</p>
 
         <div class="plans">
             <div class="plan-card">
@@ -862,7 +973,7 @@ header a,
                             stroke="currentColor" stroke-width="3">
                             <polyline points="20,6 9,17 4,12"></polyline>
                         </svg>
-                        <span>Basic Reddit search</span>
+                        <span>Faster Reddit search</span>
                     </div>
                     <div class="feature-item">
                         <svg class="checkmark" width="16" height="16" viewBox="0 0 24 24" fill="none"

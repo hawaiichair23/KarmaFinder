@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Admin Panel</title>
+    <style>
+        html {
+            font-size: 90%;
+            overflow-y: scroll;
+            color: white;
+        } 
+
+        /* Dark Mode Variables */
+        body {
+            --background-color: #151416;
+            --card-color: #202022;
+            --input-bg: #1c1c1f;
+            --comments-bg: #2e2e32;
+            --suggestions-bg: #232326;
+
+            --text-color: #f5f5f5;
+            --text-primary: #ffffff;
+            --text-secondary: #ffffff;
+            --light-text: #787c7e;
+            --meta-text: #8a8a91;
+            --placeholder-bg: #2e2e32;
+            --darkborder: #3a3a44;
+
+            /* footie */
+            --footie-color: #636363;
+
+            --border-color: #333337;
+            --border-dark: #6b6b6b;
+            --shadow-light: rgba(0, 0, 0, 0.3);
+            --hover-bg: #36363a;
+            --button-bg: #29292d;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: var(--background-color);
+        }
+
+        h2 {
+            color: rgb(236, 234, 233);
+            font-family: 'Segoe UI';
+        }
+
+        .emergency-btn {
+            background: var(--card-color);
+            color: white;
+            font-family: 'Segoe UI';
+            font-weight: 600;
+            padding: 17px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            border-style: solid;
+            border-width: 1.5px;
+            box-shadow: inset 0 0 1px var(--darkborder);
+            border-color: var(--border-color);
+        }
+
+        .emergency-btn:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .normal {
+            background: rgb(82, 175, 82);
+        }
+
+        .emergency {
+            background: rgb(182, 62, 62);
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Admin Panel</h2>
+
+    <div id="status" class="status">Loading...</div>
+
+    <h2>Emergency Controls</h2>
+    <button class="emergency-btn" onclick="activateEmergency('json')">
+        🚨 ACTIVATE EMERGENCY (JSON)
+    </button>
+    <button class="emergency-btn" onclick="resetEmergency()">
+        ✅ RESET TO NORMAL
+    </button>
+
+    <script>
+        // Get the key from URL instead of prompting
+            const urlParams = new URLSearchParams(window.location.search);
+            const adminKey = urlParams.get('key');
+
+            // If no key in URL, redirect or show error
+            if (!adminKey) {
+                document.body.innerHTML = '<h2>Access Denied</h2>';
+            }
+
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/admin/emergency/status', {
+                    headers: { 'x-admin-key': adminKey }
+                });
+                const data = await response.json();
+
+                const statusDiv = document.getElementById('status');
+                if (data.emergencyMode) {
+                    statusDiv.innerHTML = `🚨 EMERGENCY MODE ACTIVE (${data.fallbackMode})`;
+                    statusDiv.className = 'status emergency';
+                } else {
+                    statusDiv.innerHTML = '✅ Normal Operation';
+                    statusDiv.className = 'status normal';
+                }
+            } catch (error) {
+                document.getElementById('status').innerHTML = '❌ Error checking status';
+            }
+        }
+
+        async function activateEmergency(mode) {
+            try {
+                const response = await fetch(`/api/admin/emergency/${mode}`, {
+                    method: 'POST',
+                    headers: { 'x-admin-key': adminKey }
+                });
+                const data = await response.json();
+                alert(data.message);
+                checkStatus();
+            } catch (error) {
+                alert('Error activating emergency mode');
+            }
+        }
+
+        async function resetEmergency() {
+            try {
+                const response = await fetch('/api/admin/emergency/oauth', {
+                    method: 'POST',
+                    headers: { 'x-admin-key': adminKey }
+                });
+                const data = await response.json();
+                alert('Reset to normal mode');
+                checkStatus();
+            } catch (error) {
+                alert('Error resetting');
+            }
+        }
+
+
+        // Check status when page loads
+        checkStatus();
+
+        // Auto-refresh status every 30 seconds
+        setInterval(checkStatus, 30000);
+    </script>
+</body>
+
+</html>

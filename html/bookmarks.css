@@ -38,7 +38,6 @@ body.dark-mode .tab:hover {
 .tab.active {
     background: #0068bd;
     color: white;
-    border: none;
 }
 
 .tab.active:hover {
@@ -164,6 +163,12 @@ body.forest-theme .section-option {
 
 /* DARK MODE */
 
+div:where(.swal2-container) input:where(.swal2-input)::placeholder,
+div:where(.swal2-container) input:where(.swal2-file)::placeholder,
+div:where(.swal2-container) textarea:where(.swal2-textarea)::placeholder {
+    color: var(--text-color);
+}
+
 .dark-mode .tab {
     background: #202022;
     color: #888;
@@ -208,7 +213,7 @@ body.forest-theme .section-option {
     justify-content: center;
     z-index: 1000;
     border-width: 1.5px;
-    opacity: 0;
+    opacity: 1;
 }
 
 body.dark-mode .scroll-container-minimal {
@@ -250,7 +255,7 @@ body.dark-mode .section-option {
     border-radius: 8px;
     padding: 0;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-    z-index: 2000;
+    z-index: 1000;
     min-width: 160px;
     transition: all 0.1s ease;
     display: none;
@@ -267,7 +272,7 @@ body.dark-mode .context-menu {
     padding: 8px 12px;
     cursor: pointer;
     font-size: 14px;
-    font-family: Segoe UI;
+    font-family: 'Segoe UI';
     color: var(--text-color);
     display: flex;
     gap: 10px;
@@ -298,7 +303,7 @@ body.dark-mode .context-menu-item {
 }
 
 .context-menu-item:hover {
-    background: #ebebef;
+    background: var(--hover-bg-lite);
 }
 
 body.dark-mode .context-menu-item:hover {
@@ -309,8 +314,12 @@ body.dark-mode .context-menu-item:hover {
     color: #ff6b6b;
 }
 
+body.forest-theme .context-menu-item.danger:hover {
+    background-color: #653030;
+}
+
 .context-menu-item.danger:hover {
-    background: #ffeaea;
+    background-color: #ffc2c2;
 }
 
 body.dark-mode .context-menu-item.danger:hover {
@@ -351,14 +360,14 @@ body.dark-mode .tab.editing::-moz-selection {
 
 .add-section-btn {
     background-color: var(--card-color);
-    border-color: rgba(76, 76, 76, 0.25);
-    box-shadow: inset 0 0 1px rgba(58, 58, 58, 0.4);
+    border-color: var(--border-color);
+    box-shadow: inset 0 0 1px rgba(0, 0, 0, 0.4);
     border-style: solid;
     border-width: 1.5px;
     /* No bottom border to blend with content */
     border-radius: 8px;
     /* Only top corners rounded */
-    color: #a0a0ad;
+    color: var(--border-color);
     width: 46px;
     height: 43px;
     display: inline-flex;
@@ -377,7 +386,11 @@ body.dark-mode .tab.editing::-moz-selection {
 }
 
 .add-section-btn:hover {
-    filter: brightness(0.95) hue-rotate(10deg);
+    background-color: var(--hover-bg-lite);
+}
+
+body.forest-theme .add-section-btn:hover {
+    background-color: var(--hover-bg-lite);
 }
 
 .add-section-btn:active {
@@ -431,4 +444,11 @@ body.dark-mode .add-section-btn:active {
 
 .emoji-option:hover {
     background-color: var(--hover-bg);
+}
+
+div:where(.swal2-container) input:where(.swal2-input)::placeholder,
+div:where(.swal2-container) input:where(.swal2-file)::placeholder,
+div:where(.swal2-container) textarea:where(.swal2-textarea)::placeholder {
+    color: var(--text-color);
+
 }

@@ -26,14 +26,15 @@
     --footie-color: #a1a1a1;
 
     /* Border & Shadow */
-    --border-color: rgb(210, 210, 213);
+    --border-color: rgb(198, 198, 202);
     --border-dark: #6b6b6b;
     --shadow-light: rgba(0, 0, 0, 0.1);
     --shadow-card: rgba(0, 0, 0, 0.25);
-    --inset-shadow: #787c7e;
+    --inset-shadow: #a0a5a7;
 
     /* Interactive Elements */
     --hover-bg: #dfdfe9;
+    --hover-bg-lite: rgb(231, 233, 238);
     --button-bg: #ececf5;
     --disabled-opacity: 0.5;
 
@@ -55,7 +56,7 @@ body.dark-mode {
 
     --text-color: #f5f5f5;
     --text-primary: #ffffff;
-    --text-secondary: #ffffff;
+    --text-secondary: #dadada;
     --light-text: #787c7e;
     --meta-text: #8a8a91;
     --placeholder-bg: #2e2e32;
@@ -65,7 +66,7 @@ body.dark-mode {
     --footie-color: #636363;
 
     --border-color: #333337;
-    --border-dark: #6b6b6b;
+    --border-dark: #787b82;
     --shadow-light: rgba(0, 0, 0, 0.3);
     --hover-bg: #36363a;
     --button-bg: #29292d;
@@ -618,6 +619,7 @@ body.forest-theme .subreddit-suggestion {
     justify-content: center;
     align-items: center;
     padding: 10px 0;
+    background-color: var(--suggestions-bg);
 }
 
 body.dark-mode .subreddit-suggestion {
@@ -724,7 +726,6 @@ body.dark-mode .subreddit-bar a:hover {
 
 .subreddit-icon-img {
     opacity: 0;
-    transition: opacity 0.25s ease-in-out;
 }
 
 .subreddit-icon-img.fade-in {
@@ -1237,7 +1238,7 @@ body.forest-theme .comment-author a {
     color: var(--light-text);
     flex-shrink: 0;
     position: absolute;
-    padding-top: 3px;
+    padding-top: 2px;
 }
 
 .result-action {
@@ -1255,7 +1256,7 @@ body.forest-theme .comment-author a {
 }
 
 .result-action:hover {
-    color: rgb(33, 33, 33);
+    color: var(--footie-color);
 }
 
 body.dark-mode .result-actions,
@@ -1776,18 +1777,18 @@ body.comfy-mode .link-preview-btn {
     margin-left: 106px;
 }
 
+body.dark-mode .link-preview-btn:hover {
+    background-color: var(--hover-bg);
+}
+
 .link-preview-btn:hover {
-    background-color: var(--toggle-bg);
+    background-color: var(--hover-bg);
 }
 
 body.dark-mode .link-preview-btn {
     background-color: var(--button-bg);
-    border-color: #555;
-    color: #aaa;
-}
-
-body.dark-mode .link-preview-btn:hover {
-    background-color: #343434;
+    border-color: var(--darkborder);
+    color: var(--light-text);
 }
 
 /* =================================
@@ -2129,7 +2130,9 @@ body.dark-mode .lock-icon {
     color: #989898;
     border-left: 4px solid #bbbbbb;
     padding-left: 12px;
-    margin: 8px 0;
+    margin-left: 6px;
+    margin-bottom: 0px;
+    margin-top: 6px;
     font-size: 1em;
 }
 
@@ -2501,13 +2504,13 @@ body.dark-mode .login-link:hover {
 
 /* Or if you want a more custom disabled look */
 select:disabled {
-    color: #c4923c;
+    color: #dcae3b;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-weight: bold;
     padding: 7.5px 12px;
 }
 body.dark-mode select:disabled {
-    color: #c4923c;
+    color: #dcae3b;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-weight: bold;
     padding: 7.5px 12px;
@@ -2606,4 +2609,128 @@ body.comfy-mode .gallery-arrow svg {
 body.comfy-mode .gallery-counter {
     font-size: 12px !important;
     padding: 4px 9px !important;
+}
+
+.swal2-popup {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    border-radius: 10px;
+    background-color: var(--card-color);
+    color: var(--text-color);
+    --swal2-action-button-focus-box-shadow: none !important;
+    z-index: 2000;
+}
+
+.swal2-confirm {
+    background-color: #3b82f6;
+    border-radius: 6px;
+    transition: filter 0.15s ease-in-out;
+    font-family: 'Segoe UI';
+    font-weight: 600;
+}
+
+.swal2-cancel {
+    border-radius: 6px;
+    transition: filter 0.15s ease-in-out;
+    font-family: 'Segoe UI';
+    font-weight: 600;
+}
+
+body.dark-mode .swal2-confirm {
+    background-color: #006ec3;
+}
+
+.swal2-confirm:hover {
+    background-color: #006ec3;
+}
+
+body.dark-mode .swal2-confirm:hover {
+    background-color: #0062ac;
+}
+
+body.dark-mode .swal2-popup {
+    background-color: var(--card-color);
+    color: var(--text-color);
+    --swal2-action-button-focus-box-shadow: none;
+}
+
+.swal2-input {
+    border-radius: 16px;
+    padding: 12px 20px;
+    flex-grow: 0.89;
+    font-size: 1.1rem;
+    font-weight: 400;
+    color: var(--text-color) !important;
+    font-family: 'Segoe UI';
+    border: 1px solid var(--border-color);
+    background-color: var(--input-bg);
+    box-shadow: none;
+}
+
+.swal2-title {
+    font-size: 1.6rem;
+}
+div:where(.swal2-container).swal2-backdrop-show {
+    z-index: 10000;
+}
+
+body.dark-mode .swal2-input {
+    border: 1px solid #424242;
+    background-color: #1c1c1f;
+}
+
+div:where(.swal2-container) input:where(.swal2-input)::placeholder,
+div:where(.swal2-container) input:where(.swal2-file)::placeholder,
+div:where(.swal2-container) textarea:where(.swal2-textarea)::placeholder {
+    color: var(--text-color);
+}
+
+body.swal2-shown {
+    padding-right: 0 !important;
+    overflow: auto !important;
+}
+
+.swal2-container {
+    padding: 0 !important;
+}
+
+.subreddit-suggestion-err {
+    color: var(--text-color);
+    padding: 8px 12px;
+    background-color: var(--suggestions-bg);
+    box-shadow: inset 0 0 1px var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.vector-scroll-loader {
+    position: absolute;
+    bottom: 160px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 30px;
+    background-color: var(--card-color);
+    border-color: rgba(0, 0, 0, 0.25);
+    border-style: solid;
+    box-shadow: inset 0 0 1.5px rgba(86, 86, 86, 0.4);
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    border-width: 1.5px;
+}
+
+body.dark-mode .vector-scroll-loader {
+    background-color: #202022;
+    box-shadow: inset 0 0 1px #35353e;
+    border-color: #35353e;
+
+}
+
+div:where(.swal2-container) input:where(.swal2-input)::placeholder,
+div:where(.swal2-container) input:where(.swal2-file)::placeholder,
+div:where(.swal2-container) textarea:where(.swal2-textarea)::placeholder {
+    color: var(--text-color);
 }

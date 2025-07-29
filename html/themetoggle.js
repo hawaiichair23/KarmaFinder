@@ -1,38 +1,51 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     const themeToggle = document.getElementById('themeToggle');
-    const themeIcon = document.getElementById('themeIcon');
+    const icon = document.getElementById('themeIcon');
 
-    if (themeIcon) {
-        const savedTheme = localStorage.getItem('theme') || 'dark';
-        const isDark = savedTheme === 'dark';
-        themeIcon.src = isDark ? '../assets/sun.png' : '../assets/moon.png';
-        themeIcon.alt = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+    // Function to update icon based on current theme
+    function updateIcon() {
+        try {
+            const theme = localStorage.getItem('theme');
+            const isDark = theme === 'dark' || document.body.classList.contains('dark-mode');
+
+            if (icon) {
+                icon.src = isDark ? '../assets/sun.png' : '../assets/moon.png';
+                icon.alt = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+            }
+        } catch (e) {
+            // Fallback if localStorage isn't available
+            if (icon) {
+                icon.src = '../assets/moon.png';
+                icon.alt = 'Switch to dark mode';
+            }
+        }
     }
 
+    // Set initial icon
+    updateIcon();
+
+    // Toggle theme when button is clicked
     if (themeToggle) {
         themeToggle.addEventListener('click', () => {
-            document.body.classList.add('theme-transition');
+            const isDark = document.body.classList.toggle('dark-mode');
 
-            const dark = document.body.classList.toggle('dark-mode');
-            localStorage.setItem('theme', dark ? 'dark' : 'light');
-
-            if (themeIcon) {
-                themeIcon.src = dark ? '../assets/sun.png' : '../assets/moon.png';
-                themeIcon.alt = dark ? 'Switch to light mode' : 'Switch to dark mode';
+            try {
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            } catch (e) {
+                // Handle localStorage errors silently
             }
 
-            setTimeout(() => {
-                document.body.classList.remove('theme-transition');
-            }, 300);
+            // Update icon immediately after toggle
+            updateIcon();
         });
     }
 
-    window.addEventListener('load', () => {
-        document.body.classList.add('is-loaded');
+    // Listen for storage changes from other pages
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'theme') {
+            const isDark = e.newValue === 'dark';
+            document.body.classList.toggle('dark-mode', isDark);
+            updateIcon();
+        }
     });
-
-    setTimeout(() => {
-        document.body.classList.add('is-loaded');
-    }, 500);
 });

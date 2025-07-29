@@ -11,11 +11,98 @@ const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 const path = require('path');
-const pool = require('./db');
 const os = require('os');
 const app = express();
 const { execSync } = require('child_process');
 const { scheduleFileDeletion } = require('./cron-cleanup.js');
+const { pool } = require('./db');
+const redis = require('redis');
+
+const redisClient = redis.createClient({
+    url: `redis://default:${process.env.REDIS_API_KEY}@${process.env.REDIS_ENDPOINT}`
+});
+
+redisClient.on('error', (err) => {
+    console.error('❌ Redis connection error:', err);
+});
+
+redisClient.on('connect', () => {
+    console.log('✅ Connected to Redis');
+});
+
+// Connect to Redis
+redisClient.connect();
+
+// Redis helper functions for progressive search caching
+function buildRedisKey(subreddit, sort, query, time, contentType, afterToken, postId = null) {
+    const encode = str => encodeURIComponent(str || '');
+
+    // If this is a comment request, build a unique key with post ID
+    if (postId) {
+        return `reddit:comments:${encode(subreddit)}__${encode(postId)}`;
+    }
+
+    // Original key format for regular searches
+    return `reddit:batch:${encode(subreddit || 'all')}__${encode(sort)}__${encode(query)}__${encode(time)}__${encode(contentType)}__${encode(afterToken || 'null')}`;
+}
+
+async function getCachedBatch(subreddit, sort, query, time, contentType, afterToken, postId = null) {
+    try {
+        const key = buildRedisKey(subreddit, sort, query, time, contentType, afterToken, postId);
+        const cached = await redisClient.get(key);
+        if (cached) {
+            console.log('🎯 Redis cache hit:', key);
+            return JSON.parse(cached);
+        }
+        console.log('❌ Redis cache miss:', key);
+        return null;
+    } catch (error) {
+        console.error('Redis get error:', error);
+        return null;
+    }
+}
+
+async function setCachedBatch(subreddit, sort, query, time, contentType, afterToken, data, postId = null) {
+    try {
+        const key = buildRedisKey(subreddit, sort, query, time, contentType, afterToken, postId);
+        await redisClient.setEx(key, 420, JSON.stringify(data));
+        console.log('💾 Cached batch in Redis:', key);
+    } catch (error) {
+        console.error('Redis set error:', error);
+    }
+}
+
+// Vector search Redis helpers
+function buildVectorSearchKey(query, subreddit, timeFilter = 'all') {
+    const encode = str => encodeURIComponent(str || '');
+    return `vector:search:${encode(query)}:${encode(subreddit || 'all')}:${encode(timeFilter)}`;
+}
+
+async function getCachedVectorSearch(query, subreddit, timeFilter = 'all') {
+    try {
+        const key = buildVectorSearchKey(query, subreddit, timeFilter);
+        const cached = await redisClient.get(key);
+        if (cached) {
+            console.log('🎯 Vector search cache hit:', key);
+            return JSON.parse(cached);
+        }
+        console.log('❌ Vector search cache miss:', key);
+        return null;
+    } catch (error) {
+        console.error('Redis vector search get error:', error);
+        return null;
+    }
+}
+
+async function setCachedVectorSearch(query, subreddit, timeFilter = 'all', results) {
+    try {
+        const key = buildVectorSearchKey(query, subreddit, timeFilter);
+        await redisClient.setEx(key, 420, JSON.stringify(results)); // 7 minutes TTL
+        console.log('💾 Cached vector search results:', key);
+    } catch (error) {
+        console.error('Redis vector search set error:', error);
+    }
+}
 
 const PORT = process.env.PORT || 3000;
 
@@ -23,17 +110,81 @@ const axios = require('axios');
 const cheerio = require('cheerio');
         
 require('dotenv').config();
-// require('./daddy-bot');
-// require('./cron-cleanup');
+require('./daddy-bot');
+require('./cron-cleanup');
 
 const Stripe = require('stripe');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+const redditClients = [
+    {
+        clientId: process.env.REDDIT_CLIENT_1_ID,
+        clientSecret: process.env.REDDIT_CLIENT_1_SECRET,
+        userAgent: process.env.REDDIT_USER_AGENT_1,
+        requestCount: 0,
+        lastReset: Date.now()
+    },
+    {
+        clientId: process.env.REDDIT_CLIENT_2_ID,
+        clientSecret: process.env.REDDIT_CLIENT_2_SECRET,
+        userAgent: process.env.REDDIT_USER_AGENT_2,
+        requestCount: 0,
+        lastReset: Date.now()
+    },
+    {
+        clientId: process.env.REDDIT_CLIENT_3_ID,
+        clientSecret: process.env.REDDIT_CLIENT_3_SECRET,
+        userAgent: process.env.REDDIT_USER_AGENT_3,
+        requestCount: 0,
+        lastReset: Date.now()
+    }
+];
+
+let currentClientIndex = 0;
+
+function getNextClient() {
+    const client = redditClients[currentClientIndex];
+
+    // Check if current client hit rate limit (90 requests per minute)
+    const now = Date.now();
+    const timeSinceReset = now - client.lastReset;
+
+    if (timeSinceReset >= 60000) { // Reset after 1 minute
+        client.requestCount = 0;
+        client.lastReset = now;
+    }
+
+    if (client.requestCount >= 90) {
+        // Switch to next client
+        currentClientIndex = (currentClientIndex + 1) % redditClients.length;
+        return getNextClient(); // Recursively try next client
+    }
+
+    client.requestCount++;
+    return client;
+}
+
+let emergencyMode = process.env.EMERGENCY_MODE === 'true';
+let fallbackMode = process.env.REDDIT_FALLBACK_MODE || 'oauth';
+
+function activateEmergency(mode = 'json') {
+    emergencyMode = true;
+    fallbackMode = mode;
+    console.log('🚨 EMERGENCY ACTIVATED - Switching to:', mode);
+}
+
+function requireAdmin(req, res, next) {
+    const adminKey = req.headers['x-admin-key'] || req.query.admin;
+    if (adminKey !== process.env.ADMIN_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+}
 
 // Track requests per minute
 let requestCount = 0;
 let lastMinute = Date.now();
 
-// Add this middleware to your main server (before your routes)
 app.use((req, res, next) => {
     requestCount++;
 
@@ -55,6 +206,20 @@ app.use((req, res, next) => {
 
     next();
 });
+
+app.use(cors({
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: '*',
+    // credentials: true, // Remove this line
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+//app.use(cors({
+//    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+//    origin: ['https://karmafinder.site', 'https://www.karmafinder.site'],
+//    credentials: true,
+//    allowedHeaders: ['Content-Type', 'Authorization']
+//}));
 
 // Stripe webhook
 app.use('/api/webhook', express.raw({ type: 'application/json' }));
@@ -174,18 +339,9 @@ app.post('/api/webhook', async (req, res) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(cors({
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    origin: '*',
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
 app.options('*', cors());
 app.use(express.static(path.join(__dirname, '../html')));
 
-const REDDIT_ANDROID_CLIENT_ID = process.env.REDDIT_CLIENT_ID;
-const REDDIT_CLIENT_SECRET = process.env.REDDIT_CLIENT_SECRET;
 const JWT_SECRET = process.env.JWT_SECRET;
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -236,21 +392,28 @@ async function getOGImage(url) {
     }
 }
 
-let redditToken = null;
-let redditTokenExpiry = 0;
-
 async function getRedditAppToken() {
-    const now = Date.now();
-    if (redditToken && now < redditTokenExpiry) return redditToken;
+    if (emergencyMode) {
+        console.log('⚠️ Emergency mode active, skipping OAuth');
+        return null; // Skip getting tokens
+    }
 
-    const basicAuth = Buffer.from(`${REDDIT_ANDROID_CLIENT_ID}:${REDDIT_CLIENT_SECRET}`).toString('base64');
+    const client = getNextClient();
+
+    // Check if this client already has a valid token
+    if (client.accessToken && Date.now() < client.tokenExpiry) {
+        return client.accessToken;
+    }
+
+    // Get new token for this client
+    const basicAuth = Buffer.from(`${client.clientId}:${client.clientSecret}`).toString('base64');
 
     const res = await fetch('https://www.reddit.com/api/v1/access_token', {
         method: 'POST',
         headers: {
             'Authorization': `Basic ${basicAuth}`,
             'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': 'android:com.reddit.frontpage:v2023.10.0'
+            'User-Agent': client.userAgent
         },
         body: 'grant_type=client_credentials'
     });
@@ -258,14 +421,19 @@ async function getRedditAppToken() {
     const data = await res.json();
 
     if (data.access_token) {
-        redditToken = data.access_token;
-        redditTokenExpiry = now + (data.expires_in || 3600) * 1000;
-        console.log("🔐 Got Reddit app token:", redditToken.slice(0, 16) + '...');
-        return redditToken;
+        client.accessToken = data.access_token;
+        client.tokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
+        console.log("🔐 Got Reddit app token:", data.access_token.slice(0, 16) + '...');
+        return client.accessToken;
     } else {
         console.error("❌ Failed to get Reddit app token:", data);
         throw new Error("Could not fetch token");
     }
+}
+
+function getCurrentUserAgent() {
+    const client = redditClients[currentClientIndex];
+    return client.userAgent;
 }
 
 // Add the rate logging counter at the top level
@@ -278,38 +446,66 @@ function logFetch(url) {
     console.log(`🔁 [${timeString}] Fetching: ${url}`);
 }
 
+let emergencyActivatedAt = null;
+
+function activateEmergency(mode = 'json') {
+    if (mode === 'oauth') {
+        // Reset to normal mode
+        emergencyMode = false;
+        fallbackMode = 'oauth';
+        emergencyActivatedAt = null;
+        console.log('✅ NORMAL MODE RESTORED - Using OAuth');
+    } else {
+        // Emergency mode
+        emergencyMode = true;
+        fallbackMode = mode;
+        emergencyActivatedAt = new Date();
+        console.log(`🚨 EMERGENCY MODE ACTIVATED at ${emergencyActivatedAt.toLocaleString()} - Mode: ${mode}`);
+    }
+}
+
 function logRateInfo(headers, force = false) {
+    if (emergencyMode && emergencyActivatedAt) {
+        console.log(`🚨 Emergency Mode Active (since ${emergencyActivatedAt.toLocaleTimeString()})`);
+        return;
+    }
+
+    // Normal mode rate limiting
     const now = new Date();
     const timeString = now.toLocaleTimeString();
-
     const used = parseFloat(headers.get("x-ratelimit-used") || "0");
     const remaining = parseFloat(headers.get("x-ratelimit-remaining") || "60");
     const reset = parseFloat(headers.get("x-ratelimit-reset") || "60");
 
     rateLogCounter++;
-
     if (force || rateLogCounter % 5 === 0) {
-        console.log(
-            `📉 [${timeString}] Rate Watch: Used ${used}, Remaining ${remaining}, Resets in ${reset}s`
-        );
-    }
-
-    if (remaining <= 10) {
-        console.warn(`🚨 [${timeString}] WARNING: Only ${remaining} Reddit API requests left!`);
+        console.log(`📉 [${timeString}] OAuth Mode: Used ${used}, Remaining ${remaining}, Resets in ${reset}s`);
     }
 }
 
-// Utility function for fetching with rate limiting
-async function dogFetch(url, options = {}) {
+// Fetch wrapper
+async function dogFetch(url, options = {}, timeoutMs = 10000) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    // Build headers safely
+    const headers = {
+        'User-Agent': getCurrentUserAgent(),
+        ...(options.headers || {})
+    };
+
+    if (emergencyMode) {
+        delete headers.Authorization; // ensure no auth in emergency mode
+        console.log('🚨 Emergency request without auth');
+    }
+
     logFetch(url);
 
     try {
         const response = await fetch(url, {
             ...options,
-            headers: {
-                "User-Agent": "KarmaFinder/1.0",
-                ...(options.headers || {}),
-            },
+            headers,
+            signal: controller.signal
         });
 
         logRateInfo(response.headers);
@@ -320,8 +516,52 @@ async function dogFetch(url, options = {}) {
 
         return response;
     } catch (err) {
-        console.error(`🐶💥 DOGFETCH ERROR: ${url}\n→ ${err.message}`);
+        console.error(`🐶💥 DOGFETCH ERROR: ${url}\n→ ${err.name}: ${err.message}`);
         throw err;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+async function hedgedRedditRequest(url, isEmergencyMode, hedgeDelayMs = 2000) {
+    const requests = [];
+    let token = null;
+
+    // Get token if not in emergency mode
+    if (!isEmergencyMode) {
+        token = await getRedditAppToken();
+    }
+
+    // Start first request
+    const makeRequest = () => {
+        if (isEmergencyMode) {
+            return dogFetch(url);
+        } else {
+            return dogFetch(url, {
+                headers: {
+                    ...headers,
+                    'Authorization': `Bearer ${token}`,
+                    'User-Agent': getCurrentUserAgent()
+                }
+            });
+        }
+    };
+
+    requests.push(makeRequest());
+
+    // Start hedge request after delay
+    const hedgeTimeout = setTimeout(() => {
+        console.log(`🔄 Hedging request after ${hedgeDelayMs}ms`);
+        requests.push(makeRequest());
+    }, hedgeDelayMs);
+
+    try {
+        const response = await Promise.race(requests);
+        clearTimeout(hedgeTimeout);
+        return response;
+    } catch (error) {
+        clearTimeout(hedgeTimeout);
+        throw error;
     }
 }
 
@@ -412,22 +652,18 @@ app.get('/reddit/icons', async (req, res) => {
     try {
         const subreddits = req.query.subreddits?.split(',').filter(s => s && s.trim()) || [];
         const icons = {};
-
         if (subreddits.length === 0) {
             return res.json({});
         }
-
         for (const subreddit of subreddits) {
             console.log(`🚨 Processing subreddit: ${subreddit}`);
             try {
                 console.log(`🔎 Checking icon for r/${subreddit}`);
-
                 // Check DB first
                 const iconRes = await pool.query(
                     'SELECT icon_url FROM subreddit_icons WHERE subreddit = $1',
                     [subreddit]
                 );
-
                 if (iconRes.rows.length > 0) {
                     icons[subreddit] = iconRes.rows[0].icon_url;
                     console.log(`📦 Found cached icon for r/${subreddit}`);
@@ -435,17 +671,25 @@ app.get('/reddit/icons', async (req, res) => {
                     // Add 5ms delay before Reddit API call
                     await new Promise(resolve => setTimeout(resolve, 5));
 
-                    // Fetch from Reddit
-                    const token = await getRedditAppToken();
-                    const aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
-                        headers: {
-                            ...headers,
-                            'Authorization': `Bearer ${token}`,
-                            'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
-                        }
-                    });
+                    let aboutRes, aboutData;
 
-                    const aboutData = await aboutRes.json();
+                    if (emergencyMode) {
+                        console.log(`🚨 Emergency mode: fetching r/${subreddit} icon via public JSON`);
+                        aboutRes = await dogFetch(`https://www.reddit.com/r/${subreddit}/about.json`);
+                        aboutData = await aboutRes.json();
+                    } else {
+                        // Normal OAuth mode
+                        const token = await getRedditAppToken();
+                        aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
+                            headers: {
+                                ...headers,
+                                'Authorization': `Bearer ${token}`,
+                                'User-Agent': getCurrentUserAgent()
+                            }
+                        });
+                        aboutData = await aboutRes.json();
+                    }
+
                     const rawIcon = (
                         aboutData.data.community_icon ||
                         aboutData.data.icon_img ||
@@ -454,12 +698,9 @@ app.get('/reddit/icons', async (req, res) => {
                         aboutData.data.banner_img ||
                         ''
                     ).replace(/&amp;/g, '&').trim();
-
                     const iconUrl = rawIcon || null;
                     icons[subreddit] = iconUrl;
-
                     console.log(`🔍 About to save: subreddit="${subreddit}", iconUrl="${iconUrl}"`);
-
                     // Cache it
                     await pool.query(`
                       INSERT INTO subreddit_icons (subreddit, icon_url, created_at)
@@ -467,7 +708,6 @@ app.get('/reddit/icons', async (req, res) => {
                       ON CONFLICT (subreddit)
                       DO UPDATE SET icon_url = EXCLUDED.icon_url, created_at = NOW()
                   `, [subreddit, iconUrl]);
-
                     console.log(`💾 Saved icon for r/${subreddit}`);
                 }
             } catch (err) {
@@ -475,7 +715,6 @@ app.get('/reddit/icons', async (req, res) => {
                 icons[subreddit] = null;
             }
         }
-
         res.json(icons);
     } catch (error) {
         console.error('Icons route error:', error);
@@ -500,10 +739,10 @@ app.get('/reddit', async (req, res) => {
 
         if (query) {
             try {
-                const cachedResult = await pool.query(
-                    "SELECT results FROM subreddit_search_cache WHERE query_term = $1",
-                    [query]
-                );
+                const cachedResult = await Promise.race([
+                    pool.query("SELECT results FROM subreddit_search_cache WHERE query_term = $1", [query]),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('DB timeout')), 5000))
+                ]);
 
                 if (cachedResult.rows.length > 0) {
                     console.log(`🚀 Cache hit for query: ${query}`);
@@ -517,41 +756,85 @@ app.get('/reddit', async (req, res) => {
         }
     }
 
-    // Rewrite www to oauth
-    decodedUrl = decodedUrl.replace('https://www.reddit.com', 'https://oauth.reddit.com');
-    decodedUrl = decodedUrl.replace(/\.json\/?$/, '');
+    // EMERGENCY MODE URL HANDLING
+    if (emergencyMode) {
+        console.log('🚨 Emergency mode: using public Reddit URLs');
+
+        // Check if .json is already in the URL
+        if (!decodedUrl.includes('.json')) {
+            // Add .json before query parameters
+            const [baseUrl, queryString] = decodedUrl.split('?');
+            decodedUrl = queryString ? `${baseUrl}.json?${queryString}` : `${baseUrl}.json`;
+        }
+        // If .json is already there, leave the URL as-is
+
+    } else {
+        // Normal mode: Rewrite www to oauth and remove ALL .json
+        decodedUrl = decodedUrl.replace('https://www.reddit.com', 'https://oauth.reddit.com');
+        decodedUrl = decodedUrl.replace(/\.json\?/, '?'); // Remove .json before query params
+        decodedUrl = decodedUrl.replace(/\.json$/, '');
+    }
+
+    // Try Redis cache first (only for regular Reddit API calls, not subreddit search)
+    if (!decodedUrl.includes('subreddits/search.json')) {
+        try {
+            // Parse URL to extract cache parameters
+            const urlObj = new URL(decodedUrl.replace('https://oauth.reddit.com', 'https://www.reddit.com'));
+            const pathParts = urlObj.pathname.split('/');
+
+            // Extract subreddit from path like /r/programming/new
+            let subreddit = 'all';
+            if (pathParts[1] === 'r' && pathParts[2]) {
+                subreddit = pathParts[2];
+            }
+
+            // Check if this is a comment URL
+            let postId = null;
+            if (urlObj.pathname.includes('/comments/')) {
+                // Extract post ID from comment URLs like /r/subreddit/comments/POST_ID/title/
+                postId = pathParts[4];
+            }
+
+            // Extract sort from path or default to 'hot'
+            let sort = pathParts[3] || 'hot';
+
+            // Get query parameters
+            const query = urlObj.searchParams.get('q') || '';
+            const time = urlObj.searchParams.get('t') || 'all';
+            const after = urlObj.searchParams.get('after') || null;
+            const contentType = 'all';
+
+            // Check Redis cache (pass postId for comment URLs)
+            const cachedBatch = await getCachedBatch(subreddit, sort, query, time, contentType, after, postId);
+            if (cachedBatch) {
+                if (postId) {
+                    console.log(`🎯 Redis cache hit - comments for post:${postId} in r/${subreddit}`);
+                } else {
+                    console.log(`🎯 Redis cache hit - subreddit:${subreddit} sort:${sort} query:"${query}" time:${time} after:${after}`);
+                }
+                return res.json(cachedBatch);
+            }
+
+            if (postId) {
+                console.log(`❌ Redis cache miss - comments for post:${postId} in r/${subreddit}`);
+            } else {
+                console.log(`❌ Redis cache miss - subreddit:${subreddit} sort:${sort} query:"${query}" time:${time} after:${after}`);
+            }
+        } catch (redisError) {
+            console.error('Redis check failed, continuing to Reddit API:', redisError.message);
+        }
+    }
 
     try {
-        const token = await getRedditAppToken();
         let response;
 
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-                // Add 10ms delay before Reddit API call
-                await new Promise(resolve => setTimeout(resolve, 5));
-                response = await dogFetch(decodedUrl, {
-                    headers: {
-                        ...headers,
-                        'Authorization': `Bearer ${token}`,
-                        'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
-                    }
-                });
-                break;
-            } catch (error) {
-                if (error.code === 'ECONNRESET' && attempt < 3) {
-                    console.log(`ECONNRESET on attempt ${attempt}, retrying...`);
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    continue;
-                }
-                throw error;
-            }
-        }
+        response = await hedgedRedditRequest(decodedUrl, emergencyMode);
 
         if (response.status === 429) {
             const now = new Date().toLocaleTimeString();
             await pool.query(`
-   INSERT INTO monitoring_logs (log_level, endpoint, error_message) 
-   VALUES ($1, $2, $3)
+  INSERT INTO monitoring_logs (log_level, endpoint, error_message) 
+  VALUES ($1, $2, $3)
 `, ['warning', '/reddit', `Reddit API rate limit hit at ${now}`]);
 
             console.log('🚫 429 TOO MANY REQUESTS');
@@ -562,6 +845,7 @@ app.get('/reddit', async (req, res) => {
             response.json(),
             new Promise((_, reject) => setTimeout(() => reject(new Error('JSON parsing timeout')), 10000))
         ]);
+
         try {
             if (data?.data?.children?.length > 10) {
                 data.data.children = data.data.children.slice(0, 10);
@@ -599,14 +883,37 @@ app.get('/reddit', async (req, res) => {
 
                     await pool.query(
                         `INSERT INTO subreddit_search_cache (query_term, results, created_at) 
-                       VALUES ($1, $2, NOW()) 
-                       ON CONFLICT (query_term) DO UPDATE 
-                       SET results = $2, created_at = NOW()`,
+                      VALUES ($1, $2, NOW()) 
+                      ON CONFLICT (query_term) DO UPDATE 
+                      SET results = $2, created_at = NOW()`,
                         [query, JSON.stringify(cleanedData)]
                     );
                 } catch (error) {
                     console.error('Error caching results:', error);
                 }
+            }
+        }
+
+        // Cache the result in Redis (only for regular Reddit API calls)
+        if (!encodedUrl.includes('subreddits/search.json')) {
+            try {
+                const urlObj = new URL(decodedUrl.replace('https://oauth.reddit.com', 'https://www.reddit.com'));
+                const pathParts = urlObj.pathname.split('/');
+
+                let subreddit = 'all';
+                if (pathParts[1] === 'r' && pathParts[2]) {
+                    subreddit = pathParts[2];
+                }
+
+                let sort = pathParts[3] || 'hot';
+                const query = urlObj.searchParams.get('q') || '';
+                const time = urlObj.searchParams.get('t') || 'all';
+                const after = urlObj.searchParams.get('after') || null;
+                const contentType = 'all';
+
+                await setCachedBatch(subreddit, sort, query, time, contentType, after, data);
+            } catch (cacheError) {
+                console.error('Failed to cache result:', cacheError.message);
             }
         }
 
@@ -623,7 +930,7 @@ app.get('/reddit', async (req, res) => {
         }
 
         console.error('❌ Reddit proxy error:', err.message);
-        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Origin', '*');
         res.status(500).json({ error: 'Failed to fetch Reddit content. ' + err.message });
     }
 });
@@ -684,7 +991,7 @@ app.get('/search', async (req, res) => {
             headers: {
                 ...headers,
                 'Authorization': `Bearer ${token}`,
-                'User-Agent': 'android:com.reddit.frontpage:v2023.10.0 (by /u/yourbot)'
+                'User-Agent': getCurrentUserAgent() 
             }
         });
         const redditData = await response.json();
@@ -797,7 +1104,7 @@ app.get('/image', async (req, res) => {
 
     try {
         const imageHeaders = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/113.0.0.0 Safari/537.36',
+            'User-Agent': getCurrentUserAgent(),
             'Accept': '*/*',
             'Accept-Language': 'en-US,en;q=0.9',
             'Referer': 'https://www.google.com/',
@@ -985,12 +1292,16 @@ app.get('/api/db-posts', async (req, res) => {
         const {
             after,
             limit = 10,
-            subreddit = 'all',
+            subreddit: rawSubreddit = 'all',
             query: searchQuery = '',
             contentType = 'all',
-            sort = 'hot',
+            sort: rawSort = 'hot',
             time = 'all'
         } = req.query;
+
+        const subreddit = rawSubreddit.toLowerCase();
+        // Normalize 'ultimate' to 'hot'
+        const sort = (rawSort === 'ultimate') ? 'hot' : rawSort;
 
         const formattedAfter = after
             ? (after.startsWith('t3_') ? after : 't3_' + after)
@@ -1009,7 +1320,7 @@ app.get('/api/db-posts', async (req, res) => {
             // Look for posts with this exact page group
             const pageQuery = `
     SELECT * FROM posts
-    WHERE page_group = $1
+    WHERE LOWER(page_group) = LOWER($1)
     ORDER BY position ASC
 `;
             const pageParams = [pageGroup];
@@ -1017,7 +1328,7 @@ app.get('/api/db-posts', async (req, res) => {
 
             if (
                 pageResult.rows.length > 0 &&
-                pageResult.rows[0].page_group === pageGroup &&
+                pageResult.rows[0].page_group.toLowerCase() === pageGroup.toLowerCase() &&
                 pageResult.rows.length === 10
             ) {
                 console.log(`✅ Found full page group ${pageGroup} with 10 valid posts`);
@@ -1116,10 +1427,9 @@ app.get('/api/suggestions', async (req, res) => {
 
 // POST /api/suggestions/select
 app.post('/api/suggestions/store', async (req, res) => {
-    const { query, subreddit } = req.body;
+    const { query, subreddit, is_vector_search } = req.body;
+    await pool.query('SELECT increment_suggestion_score($1, $2, $3)', [query.toLowerCase(), subreddit || '', is_vector_search || false]);
 
-    await pool.query('SELECT increment_suggestion_score($1, $2)', [query.toLowerCase(), subreddit || null]);
-    
     res.json({ success: true });
 });
 
@@ -1260,9 +1570,23 @@ app.post('/api/save-comments', async (req, res) => {
 // 1. Add a bookmark
 app.post('/api/bookmarks', async (req, res) => {
     try {
+        // Get auth token from headers
+        const authToken = req.headers.authorization;
+
+        if (!authToken) {
+            return res.status(401).json({ success: false, error: 'No auth token provided' });
+        }
+
+        // Get user ID from token
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ success: false, error: 'Invalid auth token' });
+        }
+
+        const stripeCustomerId = userResult.rows[0].user_id;
+
         const {
             postId,
-            stripeCustomerId,
             title,
             url,
             permalink,
@@ -1291,6 +1615,7 @@ app.post('/api/bookmarks', async (req, res) => {
             'SELECT id FROM sections WHERE user_id = $1 ORDER BY sort_order ASC LIMIT 1',
             [stripeCustomerId]
         );
+
         const sectionId = defaultSectionResult.rows[0]?.id;
 
         if (!sectionId) {
@@ -1347,13 +1672,22 @@ app.post('/api/bookmarks', async (req, res) => {
 });
 
 // 2. Remove a bookmark
-app.delete('/api/bookmarks/:stripeCustomerId/:reddit_post_id', async (req, res) => {
+app.delete('/api/bookmarks/:reddit_post_id', async (req, res) => {
     try {
-        const { stripeCustomerId, reddit_post_id } = req.params;
+        const authToken = req.headers.authorization;
+        const { reddit_post_id } = req.params;
 
-        if (!stripeCustomerId) {
-            return res.status(400).json({ success: false, error: 'Missing customer ID' });
+        if (!authToken) {
+            return res.status(401).json({ success: false, error: 'No auth token provided' });
         }
+
+        // Get user ID from token
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ success: false, error: 'Invalid auth token' });
+        }
+
+        const stripeCustomerId = userResult.rows[0].user_id;
 
         if (!reddit_post_id) {
             return res.status(400).json({ success: false, error: 'Missing post ID' });
@@ -1369,7 +1703,7 @@ app.delete('/api/bookmarks/:stripeCustomerId/:reddit_post_id', async (req, res) 
     } catch (error) {
         const now = new Date().toLocaleTimeString();
         await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
-            ['error', '/api/bookmarks/:stripeCustomerId/:reddit_post_id', `${now} - ${error.message}`]);
+            ['error', '/api/bookmarks/:reddit_post_id', `${now} - ${error.message}`]);
 
         console.error('Error removing bookmark:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -1377,10 +1711,22 @@ app.delete('/api/bookmarks/:stripeCustomerId/:reddit_post_id', async (req, res) 
 });
 
 // 4. Get all bookmarks for a user
-app.get('/api/bookmarks/:stripeCustomerId', async (req, res) => {
+app.get('/api/bookmarks', async (req, res) => {
     try {
-        const { stripeCustomerId } = req.params;
-        const { offset = 0, limit = 10 } = req.query; 
+        const authToken = req.headers.authorization;
+        const { offset = 0, limit = 10 } = req.query;
+
+        if (!authToken) {
+            return res.status(401).json({ error: 'No auth token provided' });
+        }
+
+        // Get user ID from token
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid auth token' });
+        }
+
+        const stripeCustomerId = userResult.rows[0].user_id;
 
         const result = await pool.query(`
             SELECT id, reddit_post_id, title, url, permalink, subreddit, score,
@@ -1397,7 +1743,7 @@ app.get('/api/bookmarks/:stripeCustomerId', async (req, res) => {
     } catch (error) {
         const now = new Date().toLocaleTimeString();
         await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
-            ['error', '/api/bookmarks/:stripeCustomerId', `${now} - ${error.message}`]);
+            ['error', '/api/bookmarks', `${now} - ${error.message}`]);
 
         console.error('GET bookmarks error:', error);
         res.status(500).json({ error: error.message });
@@ -1405,9 +1751,21 @@ app.get('/api/bookmarks/:stripeCustomerId', async (req, res) => {
 });
 
 // 4b. Get bookmarks for a user by section 
-app.get('/api/bookmarks/:stripeCustomerId/section/:sectionId', async (req, res) => {
+app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
     try {
-        const { stripeCustomerId, sectionId } = req.params;
+        const authToken = req.headers.authorization;
+        const { sectionId } = req.params;
+
+        if (!authToken) {
+            return res.status(401).json({ error: 'No auth token provided' });
+        }
+
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid auth token' });
+        }
+
+        const stripeCustomerId = userResult.rows[0].user_id;
         const { offset = 0, limit = 10 } = req.query;
 
         console.log('userId:', stripeCustomerId, 'sectionId:', sectionId, 'limit:', limit, 'offset:', offset);
@@ -1429,7 +1787,7 @@ app.get('/api/bookmarks/:stripeCustomerId/section/:sectionId', async (req, res) 
     } catch (error) {
         const now = new Date().toLocaleTimeString();
         await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
-            ['error', '/api/bookmarks/:stripeCustomerId/section/:sectionId', `${now} - ${error.message}`]);
+            ['error', '/api/bookmarks/section/:sectionId', `${now} - ${error.message}`]);
 
         console.error('GET bookmarks by section error:', error);
         res.status(500).json({ error: error.message });
@@ -1437,10 +1795,21 @@ app.get('/api/bookmarks/:stripeCustomerId/section/:sectionId', async (req, res) 
 });
 
 // 5. Reorder bookmarks
-app.post('/api/bookmarks/:stripeCustomerId/reorder', async (req, res) => {
+app.post('/api/bookmarks/reorder', async (req, res) => {
     try {
-        const { stripeCustomerId } = req.params;
+        const authToken = req.headers.authorization;
         const { orderedIds, sectionId } = req.body;
+
+        if (!authToken) {
+            return res.status(401).json({ success: false, error: 'No auth token provided' });
+        }
+
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ success: false, error: 'Invalid auth token' });
+        }
+
+        const stripeCustomerId = userResult.rows[0].user_id;
 
         if (!orderedIds || !Array.isArray(orderedIds)) {
             return res.status(400).json({ success: false, error: 'Invalid ordered IDs' });
@@ -1460,7 +1829,7 @@ app.post('/api/bookmarks/:stripeCustomerId/reorder', async (req, res) => {
     } catch (error) {
         const now = new Date().toLocaleTimeString();
         await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
-            ['error', '/api/bookmarks/:stripeCustomerId/reorder', `${now} - ${error.message}`]);
+            ['error', '/api/bookmarks/reorder', `${now} - ${error.message}`]);
 
         console.error('Error updating bookmark order:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -1468,9 +1837,20 @@ app.post('/api/bookmarks/:stripeCustomerId/reorder', async (req, res) => {
 });
 
 // 6. Get all sections for a user
-app.get('/api/bookmarks/:userId/sections', async (req, res) => {
+app.get('/api/bookmarks/sections', async (req, res) => {
     try {
-        const { userId } = req.params;
+        const authToken = req.headers.authorization;
+
+        if (!authToken) {
+            return res.status(401).json({ error: 'No auth token provided' });
+        }
+
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid auth token' });
+        }
+
+        const userId = userResult.rows[0].user_id;
 
         const result = await pool.query(`
             SELECT id, name, sort_order, 
@@ -1484,7 +1864,7 @@ app.get('/api/bookmarks/:userId/sections', async (req, res) => {
     } catch (error) {
         const now = new Date().toLocaleTimeString();
         await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
-            ['error', '/api/bookmarks/:userId/sections', `${now} - ${error.message}`]);
+            ['error', '/api/bookmarks/sections', `${now} - ${error.message}`]);
 
         console.error('Error fetching sections:', error);
         res.status(500).json({ error: 'Failed to fetch sections' });
@@ -1494,14 +1874,29 @@ app.get('/api/bookmarks/:userId/sections', async (req, res) => {
 // 7. Move bookmark to different section
 app.put('/api/bookmarks/:bookmarkId/section', async (req, res) => {
     try {
+        const authToken = req.headers.authorization;
         const { bookmarkId } = req.params;
         const { sectionId } = req.body;
+
+        if (!authToken) {
+            return res.status(401).json({ error: 'No auth token provided' });
+        }
+
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid auth token' });
+        }
+
+        const userId = userResult.rows[0].user_id;
+
         await pool.query(`
             UPDATE bookmarks
             SET section_id = $1
-            WHERE reddit_post_id = $2
-        `, [sectionId, bookmarkId]); // Remove sort_order = 1
+            WHERE reddit_post_id = $2 AND user_id = $3
+        `, [sectionId, bookmarkId, userId]);
+
         res.json({ success: true });
+
     } catch (error) {
         const now = new Date().toLocaleTimeString();
         await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
@@ -1515,9 +1910,20 @@ app.put('/api/bookmarks/:bookmarkId/section', async (req, res) => {
 // SECTION ENDPOINTS
 
 // Get all sections for a user
-app.get('/api/sections/:stripeCustomerId', async (req, res) => {
+app.get('/api/sections', async (req, res) => {
     try {
-        const { stripeCustomerId } = req.params;
+        const authToken = req.headers.authorization;
+
+        if (!authToken) {
+            return res.status(401).json({ error: 'No auth token provided' });
+        }
+
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid auth token' });
+        }
+
+        const stripeCustomerId = userResult.rows[0].user_id;
 
         const result = await pool.query(`
             SELECT id, name, emoji, sort_order, created_at
@@ -1530,7 +1936,7 @@ app.get('/api/sections/:stripeCustomerId', async (req, res) => {
     } catch (error) {
         const now = new Date().toLocaleTimeString();
         await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
-            ['error', '/api/sections/:stripeCustomerId', `${now} - ${error.message}`]);
+            ['error', '/api/sections', `${now} - ${error.message}`]);
 
         console.error('GET sections error:', error);
         res.status(500).json({ error: error.message });
@@ -1538,10 +1944,21 @@ app.get('/api/sections/:stripeCustomerId', async (req, res) => {
 });
 
 // Create new section
-app.post('/api/sections/:stripeCustomerId', async (req, res) => {
+app.post('/api/sections', async (req, res) => {
     try {
-        const { stripeCustomerId } = req.params;
+        const authToken = req.headers.authorization;
         const { name = 'New Section' } = req.body;
+
+        if (!authToken) {
+            return res.status(401).json({ error: 'No auth token provided' });
+        }
+
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid auth token' });
+        }
+
+        const stripeCustomerId = userResult.rows[0].user_id;
 
         // Get the next sort_order
         const maxSortResult = await pool.query(`
@@ -1563,74 +1980,93 @@ app.post('/api/sections/:stripeCustomerId', async (req, res) => {
     } catch (error) {
         const now = new Date().toLocaleTimeString();
         await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
-            ['error', '/api/sections/:stripeCustomerId', `${now} - ${error.message}`]);
+            ['error', '/api/sections', `${now} - ${error.message}`]);
 
         console.error('POST sections error:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-app.delete('/api/sections/:userId/:sectionId', async (req, res) => {
-    const { userId, sectionId } = req.params;
-    const client = await pool.connect();
+app.delete('/api/sections/:sectionId', async (req, res) => {
+    const authToken = req.headers.authorization;
+    const { sectionId } = req.params;
+
+    if (!authToken) {
+        return res.status(401).json({ message: 'No auth token provided' });
+    }
 
     try {
-        await client.query('BEGIN');
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ message: 'Invalid auth token' });
+        }
+
+        const userId = userResult.rows[0].user_id;
+
+        await pool.query('BEGIN');
 
         // 1. Get the sort_order of the section to delete
-        const { rows } = await client.query(
+        const { rows } = await pool.query(
             'SELECT sort_order FROM sections WHERE id = $1 AND user_id = $2',
             [sectionId, userId]
         );
 
         if (rows.length === 0) {
-            await client.query('ROLLBACK');
+            await pool.query('ROLLBACK');
             return res.status(404).json({ message: 'Section not found' });
         }
 
         const deletedSortOrder = rows[0].sort_order;
 
-        // 2. Delete bookmarks in that section (optional if foreign key has ON DELETE CASCADE)
-        await client.query(
+        // 2. Delete bookmarks in that section
+        await pool.query(
             'DELETE FROM bookmarks WHERE section_id = $1 AND user_id = $2',
             [sectionId, userId]
         );
 
         // 3. Delete the section
-        await client.query(
+        await pool.query(
             'DELETE FROM sections WHERE id = $1 AND user_id = $2',
             [sectionId, userId]
         );
 
         // 4. Update sort_order for remaining sections
-        await client.query(
+        await pool.query(
             `UPDATE sections
              SET sort_order = sort_order - 1
              WHERE user_id = $1 AND sort_order > $2`,
             [userId, deletedSortOrder]
         );
 
-        await client.query('COMMIT');
+        await pool.query('COMMIT');
         res.json({ message: 'Section deleted and sort order updated' });
 
     } catch (err) {
+        await pool.query('ROLLBACK');
         const now = new Date().toLocaleTimeString();
         await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
-            ['error', '/api/sections/:userId/:sectionId', `${now} - ${err.message}`]);
-
-        await client.query('ROLLBACK');
+            ['error', '/api/sections/:sectionId', `${now} - ${err.message}`]);
         console.error('❌ Error deleting section:', err);
         res.status(500).json({ message: 'Internal server error' });
-    } finally {
-        client.release();
     }
 });
 
-// PUT /api/sections/:userId/:sectionId
-app.put('/api/sections/:userId/:sectionId', async (req, res) => {
+app.put('/api/sections/:sectionId', async (req, res) => {
+    const authToken = req.headers.authorization;
+    const { sectionId } = req.params;
+    const { name, emoji } = req.body;
+
+    if (!authToken) {
+        return res.status(401).json({ error: 'No auth token provided' });
+    }
+
     try {
-        const { userId, sectionId } = req.params;
-        const { name, emoji } = req.body;
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid auth token' });
+        }
+
+        const userId = userResult.rows[0].user_id;
 
         // Build dynamic query based on what fields are provided
         let query, values;
@@ -1660,7 +2096,7 @@ app.put('/api/sections/:userId/:sectionId', async (req, res) => {
     } catch (error) {
         const now = new Date().toLocaleTimeString();
         await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
-            ['error', '/api/sections/:userId/:sectionId', `${now} - ${error.message}`]);
+            ['error', '/api/sections/:sectionId', `${now} - ${error.message}`]);
 
         console.error('Error updating section:', error);
         res.status(500).json({ error: error.message });
@@ -1694,7 +2130,7 @@ app.get('/api/reddit-video/:videoId', async (req, res) => {
         for (const q of videoQualities) {
             const testUrl = `https://v.redd.it/${videoId}/DASH_${q}.mp4`;
             try {
-                const r = await fetch(testUrl, { method: 'HEAD' });
+                const r = await dogFetch(testUrl, { method: 'HEAD' });
                 if (r.ok) {
                     videoUrl = testUrl;
                     break;
@@ -1712,7 +2148,7 @@ app.get('/api/reddit-video/:videoId', async (req, res) => {
             const testAudioUrl = `https://v.redd.it/${videoId}/DASH_AUDIO_${bitrate}.mp4`;
             console.log(`🔊 Trying audio bitrate: ${bitrate}...`);
             try {
-                const audioCheck = await fetch(testAudioUrl, { method: 'HEAD' });
+                const audioCheck = await dogFetch(testAudioUrl, { method: 'HEAD' });
                 if (audioCheck.ok) {
                     console.log(`✅ Found working audio: ${bitrate}kbps`);
                     audioUrl = testAudioUrl;
@@ -1730,7 +2166,7 @@ app.get('/api/reddit-video/:videoId', async (req, res) => {
             console.log(`🔄 Trying HLS stream...`);
             const hlsUrl = `https://v.redd.it/${videoId}/HLSPlaylist.m3u8?f=sd%2CsubsAll%2ChlsSpecOrder&v=1&a=1753933930%2CMmVhZGMxNTRiNDA5Y2M2YmIyY2NmMmI5YmQ4ZmVkMmNiOGU3ZTEyYzdlMTc2ODQ3NDNhZGUwYmZlYTZkOTJlMQ%3D%3D`;
             try {
-                const hlsCheck = await fetch(hlsUrl, { method: 'HEAD' });
+                const hlsCheck = await dogFetch(hlsUrl, { method: 'HEAD' });
                 if (hlsCheck.ok) {
                     console.log(`✅ Found HLS stream with audio, copying...`);
                     await copyVideoOnly(hlsUrl, outputPath); // copies the full HLS stream
@@ -1840,23 +2276,21 @@ function combineWithFfmpeg(videoUrl, audioUrl, outputPath) {
 app.get('/api/subscription/:email', async (req, res) => {
     try {
         const { email } = req.params;
-
         const subscriptionResult = await pool.query(`
-            SELECT user_id, plan_type 
-            FROM subscriptions 
+            SELECT user_id, plan_type
+            FROM subscriptions
             WHERE email = $1
         `, [email]);
 
         const hasSubscription = subscriptionResult.rows.length > 0;
         const planType = hasSubscription ? subscriptionResult.rows[0].plan_type : null;
-        const userId = hasSubscription ? subscriptionResult.rows[0].user_id : null;
 
         res.json({
             success: true,
             hasSubscription,
-            planType,
-            userId
+            planType
         });
+
     } catch (error) {
         const now = new Date().toLocaleTimeString();
         await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
@@ -1958,13 +2392,22 @@ app.post('/api/auth/verify/:token', async (req, res) => {
         // Create session/JWT
         const sessionToken = jwt.sign({ email }, JWT_SECRET);
 
+        // Generate permanent auth token
+        let authToken = null;
+        if (hasSubscription && userId) {
+            authToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+            // Save token to database
+            await pool.query('UPDATE subscriptions SET auth_token = $1 WHERE user_id = $2', [authToken, userId]);
+        }
+
         res.json({
             success: true,
             sessionToken,
             email,
             hasSubscription,
             planType,
-            userId
+            authToken  
         });
     } catch (error) {
         const now = new Date().toLocaleTimeString();
@@ -2020,12 +2463,18 @@ app.post('/api/auto-login-after-payment', async (req, res) => {
    `
         });
         
+        // Generate permanent auth token
+        const authToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+        // Save token to database
+        await pool.query('UPDATE subscriptions SET auth_token = $1 WHERE user_id = $2', [authToken, subscription.user_id]);
+
         res.json({
             success: true,
             email: email,
             hasSubscription: true,
             planType: subscription.plan_type,
-            userId: subscription.user_id
+            authToken  
         });
 
     } catch (error) {
@@ -2129,13 +2578,524 @@ app.post('/api/create-checkout-pro', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+const { QdrantClient } = require('@qdrant/js-client-rest');
+
+const qdrant = new QdrantClient({
+    url: process.env.QDRANT_URL,
+    apiKey: process.env.QDRANT_API_KEY,
+    checkCompatibility: false
+});
+
+const COLLECTION_NAME = 'reddit_posts';
+
+app.get('/debug/find-duplicates', async (req, res) => {
+    try {
+        // Get all posts with their reddit_post_id and point id
+        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts/points/scroll`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'api-key': process.env.QDRANT_API_KEY
+            },
+            body: JSON.stringify({
+                limit: 400000,
+                with_payload: ["reddit_post_id"],
+                with_vector: false
+            })
+        });
+
+        const result = await response.json();
+
+        // Group by reddit_post_id
+        const postGroups = {};
+        result.result.points.forEach(point => {
+            const postId = point.payload.reddit_post_id;
+            if (!postGroups[postId]) {
+                postGroups[postId] = [];
+            }
+            postGroups[postId].push(point.id);
+        });
+
+        // Find duplicates (groups with more than 1 point)
+        const duplicates = Object.entries(postGroups)
+            .filter(([postId, pointIds]) => pointIds.length > 1)
+            .map(([postId, pointIds]) => ({
+                reddit_post_id: postId,
+                point_ids: pointIds,
+                duplicate_count: pointIds.length
+            }));
+
+        res.json({
+            total_duplicates: duplicates.length,
+            duplicate_posts: duplicates.slice(0, 20), // Show first 20
+            total_points_to_remove: duplicates.reduce((sum, dup) => sum + (dup.duplicate_count - 1), 0)
+        });
+
+    } catch (error) {
+        res.json({ error: error.message });
+    }
+});
+
+app.get('/debug/remove-duplicates', async (req, res) => {
+    try {
+        console.log('🧹 Starting duplicate removal...');
+
+        // Get duplicates (reuse your existing logic)
+        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts/points/scroll`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'api-key': process.env.QDRANT_API_KEY
+            },
+            body: JSON.stringify({
+                limit: 500000,
+                with_payload: ["reddit_post_id"],
+                with_vector: false
+            })
+        });
+
+        const result = await response.json();
+
+        // Group by reddit_post_id
+        const postGroups = {};
+        result.result.points.forEach(point => {
+            const postId = point.payload.reddit_post_id;
+            if (!postGroups[postId]) {
+                postGroups[postId] = [];
+            }
+            postGroups[postId].push(point.id);
+        });
+
+        // Find point IDs to delete (keep lowest ID, delete the rest)
+        const pointsToDelete = [];
+        Object.values(postGroups).forEach(pointIds => {
+            if (pointIds.length > 1) {
+                // Sort and keep first (lowest), delete the rest
+                pointIds.sort((a, b) => a - b);
+                pointsToDelete.push(...pointIds.slice(1));
+            }
+        });
+
+        console.log(`🗑️ Deleting ${pointsToDelete.length} duplicate points...`);
+
+        // Delete in batches of 100
+        let deleted = 0;
+        for (let i = 0; i < pointsToDelete.length; i += 100) {
+            const batch = pointsToDelete.slice(i, i + 100);
+
+            const deleteResponse = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts/points/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'api-key': process.env.QDRANT_API_KEY
+                },
+                body: JSON.stringify({
+                    points: batch
+                })
+            });
+
+            if (deleteResponse.ok) {
+                deleted += batch.length;
+                console.log(`✅ Deleted batch ${Math.floor(i / 100) + 1}, total: ${deleted}/${pointsToDelete.length}`);
+            } else {
+                console.error('❌ Delete failed:', await deleteResponse.text());
+            }
+        }
+
+        res.json({
+            success: true,
+            duplicates_removed: deleted,
+            points_remaining: result.result.points.length - deleted
+        });
+
+    } catch (error) {
+        console.error('❌ Error removing duplicates:', error);
+        res.json({ error: error.message });
+    }
+});
+
+app.post('/api/vector-search', async (req, res) => {
+    try {
+        const {
+            query,
+            subreddit: rawSubreddit = null,
+            limit = 20,
+            minScore = 25,
+            timeFilter = 'all'
+        } = req.body;
+
+        // === SCORING CONFIGURATION - EASY TO ADJUST ===
+        const SCORING_CONFIG = {
+            // Base vector similarity weight (0.0 - 1.0)
+            vectorSimilarity: 0.7,
+
+            // Title matching boosts
+            titleFullMatch: 3.0,      // Exact phrase match in title
+            titlePartialMatch: 1.8,   // Per word match in title
+
+            // Missing word penalties
+            missingWordPenalty: -0.8, // Penalty per missing important word
+            minWordLength: 3,         // Only penalize missing words >= this length
+
+            // Subreddit matching (if query contains subreddit name)
+            subredditFullMatch: 2.8,  // Full subreddit name match
+
+            // Subtle boosts
+            recencyBoost: 0.15,       // Max boost for newest posts
+            upvoteBoost: 2.00,        // Max boost for highly upvoted posts
+
+            // Normalization factors
+            maxUpvotes: 10000,        // Posts above this get max upvote boost
+            maxAgeDays: 365           // Posts older than this get no recency boost
+        };
+
+        // Convert the subreddit to lowercase if it exists
+        const subreddit = rawSubreddit ? rawSubreddit.toLowerCase() : null;
+
+        // Check Redis cache first
+        const cachedResults = await getCachedVectorSearch(query, subreddit, timeFilter);
+        if (cachedResults) {
+            return res.json(cachedResults);
+        }
+
+        const embedding = await getSearchEmbedding(query);
+        if (!embedding) {
+            return res.status(500).json({ error: 'Failed to get embedding' });
+        }
+
+        // Build search body
+        const searchBody = {
+            vector: {
+                name: "",
+                vector: embedding
+            },
+            limit: limit * 5,
+            with_payload: true
+        };
+
+        // Build base filter for score
+        const baseFilter = {
+            must: [
+                {
+                    key: "score",
+                    range: {
+                        gte: minScore
+                    }
+                }
+            ]
+        };
+
+        // Add time filter if not 'all'
+        if (timeFilter !== 'all') {
+            const now = Math.floor(Date.now() / 1000);
+            let timeCutoff = 0;
+
+            switch (timeFilter) {
+                case "hour": timeCutoff = now - 7140; break;
+                case "day": timeCutoff = now - 169200; break;
+                case "week": timeCutoff = now - 604800; break;
+                case "month": timeCutoff = now - 2592000; break;
+                case "year": timeCutoff = now - 31536000; break;
+                default: timeCutoff = 0;
+            }
+
+            if (timeCutoff > 0) {
+                baseFilter.must.push({
+                    key: "created_utc",
+                    range: {
+                        gte: timeCutoff
+                    }
+                });
+            }
+        }
+
+        // Add subreddit filter if specified
+        if (subreddit) {
+            baseFilter.must.push({
+                key: "subreddit",
+                match: { value: subreddit }
+            });
+        }
+
+        searchBody.filter = baseFilter;
+
+        // Fetch from Qdrant
+        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts/points/search`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'api-key': process.env.QDRANT_API_KEY
+            },
+            body: JSON.stringify(searchBody)
+        });
+
+        const qdrantResponse = await response.json();
+
+        if (!response.ok) {
+            console.error('❌ Qdrant API Error Status:', response.status);
+            return res.status(500).json({
+                error: 'Qdrant search failed',
+                details: qdrantResponse,
+                status: response.status
+            });
+        }
+
+        const qdrantResult = qdrantResponse.result;
+
+        // === SCORING LOGIC ===
+        const scoredResults = qdrantResult.map(hit => {
+            const similarity = hit.score;
+            const payload = hit.payload;
+
+            const queryLower = query.toLowerCase();
+            const titleLower = (payload.title || '').toLowerCase();
+            const subredditName = (payload.subreddit || '').toLowerCase();
+
+            // 1. TITLE MATCHING (Priority #1)
+            let titleScore = 0;
+            let missingWordPenalty = 0;
+
+            if (titleLower.includes(queryLower)) {
+                // Full phrase match - big boost
+                titleScore = SCORING_CONFIG.titleFullMatch;
+            } else {
+                // Check individual word matches
+                const queryWords = queryLower.split(/\s+/).filter(word => word.length >= SCORING_CONFIG.minWordLength);
+                const titleWords = titleLower.split(/\s+/);
+
+                let matchedWords = 0;
+                let missingWords = 0;
+
+                queryWords.forEach(word => {
+                    if (titleWords.some(titleWord => titleWord.includes(word))) {
+                        matchedWords++;
+                    } else {
+                        missingWords++;
+                    }
+                });
+
+                if (matchedWords > 0) {
+                    titleScore = (matchedWords / queryWords.length) * SCORING_CONFIG.titlePartialMatch;
+                }
+
+                // Apply penalty for missing important words
+                missingWordPenalty = missingWords * SCORING_CONFIG.missingWordPenalty;
+            }
+
+            // 2. SUBREDDIT MATCHING (Full match only)
+            let subredditScore = 0;
+            const queryWords = queryLower.split(/\s+/);
+            for (const word of queryWords) {
+                if (subredditName === word || subredditName.includes(word)) {
+                    subredditScore = SCORING_CONFIG.subredditFullMatch;
+                    break; // Only give bonus once
+                }
+            }
+
+            // 3. RECENCY BOOST (Subtle)
+            const now = Math.floor(Date.now() / 1000);
+            const postAgeDays = (now - payload.created_utc) / (24 * 60 * 60);
+            const recencyScore = Math.max(0,
+                (SCORING_CONFIG.maxAgeDays - postAgeDays) / SCORING_CONFIG.maxAgeDays
+            ) * SCORING_CONFIG.recencyBoost;
+
+            // 4. UPVOTE BOOST (Subtle)
+            const upvoteScore = Math.min(payload.score / SCORING_CONFIG.maxUpvotes, 1.0) * SCORING_CONFIG.upvoteBoost;
+
+            // 5. FINAL WEIGHTED SCORE
+            const finalScore =
+                similarity * SCORING_CONFIG.vectorSimilarity +
+                titleScore +
+                missingWordPenalty +  // This will be negative
+                subredditScore +
+                recencyScore +
+                upvoteScore;
+
+            return {
+                ...hit,
+                similarity,
+                weighted_score: finalScore,
+                // Debug info
+                debug: {
+                    titleScore,
+                    missingWordPenalty,
+                    subredditScore,
+                    recencyScore,
+                    upvoteScore,
+                    vectorScore: similarity * SCORING_CONFIG.vectorSimilarity
+                },
+                payload
+            };
+        });
+
+        // Sort by final score and limit results
+        const finalResults = scoredResults
+            .sort((a, b) => b.weighted_score - a.weighted_score)
+            .slice(0, limit);
+
+        // Log top results for debugging
+        console.log('Top 3 results scoring breakdown:');
+        finalResults.slice(0, 3).forEach((hit, i) => {
+            const d = hit.debug;
+            console.log(`${i + 1}. Vector: ${d.vectorScore.toFixed(3)} | Title: ${d.titleScore.toFixed(3)} | Missing: ${d.missingWordPenalty.toFixed(3)} | Subreddit: ${d.subredditScore.toFixed(3)} | Recent: ${d.recencyScore.toFixed(3)} | Upvotes: ${d.upvoteScore.toFixed(3)} | TOTAL: ${hit.weighted_score.toFixed(3)}`);
+            console.log(`   Title: "${hit.payload.title.substring(0, 80)}..."`);
+        });
+
+        // Format response
+        const response_data = {
+            data: {
+                children: finalResults.map(hit => ({
+                    data: {
+                        id: hit.payload.reddit_post_id,
+                        title: hit.payload.title,
+                        url: hit.payload.url,
+                        permalink: hit.payload.permalink,
+                        subreddit: hit.payload.subreddit,
+                        score: hit.payload.score,
+                        is_video: hit.payload.is_video,
+                        domain: hit.payload.domain,
+                        author: hit.payload.author,
+                        created_utc: hit.payload.created_utc,
+                        num_comments: hit.payload.num_comments,
+                        over_18: hit.payload.over_18,
+                        selftext: hit.payload.selftext,
+                        body: hit.payload.body,
+                        is_gallery: hit.payload.is_gallery,
+                        gallery_data: hit.payload.gallery_data,
+                        media_metadata: hit.payload.media_metadata,
+                        crosspost_parent_list: hit.payload.crosspost_parent_list || [],
+                        content_type: hit.payload.content_type,
+                        locked: hit.payload.locked,
+                        stickied: hit.payload.stickied,
+                        preview: hit.payload.preview,
+                        similarity: hit.similarity,
+                        weighted_score: hit.weighted_score
+                    }
+                })),
+                after: null,
+                before: null
+            }
+        };
+
+        // Cache the results
+        await setCachedVectorSearch(query, subreddit, timeFilter, response_data);
+        res.json(response_data);
+
+    } catch (error) {
+        console.error('Vector search error:', error.message);
+        res.status(500).json({ error: 'Vector search failed' });
+    }
+});
+ 
+app.get('/api/points-sample', async (req, res) => {
+    try {
+        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts/points/scroll`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'api-key': process.env.QDRANT_API_KEY
+            },
+            body: JSON.stringify({
+                limit: 5000,
+                with_payload: true,
+                with_vector: true
+            })
+        });
+
+        const data = await response.json();
+        res.json(data.result.points);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 1. Basic collection stats
+app.get('/debug/collection-info', async (req, res) => {
+    try {
+        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts`, {
+            headers: { 'api-key': process.env.QDRANT_API_KEY }
+        });
+        const info = await response.json();
+        res.json(info.result);
+    } catch (error) {
+        res.json({ error: error.message });
+    }
+});
+
+// Count posts per subreddit
+app.get('/debug/posts-per-sub', async (req, res) => {
+    try {
+        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts/points/scroll`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'api-key': process.env.QDRANT_API_KEY
+            },
+            body: JSON.stringify({
+                limit: 550000, 
+                with_payload: ["subreddit"],
+                with_vector: false
+            })
+        });
+
+        const result = await response.json();
+        const counts = {};
+
+        result.result.forEach(point => {  
+            const sub = point.payload?.subreddit;
+            if (sub) counts[sub] = (counts[sub] || 0) + 1;
+        });
+
+        res.json({
+            total_points_found: result.result.length,  
+            unique_subreddits: Object.keys(counts).length,
+            breakdown: sorted
+        });
+    } catch (error) {
+        res.json({ error: error.message });
+    }
+});
+
+app.get('/test-embedding', async (req, res) => {
+    const embedding1 = await getSearchEmbedding("cats");
+    const embedding2 = await getSearchEmbedding("programming");
+    res.json({
+        cats_first5: embedding1?.slice(0, 5),
+        programming_first5: embedding2?.slice(0, 5),
+        are_same: JSON.stringify(embedding1) === JSON.stringify(embedding2),
+        flask_working: embedding1 !== null
+    });
+});
+
+app.get('/admin', (req, res) => {
+    const urlKey = req.query.key;
+    if (urlKey !== process.env.ADMIN_SECRET) {
+        return res.status(404).send('Page not found');
+    }
+
+    const filePath = path.join(__dirname, '..', 'html', 'admin.html');
+    res.sendFile(filePath);
+});
+
+app.get('/api/admin/emergency/status', requireAdmin, (req, res) => {
+    res.json({ emergencyMode, fallbackMode });
+});
+
+app.post('/api/admin/emergency/:mode', requireAdmin, (req, res) => {
+    const { mode } = req.params;
+    if (!['json', 'rss', 'oauth'].includes(mode)) {
+        return res.status(400).json({ error: 'Invalid mode' });
+    }
+    activateEmergency(mode);
+    res.json({ success: true, message: `Emergency mode activated: ${mode}` });
+});
 
 app.get('/api/rare-line', (req, res) => {
     const rareChance = Math.random();
     if (rareChance < 0.001) {
         const randomChoice = Math.random();
         if (randomChoice < 0.7) {
-            const randomLines = [1, 2, 3, 4, 8, 9]; // Added 9 for Whitney Houston line
+            const randomLines = [1, 2, 3, 4, 8, 9];
             const selectedLine = randomLines[Math.floor(Math.random() * randomLines.length)];
             const line = process.env[`HERMES_RARE_LINE_${selectedLine}`];
             res.json({ line: line });
@@ -2152,6 +3112,23 @@ app.get('/api/rare-line', (req, res) => {
         res.json({ line: null });
     }
 });
+
+async function getSearchEmbedding(query) {
+    try {
+        const response = await axios.post('http://localhost:5000/embed', {
+            texts: [query]
+        });
+
+        console.log('Flask returned:', response.data);
+        console.log('Embedding type:', typeof response.data.embeddings[0]);
+        console.log('Embedding length:', response.data.embeddings[0]?.length);
+
+        return response.data.embeddings[0];
+    } catch (error) {
+        console.error('❌ Search embedding error:', error.message);
+        return null;
+    }
+}
 
 // 🔁 START SERVER LOGIC
 async function startServer() {

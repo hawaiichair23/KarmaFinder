@@ -39,6 +39,32 @@
             --disabled-opacity: 0.5;
         }
 
+        /* Dark Mode Variables */
+        body.dark-mode {
+            --background-color: #151416;
+            --card-color: #202022;
+            --input-bg: #1c1c1f;
+            --comments-bg: #2e2e32;
+            --suggestions-bg: #232326;
+
+            --text-color: #f5f5f5;
+            --text-primary: #ffffff;
+            --text-secondary: #ffffff;
+            --light-text: #787c7e;
+            --meta-text: #8a8a91;
+            --placeholder-bg: #2e2e32;
+            --darkborder: #3a3a44;
+
+            /* footie */
+            --footie-color: #636363;
+
+            --border-color: #333337;
+            --border-dark: #6b6b6b;
+            --shadow-light: rgba(0, 0, 0, 0.3);
+            --hover-bg: #36363a;
+            --button-bg: #29292d;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -93,13 +119,18 @@
             box-shadow: 0 4px 20px var(--shadow-light);
             overflow: hidden;
             border: 1.5px solid var(--border-color);
-            border-color: var(--inset-shadow);
+            border-color: rgb(171, 171, 171);
             box-shadow: inset 0 0 1px var(--inset-shadow);
             opacity: 0;
             transition: all 0.15s ease-in-out;
             transform: translateY(10px);
         }
-
+        
+        body.dark-mode .container {
+            box-shadow: inset 0 0 1px var(--darkborder);
+            border-color: var(--border-color);
+        }
+        
         .header {
             text-align: center;
             padding: 20px 20px 10px;
@@ -189,13 +220,20 @@
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.1s;
             margin-bottom: 20px;
+        }
+
+        body.dark-mode .magic-button {
+            background: #0062ad;
+        }
+
+        body.dark-mode .magic-button:hover {
+            background: #005393;
         }
 
         .magic-button:hover {
             background: #005a9e;
-            transform: translateY(-1px);
         }
 
         .magic-button:disabled {
@@ -232,6 +270,12 @@
             border-left: 4px solid var(--secondary-color);
         }
 
+        body.dark-mode .success-message {
+            background: rgb(28, 28, 31);
+            color: var(--text-primary);
+            border-left: 4px solid #0062ad;
+        }
+
         .footer-info {
             text-align: center;
             padding: 20px;
@@ -239,6 +283,10 @@
             font-size: 13px;
             border-top: 1px solid var(--border-color);
             background: var(--card-color-b);
+        }
+
+        body.dark-mode .footer-info {
+            background: rgb(28, 28, 31);
         }
 
         .footer-info a {
@@ -406,7 +454,6 @@
             document.getElementById('email').focus();
         });
     </script>
-    <script src="themes.js"></script>
     <script src="themetoggle.js" defer></script>
 </body>
 

@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const pool = require('./db');
+const { pool } = require('./db');
 const fetch = require('node-fetch');
 const { Resend } = require('resend');
 
