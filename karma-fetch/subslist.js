@@ -536,6 +536,7 @@ const BIG_SUBS = [
     'neverbrokeabone',
     'justfuckmyshitup',
     'breadit',
+    'pcmasterrace',
     'hydrohomies',
     'moviesinthemaking',
     'musictheory'

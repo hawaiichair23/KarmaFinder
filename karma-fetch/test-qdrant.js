@@ -7,6 +7,7 @@ const qdrant = new QdrantClient({
     apiKey: process.env.QDRANT_API_KEY
 });
 
+// File is just for adding indices <3
 // Reddit OAuth token
 let redditToken = null;
 

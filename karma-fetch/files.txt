@@ -1,6 +1,0 @@
-.gitignore
-DOGFETCH.js
-cron-cleanup.js
-db.js
-package-lock.json
-package.json

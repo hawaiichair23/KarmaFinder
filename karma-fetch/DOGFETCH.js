@@ -209,17 +209,10 @@ app.use((req, res, next) => {
 
 app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    origin: '*',
-    // credentials: true, // Remove this line
+    origin: ['https://karmafinder.site', 'https://www.karmafinder.site'],
+    credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
-//app.use(cors({
-//    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-//    origin: ['https://karmafinder.site', 'https://www.karmafinder.site'],
-//    credentials: true,
-//    allowedHeaders: ['Content-Type', 'Authorization']
-//}));
 
 // Stripe webhook
 app.use('/api/webhook', express.raw({ type: 'application/json' }));
@@ -690,24 +683,39 @@ app.get('/reddit/icons', async (req, res) => {
                         aboutData = await aboutRes.json();
                     }
 
-                    const rawIcon = (
-                        aboutData.data.community_icon ||
-                        aboutData.data.icon_img ||
-                        aboutData.data.mobile_banner_image ||
-                        aboutData.data.header_img ||
-                        aboutData.data.banner_img ||
-                        ''
-                    ).replace(/&amp;/g, '&').trim();
-                    const iconUrl = rawIcon || null;
+                    const iconOptions = [
+                        aboutData.data.community_icon,
+                        aboutData.data.icon_img,
+                        aboutData.data.mobile_banner_image,
+                        aboutData.data.header_img,
+                        aboutData.data.banner_img
+                    ].filter(url => url).map(url => url.replace(/&amp;/g, '&').trim());
+
+                    let iconUrl = null;
+
+                    // Try each icon URL until one works
+                    for (const url of iconOptions) {
+                        try {
+                            const checkResponse = await dogFetch(url, { method: 'HEAD' });
+                            if (checkResponse.status === 200) {
+                                iconUrl = url;
+                                break;
+                            }
+                        } catch (err) {
+                            // Try next URL
+                        }
+                    }
+
                     icons[subreddit] = iconUrl;
                     console.log(`🔍 About to save: subreddit="${subreddit}", iconUrl="${iconUrl}"`);
+
                     // Cache it
                     await pool.query(`
-                      INSERT INTO subreddit_icons (subreddit, icon_url, created_at)
-                      VALUES ($1, $2, NOW())
-                      ON CONFLICT (subreddit)
-                      DO UPDATE SET icon_url = EXCLUDED.icon_url, created_at = NOW()
-                  `, [subreddit, iconUrl]);
+                        INSERT INTO subreddit_icons (subreddit, icon_url, created_at)
+                        VALUES ($1, $2, NOW())
+                        ON CONFLICT (subreddit)
+                        DO UPDATE SET icon_url = EXCLUDED.icon_url, created_at = NOW()
+                        `, [subreddit, iconUrl]);
                     console.log(`💾 Saved icon for r/${subreddit}`);
                 }
             } catch (err) {
@@ -1169,120 +1177,107 @@ app.use((req, res, next) => {
 
 // Endpoint to save posts from Reddit API
 app.post('/api/save-posts', async (req, res) => {
+    const posts = req.body.posts;
+    const pageGroup = req.body.page_group;
+
+    if (!Array.isArray(posts) || posts.length !== 10) {
+        console.warn(`⛔ Refusing to save page group ${pageGroup} — invalid post count: ${posts?.length}`);
+        return res.status(400).json({
+            success: false,
+            error: "Exactly 10 posts are required for saving"
+        });
+    }
+
+    console.log(`📝 Processing ${posts.length} posts for page group ${pageGroup}`);
+    const savedIds = [];
+
+    const connection = await pool.connect();
     try {
-  
-        // Validate request has posts array
-        const posts = req.body.posts;
-        const pageGroup = req.body.page_group; // Get the page group token
+        await connection.query('BEGIN');
 
-        if (!posts || !Array.isArray(posts)) {
-            console.error("Invalid posts data received:", req.body);
-            return res.status(400).json({
-                success: false,
-                error: "Invalid request: posts array required"
-            });
-        }
+        // Ensure delete and insert are in the same transaction
+        await connection.query('DELETE FROM posts WHERE page_group = $1', [pageGroup]);
 
-        console.log(`Processing ${posts.length} posts for page group ${pageGroup}`);
-        const savedIds = [];
+        for (let i = 0; i < posts.length; i++) {
+            const post = posts[i];
+            const data = post.data;
 
-        const connection = await pool.connect();
-        try {
-
-            await pool.query('DELETE FROM posts WHERE page_group = $1', [pageGroup]);
-            await connection.query('BEGIN');
-
-            for (let i = 0; i < posts.length; i++) {
-                const post = posts[i];
-                // Skip posts without data
-                if (!post.data) {
-                    console.log("Skipping post with no data");
-                    continue;
-                }
-
-                const reddit_post_id = post.data.id;
-                const position = post.data.position;
-          
-                // Safely stringify JSON objects - this is the key fix
-                const galleryData = post.data.gallery_data ? JSON.stringify(post.data.gallery_data) : null;
-                const mediaMetadata = post.data.media_metadata ? JSON.stringify(post.data.media_metadata) : null;
-                const crosspostList = post.data.crosspost_parent_list ? JSON.stringify(post.data.crosspost_parent_list) : null;
-                const preview = post.data.preview ? JSON.stringify(post.data.preview) : null;
-
-                // Add page_group to your query
-                const query = `
-                    INSERT INTO posts (
-                        reddit_post_id, title, url, permalink, subreddit, score,
-                        is_video, domain, author, created_utc, num_comments,
-                        over_18, selftext, body, is_gallery, gallery_data,
-                        media_metadata, crosspost_parent_list, content_type,
-                        icon_url, locked, stickied, preview, page_group, position
-                    )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
-                    ON CONFLICT (reddit_post_id)
-                    DO UPDATE SET
-                        score = $6,
-                        num_comments = $11,
-                        indexed_at = CURRENT_TIMESTAMP,
-                        position = $25,
-                        page_group = $24,
-                        content_type = $19
-                    RETURNING reddit_post_id
-                `;
-
-                const values = [
-                    reddit_post_id,
-                    post.data.title,
-                    post.data.url,
-                    post.data.permalink,
-                    post.data.subreddit,
-                    post.data.score,
-                    post.data.is_video,
-                    post.data.domain,
-                    post.data.author,
-                    post.data.created_utc,
-                    post.data.num_comments,
-                    post.data.over_18,
-                    post.data.selftext,
-                    post.data.body,
-                    post.data.is_gallery,
-                    galleryData,
-                    mediaMetadata,
-                    crosspostList,
-                    post.data.content_type,
-                    post.data.icon_url,
-                    post.data.locked,
-                    post.data.stickied,
-                    preview,
-                    pageGroup,
-                    position  
-                ];
-
-                const result = await connection.query(query, values);
-                savedIds.push(result.rows[0].reddit_post_id);
+            if (!data || !data.id) {
+                console.log(`⚠️ Skipping malformed post at index ${i}`);
+                continue;
             }
 
-            await connection.query('COMMIT');
+            const galleryData = data.gallery_data ? JSON.stringify(data.gallery_data) : null;
+            const mediaMetadata = data.media_metadata ? JSON.stringify(data.media_metadata) : null;
+            const crosspostList = data.crosspost_parent_list ? JSON.stringify(data.crosspost_parent_list) : null;
+            const preview = data.preview ? JSON.stringify(data.preview) : null;
 
-            // Send a simple success response
-            console.log("Successfully saved posts, sending response");
-            return res.json({ success: true, savedIds });
+            const insertQuery = `
+                INSERT INTO posts (
+                    reddit_post_id, title, url, permalink, subreddit, score,
+                    is_video, domain, author, created_utc, num_comments,
+                    over_18, selftext, body, is_gallery, gallery_data,
+                    media_metadata, crosspost_parent_list, content_type,
+                    icon_url, locked, stickied, preview, page_group, position
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+                        $12, $13, $14, $15, $16, $17, $18, $19,
+                        $20, $21, $22, $23, $24, $25)
+                ON CONFLICT (reddit_post_id, page_group)
+                DO UPDATE SET
+                    score = $6,
+                    num_comments = $11,
+                    indexed_at = CURRENT_TIMESTAMP,
+                    position = $25,
+                    page_group = $24,
+                    content_type = $19
+                RETURNING reddit_post_id
+            `;
 
-        } catch (e) {
-            await connection.query('ROLLBACK');
-            console.error("Database transaction error:", e);
-            throw e;
-        } finally {
-            connection.release();
-            console.log("Connection released");
+            const values = [
+                data.id,
+                data.title,
+                data.url,
+                data.permalink,
+                data.subreddit,
+                data.score,
+                data.is_video,
+                data.domain,
+                data.author,
+                data.created_utc,
+                data.num_comments,
+                data.over_18,
+                data.selftext,
+                data.body,
+                data.is_gallery,
+                galleryData,
+                mediaMetadata,
+                crosspostList,
+                data.content_type,
+                data.icon_url,
+                data.locked,
+                data.stickied,
+                preview,
+                pageGroup,
+                data.position
+            ];
+
+            const result = await connection.query(insertQuery, values);
+            savedIds.push(result.rows[0].reddit_post_id);
         }
-    } catch (error) {
-        const now = new Date().toLocaleTimeString();
-        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
-            ['error', '/api/save-posts', `${now} - ${error.message}`]);
 
-        console.error('Error saving posts:', error);
+        await connection.query('COMMIT');
+        console.log(`Successfully saved 10 posts for ${pageGroup}`);
+        return res.json({ success: true, savedIds });
+
+    } catch (error) {
+        await connection.query('ROLLBACK');
+        console.error("Database transaction error:", error);
         return res.status(500).json({ success: false, error: error.message });
+
+    } finally {
+        connection.release();
+        console.log("DB connection released");
     }
 });
 
@@ -3136,7 +3131,11 @@ async function startServer() {
     console.log('✅ Reddit app token fetched:', token.slice(0, 12), '...');
 
     app.listen(PORT, () => {
-        console.log(`🚀 FETCH server running at http://localhost:${PORT}`);
+        const host = process.env.NODE_ENV === 'production'
+            ? 'https://karmafinder.site'
+            : `http://localhost:${PORT}`;
+
+        console.log(`🚀 FETCH server running at ${host}`);
 
         // Start system monitoring AFTER server is running
         setInterval(logSystemHealth, 5 * 60 * 1000);
