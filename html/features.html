@@ -1058,6 +1058,10 @@ header a,
 
     <script>
 
+    const API_BASE = location.hostname === 'localhost'
+        ? 'http://localhost:3000'
+        : 'https://karmafinder.site';
+
         function cubicBezier(p0, p1, p2, p3) {
             return function (t) {
                 const cx = 3 * (p1 - p0);
@@ -1193,7 +1197,7 @@ header a,
                         this.parentElement.appendChild(spinnerOverlay);
 
                         const userEmail = localStorage.getItem('userEmail');
-                        const response = await fetch('http://localhost:3000/api/create-checkout', {
+                        const response = await fetch(`${API_BASE}/api/create-checkout`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -1261,7 +1265,7 @@ header a,
                         this.parentElement.appendChild(spinnerOverlay);
 
                         const userEmail = localStorage.getItem('userEmail');
-                        const response = await fetch('http://localhost:3000/api/create-checkout-pro', {
+                        const response = await fetch(`${API_BASE}/api/create-checkout-pro`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',

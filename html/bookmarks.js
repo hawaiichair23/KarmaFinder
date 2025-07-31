@@ -289,7 +289,7 @@ async function initializeTabs() {
     try {
         const authToken = getAuthToken();
 
-        const response = await fetch(`http://localhost:3000/api/sections`, {
+        const response = await fetch(`${API_BASE}/api/sections`, {
             headers: {
                 'Authorization': authToken
             }
@@ -303,7 +303,7 @@ async function initializeTabs() {
 
         // If user has no sections, create a default "Bookmarks" section
         if (data.sections.length === 0) {
-            await fetch(`http://localhost:3000/api/sections`, {
+            await fetch(`${API_BASE}/api/sections`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -313,7 +313,7 @@ async function initializeTabs() {
             });
 
             // Fetch sections again to get the newly created one
-            const newResponse = await fetch(`http://localhost:3000/api/sections`, {
+            const newResponse = await fetch(`${API_BASE}/api/sections`, {
                 headers: {
                     'Authorization': authToken
                 }
@@ -332,7 +332,7 @@ async function initializeTabs() {
 async function createNewSection() {
     try {
         const authToken = getAuthToken();
-        const response = await fetch(`http://localhost:3000/api/sections`, {
+        const response = await fetch(`${API_BASE}/api/sections`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -404,14 +404,8 @@ function setupTabEvents() {
 
             // Handle content switching based on tab position
             const sectionId = parseInt(this.dataset.tabId);
-            const sortOrder = parseInt(this.dataset.sortOrder);
             //console.log(`🔢 Switching to section ${sortOrder}...`);
             loadSectionContent(sectionId);
-
-            // URL update
-            const url = new URL(window.location);
-            url.searchParams.set('section', sectionId);
-            window.history.pushState({}, '', url);
         });
 
         // Right-click listener for context menu
@@ -487,7 +481,7 @@ function setupContextMenuHandlers() {
                     const authToken = getAuthToken();
 
                     try {
-                        const response = await fetch(`http://localhost:3000/api/sections/${sectionId}`, {
+                        const response = await fetch(`${API_BASE}/api/sections/${sectionId}`, {
                             method: 'PUT',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -532,7 +526,7 @@ function setupContextMenuHandlers() {
                     const sectionId = contextMenu.dataset.currentSectionId;
                     const authToken = getAuthToken();
 
-                    fetch(`http://localhost:3000/api/sections/${sectionId}`, {
+                    fetch(`${API_BASE}/api/sections/${sectionId}`, {
                         method: 'DELETE',
                         headers: {
                             'Authorization': authToken
@@ -541,7 +535,7 @@ function setupContextMenuHandlers() {
                         .then(res => res.json())
                         .then(data => {
                             initializeTabs().then(() => {
-                                fetch(`http://localhost:3000/api/sections`, {
+                                fetch(`${API_BASE}/api/sections`, {
                                     headers: {
                                         'Authorization': authToken
                                     }
@@ -618,6 +612,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function positionScrollIndicator() {
     const indicator = document.querySelector('.scroll-container-minimal');
+    if (!indicator) {
+        return;
+    }
 
     const body = document.body;
     const html = document.documentElement;
@@ -657,6 +654,7 @@ function positionScrollIndicator() {
         indicator.style.display = 'none';
     }
 }
+
 function preloadBookmarks(callback) {
     const authToken = getAuthToken();
 
@@ -669,7 +667,7 @@ function preloadBookmarks(callback) {
         return;
     }
 
-    fetch(`http://localhost:3000/api/bookmarks?limit=1000`, {
+    fetch(`${API_BASE}/api/bookmarks?limit=1000`, {
         headers: {
             'Authorization': authToken
         }
@@ -782,7 +780,7 @@ function updateBookmarkOrder(sectionId) {
     const authToken = getAuthToken();
     const orderedIds = sectionBookmarks[sectionId].map(bookmark => bookmark.reddit_post_id);
 
-    fetch(`http://localhost:3000/api/bookmarks/reorder`, {
+    fetch(`${API_BASE}/api/bookmarks/reorder`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -804,7 +802,7 @@ async function addSectionDropdowns() {
     let userSections = [];
 
     try {
-        const response = await fetch(`http://localhost:3000/api/sections`, {
+        const response = await fetch(`${API_BASE}/api/sections`, {
             headers: {
                 'Authorization': authToken
             }
@@ -942,7 +940,7 @@ function setupDropdownEvents() {
             const isMovingToADifferentSection = currentSectionId !== sectionId;
             const authToken = getAuthToken();
 
-            fetch(`http://localhost:3000/api/bookmarks/${bookmarkId}/section`, {
+            fetch(`${API_BASE}/api/bookmarks/${bookmarkId}/section`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -957,7 +955,7 @@ function setupDropdownEvents() {
 
                         // Wait a bit for the section move to complete, then reorder
                         setTimeout(() => {
-                            fetch(`http://localhost:3000/api/bookmarks/section/${sectionId}?offset=0&limit=100`, {
+                            fetch(`${API_BASE}/api/bookmarks/section/${sectionId}?offset=0&limit=100`, {
                                 headers: {
                                     'Authorization': authToken
                                 }
@@ -968,7 +966,7 @@ function setupDropdownEvents() {
                                     const filteredIds = allIds.filter(id => id !== bookmarkId);
                                     const orderedIds = [bookmarkId, ...filteredIds];
 
-                                    return fetch(`http://localhost:3000/api/bookmarks/reorder`, {
+                                    return fetch(`${API_BASE}/api/bookmarks/reorder`, {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',
@@ -1105,7 +1103,7 @@ function setupEmojiPickerEvents() {
 
                 // Save to backend
                 try {
-                    const response = await fetch(`http://localhost:3000/api/sections/${sectionId}`, {
+                    const response = await fetch(`${API_BASE}/api/sections/${sectionId}`, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1302,8 +1300,8 @@ function applyStaggeredAnimation(selector, classToAdd, delayBetween = 10) {
 }
 
 // Unified loading function for all sections
-function loadSectionContent(sectionId, isLoadMore = false) {
-
+function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false) {
+    
     if (isLoading) return;
     const resultsContainer = document.querySelector('.results-container');
     const authToken = getAuthToken();
@@ -1314,16 +1312,13 @@ function loadSectionContent(sectionId, isLoadMore = false) {
         hasMoreBookmarks[sectionId] = false;
         resultsContainer.textContent = '';
         showLoading();
-
-        const url = new URL(window.location);
-        url.searchParams.set('section', sectionId);
-        window.history.pushState({}, '', url);
+        
     }
 
     isLoading = true;
 
     // Fetch bookmarks with pagination using the correct offset for this section
-    fetch(`http://localhost:3000/api/bookmarks/section/${sectionId}?offset=${sectionOffsets[sectionId]}&limit=${BOOKMARKS_PER_PAGE}`, {
+    fetch(`${API_BASE}/api/bookmarks/section/${sectionId}?offset=${sectionOffsets[sectionId]}&limit=${BOOKMARKS_PER_PAGE}`, {
         headers: {
             'Authorization': authToken
         }
@@ -1385,6 +1380,13 @@ function loadSectionContent(sectionId, isLoadMore = false) {
                 };
 
                 displayResults(transformedData, isLoadMore);
+
+                // In loadSectionContent, right after the successful pushState:
+                if (!isLoadMore && !fromPopstate) {
+                    const url = new URL(window.location);
+                    url.searchParams.set('section', sectionId);
+                    window.history.pushState({}, '', url);
+                }
 
                 setTimeout(() => {
                     makeBookmarksDraggable(sectionId);

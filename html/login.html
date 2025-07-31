@@ -382,6 +382,9 @@
     </div>
         <a href="karmafinder.html" class="back-link">← Return to KarmaFinder</a>
     <script>
+      const API_BASE = location.hostname === 'localhost'
+            ? 'http://localhost:3000'
+            : 'https://karmafinder.site';
 
         // Animate in container
             document.addEventListener('DOMContentLoaded', function () {
@@ -420,7 +423,7 @@
                         requestBody.redirect = redirect;
                     }
 
-                    const response = await fetch('http://localhost:3000/api/auth/magic-link', {
+                    const response = await fetch(`${API_BASE}/api/auth/magic-link`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
