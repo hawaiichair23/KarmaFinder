@@ -122,7 +122,7 @@
                 "--input-radius": "6px",
                 "--container-max-width": "1200px",
                 "--image-width": "160px",
-                "--bg-image": "url('../assets/forest.png')",
+                "--bg-image": "url('/assets/forest.png')",
                 "--bg-size": "cover",
                 "--bg-position": "center",
                 "--bg-repeat": "no-repeat",
@@ -253,7 +253,7 @@
             const themeIcon = document.getElementById('themeIcon');
             if (themeIcon) {
                 const nowDark = localStorage.getItem('selectedTheme') === 'dark';
-                themeIcon.src = nowDark ? '../assets/sun.png' : '../assets/moon.png';
+                themeIcon.src = nowDark ? '/assets/sun.png' : '/assets/moon.png';
                 themeIcon.alt = nowDark ? 'Switch to light mode' : 'Switch to dark mode';
             }
         }
@@ -265,7 +265,7 @@
             // Update icon
             const themeIcon = document.getElementById('themeIcon');
             if (themeIcon) {
-                themeIcon.src = isDark ? '../assets/sun.png' : '../assets/moon.png';
+                themeIcon.src = isDark ? '/assets/sun.png' : '/assets/moon.png';
                 themeIcon.alt = isDark ? 'Switch to light mode' : 'Switch to dark mode';
             }
         }
@@ -282,7 +282,7 @@
 
             if (themeIcon) {
                 const isDark = document.body.classList.contains('dark-mode');
-                themeIcon.src = isDark ? '../assets/sun.png' : '../assets/moon.png';
+                themeIcon.src = isDark ? '/assets/sun.png' : '/assets/moon.png';
                 themeIcon.alt = isDark ? 'Switch to light mode' : 'Switch to dark mode';
             }
             // Set loaded state
@@ -340,7 +340,7 @@
                     <div class="logo">KarmaFinder</div>
                 </a>
                 <div class="tagline">Find exactly what you're looking for on Reddit 🔎</div>
-                <img src="../assets/hermes.png" alt="Hermes Detective Cat" class="hermes-cat">
+                <img src="/assets/hermes.png" alt="Hermes" class="hermes-cat">
                 <div id="hermes-speech" class="speech-bubble hidden">
                     <div class="speech-tail speech-tail-outline"></div>
                     <div class="speech-tail speech-tail-inner"></div>
@@ -392,12 +392,12 @@
                     <div id="suggestions"></div>
                     <button id="search-button" class="search-button"></button>
                 </div>
-                <img src="../assets/iconny thingy.png" alt="filter icon" id="filter-icon" />
+                <img src="/assets/iconny thingy.png" alt="filter icon" id="filter-icon" />
                 <button id="comfy-toggle" aria-label="Toggle Comfy Mode" tabindex="0">
-                    <img src="../assets/comfy-default.png" alt="Toggle comfy layout" />
+                    <img src="/assets/comfy-default.png" alt="Toggle comfy layout" />
                 </button>
                 <button id="compact-toggle" aria-label="Toggle Compact Mode" tabindex="0">
-                    <img src="../assets/compact-default.png" alt="Toggle compact layout" />
+                    <img src="/assets/compact-default.png" alt="Toggle compact layout" />
                 </button>
             </div>
 
@@ -618,7 +618,7 @@
         // Load Blocklist 
         async function loadBlocklist() {
             try {
-                const response = await fetch('./blocklist.json');
+                const response = await fetch('/blocklist.json');
                 const data = await response.json();
                 bannedSubreddits = data.bannedSubreddits;
             } catch (error) {
@@ -746,9 +746,9 @@
             if (!animationsEnabled || isSleeping) return;
 
             const img = document.querySelector('.hermes-cat');
-            img.src = '../assets/hermes-blink.png';
+            img.src = '/assets/hermes-blink.png';
             setTimeout(() => {
-                if (!isSleeping) img.src = '../assets/hermes.png';
+                if (!isSleeping) img.src = '/assets/hermes.png';
             }, 150);
         }
 
@@ -759,18 +759,18 @@
             const img = document.querySelector('.hermes-cat');
 
             // First blink
-            img.src = '../assets/hermes-blink.png';
+            img.src = '/assets/hermes-blink.png';
             setTimeout(() => {
-                if (!isSleeping) img.src = '../assets/hermes.png';
+                if (!isSleeping) img.src = '/assets/hermes.png';
             }, 150);
 
             // Random delay between double blinks (500–2000ms)
             const delayBetween = Math.random() * 1500 + 500;
             blinkTimer1 = setTimeout(() => {
                 if (!isSleeping) {
-                    img.src = '../assets/hermes-blink.png';
+                    img.src = '/assets/hermes-blink.png';
                     setTimeout(() => {
-                        if (!isSleeping) img.src = '../assets/hermes.png';
+                        if (!isSleeping) img.src = '/assets/hermes.png';
                     }, 150);
                 }
             }, delayBetween);
@@ -827,7 +827,7 @@
         function wakeUp() {
             isSleeping = false;
             const img = document.querySelector('.hermes-cat');
-            img.src = '../assets/hermes.png';
+            img.src = '/assets/hermes.png';
 
             // Hide speech bubble
             const bubble = document.getElementById('hermes-speech');
@@ -845,32 +845,32 @@
             const img = document.querySelector('.hermes-cat');
 
             // Step 1: start from normal closed eyes
-            img.src = '../assets/hermes-blink.png';
+            img.src = '/assets/hermes-blink.png';
 
             // Falling down part (accelerating)
             setTimeout(() => {
-                img.src = '../assets/hermes-sleep2.png';
+                img.src = '/assets/hermes-sleep2.png';
             }, 400); // quick
 
             setTimeout(() => {
-                img.src = '../assets/hermes-sleep3.png';
+                img.src = '/assets/hermes-sleep3.png';
             }, 800); // still quick
 
             setTimeout(() => {
-                img.src = '../assets/hermes-sleep4.png';
+                img.src = '/assets/hermes-sleep4.png';
             }, 1300); // a bit slower
 
             // Rising up part (decelerating)
             setTimeout(() => {
-                img.src = '../assets/hermes-sleep3.png';
+                img.src = '/assets/hermes-sleep3.png';
             }, 1900); // slower
 
             setTimeout(() => {
-                img.src = '../assets/hermes-sleep2.png';
+                img.src = '/assets/hermes-sleep2.png';
             }, 2500); // even slower
 
             setTimeout(() => {
-                img.src = '../assets/hermes-blink.png';
+                img.src = '/assets/hermes-blink.png';
                 // Loop again if still sleeping
                 if (isSleeping) {
                     setTimeout(sleepAnimation, 800); // pause before repeating
@@ -965,7 +965,7 @@
             const img = document.querySelector('.hermes-cat');
 
             // Open mouth
-            img.src = '../assets/hermes-mouthopen.png';
+            img.src = '/assets/hermes-mouthopen.png';
 
             // Mouth open duration
             const openDuration = Math.random() * 90 + 150;
@@ -974,7 +974,7 @@
                 if (!isTalking) return;
 
                 // Close mouth
-                img.src = '../assets/hermes.png';
+                img.src = '/assets/hermes.png';
 
                 // Mouth closed duration
                 const closedDuration = Math.random() * 50 + 60;
@@ -990,7 +990,7 @@
 
             // Make sure mouth is closed
             const img = document.querySelector('.hermes-cat');
-            img.src = '../assets/hermes.png';
+            img.src = '/assets/hermes.png';
         }
 
         function hideSpeechBubble() {
@@ -1122,7 +1122,7 @@
                 if (!animationsEnabled) {
                     clearTimeout(blinkTimeout);
                     clearTimeout(mouthTimeout);
-                    if (catImg) catImg.src = '../assets/hermes.png';
+                    if (catImg) catImg.src = '/assets/hermes.png';
                 } else {
                     randomBlink?.();
                 }
@@ -1163,7 +1163,7 @@
                 if (!animationsEnabled) {
                     clearTimeout(blinkTimeout);
                     clearTimeout(mouthTimeout);
-                    if (catImg) catImg.src = '../assets/hermes.png';
+                    if (catImg) catImg.src = '/assets/hermes.png';
                 } else {
                     randomBlink?.();
                 }
@@ -1311,11 +1311,11 @@
             pendingCatReaction = null;
             // Reset search button
             setTimeout(() => {
-                searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                searchButton.style.backgroundImage = "url(/assets/search-default.png')";
             }, 500);
 
             const subreddit = subredditInput.value.trim();
-            searchButton.style.backgroundImage = "url('../assets/search-pressed.png')";
+            searchButton.style.backgroundImage = "url('/assets/search-pressed.png')";
             currentPageIndex = 0;
 
             // Check blocklist 
@@ -1330,7 +1330,7 @@
             `);
                 // Reset search button
                 setTimeout(() => {
-                    searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                    searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                 }, 500);
                 return;
             }
@@ -1340,7 +1340,7 @@
                 showError("No search terms detected. 🔎");
                 // Reset search button
                 setTimeout(() => {
-                    searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                    searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                 }, 500);
 
                 handleRandomResponse([
@@ -1364,7 +1364,7 @@
             if (subreddit && subreddit !== 'undefined' && subreddit !== 'null') {
 
                 setTimeout(() => {
-                    searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                    searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                 }, 500);
                 // Check for single character inputs
                 if (subreddit.length === 1) {
@@ -1394,7 +1394,7 @@
                         showError("Couldn't find a valid subreddit. 🔎");
                         // Reset search button
                         setTimeout(() => {
-                            searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                            searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                         }, 500);
 
                         handleRandomResponse([
@@ -1422,7 +1422,7 @@
                         showError("This subreddit is private.");
                         // Reset search button
                         setTimeout(() => {
-                            searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                            searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                         }, 500);
 
                         handleRandomResponse([
@@ -1438,7 +1438,7 @@
 
                     showError("Couldn't find a valid subreddit. 🔎");
                     setTimeout(() => {
-                        searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                        searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                     }, 500);
                     noResultsMessage();
                     return;
@@ -1491,7 +1491,7 @@
             }
 
             setTimeout(() => {
-                searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                searchButton.style.backgroundImage = "url('/assets/search-default.png')";
             }, 500);
 
             if (pendingCatReaction) {
@@ -1617,13 +1617,13 @@
                     pendingCatReaction = null;
                     // Reset search button
                     setTimeout(() => {
-                        searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                        searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                     }, 500);
 
                     const subreddit = subredditInput.value.trim();
                     const searchTerm = searchInput.value.trim();
 
-                    searchButton.style.backgroundImage = "url('../assets/search-pressed.png')";
+                    searchButton.style.backgroundImage = "url('/assets/search-pressed.png')";
                     currentPageIndex = 0;
 
                     // **BLOCKLIST CHECK**
@@ -1638,7 +1638,7 @@
                         `);
                         // Reset search button
                         setTimeout(() => {
-                            searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                            searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                         }, 500);
                         return;
                     }
@@ -1648,7 +1648,7 @@
 
                         showError("No search terms detected. 🔎");
                         setTimeout(() => {
-                            searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                            searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                         }, 500);
                         handleRandomResponse([
                             "I couldn't find that, kid.",
@@ -1673,7 +1673,7 @@
 
                             showError("Couldn't find a valid subreddit. 🔎");
                             setTimeout(() => {
-                                searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                                searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                             }, 500);
                             if (subreddit.toUpperCase() === 'F') {
                                 handleRandomResponse(["You paying respects?", "Funny.", "Brother..."]);
@@ -1698,7 +1698,7 @@
 
                                 showError("Couldn't find a valid subreddit. 🔎");
                                 setTimeout(() => {
-                                    searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                                    searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                                 }, 500);
                                 handleRandomResponse([
                                     "I couldn't find that, kid.",
@@ -1724,7 +1724,7 @@
 
                                 showError("This subreddit is private.");
                                 setTimeout(() => {
-                                    searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                                    searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                                 }, 500);
                                 handleRandomResponse([
                                     "Sorry, squirt.",
@@ -1739,7 +1739,7 @@
 
                             showError("Couldn't find a valid subreddit. 🔎");
                             setTimeout(() => {
-                                searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                                searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                             }, 500);
                             noResultsMessage();
                             return;
@@ -1790,7 +1790,7 @@
                     }
 
                     setTimeout(() => {
-                        searchButton.style.backgroundImage = "url('../assets/search-default.png')";
+                        searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                     }, 500);
 
                     // **CAT REACTION LOGIC**
@@ -2073,17 +2073,17 @@
         // Apply saved states on page load
         function applyButtonStates() {
             if (isComfyActive) {
-                comfyToggle.querySelector('img').src = '../assets/comfy-pressed.png';
+                comfyToggle.querySelector('img').src = '/assets/comfy-pressed.png';
                 document.body.classList.add('comfy-mode');
             } else {
-                comfyToggle.querySelector('img').src = '../assets/comfy-default.png';
+                comfyToggle.querySelector('img').src = '/assets/comfy-default.png';
                 document.body.classList.remove('comfy-mode');
             }
 
             if (isCompactActive) {
-                compactToggle.querySelector('img').src = '../assets/compact-pressed.png';
+                compactToggle.querySelector('img').src = '/assets/compact-pressed.png';
             } else {
-                compactToggle.querySelector('img').src = '../assets/compact-default.png';
+                compactToggle.querySelector('img').src = '/assets/compact-default.png';
             }
 
             if (hasClickedOnce) {
@@ -2104,12 +2104,12 @@
             if (isComfyActive) {
                 if (hasClickedOnce && !isCompactActive) return;
                 isComfyActive = false;
-                comfyToggle.querySelector('img').src = '../assets/comfy-default.png';
+                comfyToggle.querySelector('img').src = '/assets/comfy-default.png';
             } else {
                 isComfyActive = true;
-                comfyToggle.querySelector('img').src = '../assets/comfy-pressed.png';
+                comfyToggle.querySelector('img').src = '/assets/comfy-pressed.png';
                 isCompactActive = false;
-                compactToggle.querySelector('img').src = '../assets/compact-default.png';
+                compactToggle.querySelector('img').src = '/assets/compact-default.png';
             }
             hasClickedOnce = true;
             document.body.classList.add('hasClickedOnce');
@@ -2128,11 +2128,11 @@
         compactToggle.addEventListener('click', () => {
             hasClickedOnce = true;
             document.body.classList.add('hasClickedOnce');
-            compactToggle.querySelector('img').src = '../assets/compact-pressed.png';
+            compactToggle.querySelector('img').src = '/assets/compact-pressed.png';
             document.body.classList.remove('comfy-mode');
             isComfyActive = false;
             isCompactActive = true;
-            comfyToggle.querySelector('img').src = '../assets/comfy-default.png';
+            comfyToggle.querySelector('img').src = '/assets/comfy-default.png';
 
             refreshInfiniteScrollLayout();
 
@@ -2294,7 +2294,7 @@
                     planDisplayElement.innerHTML = '';
                     planDisplayElement.appendChild(spinnerWrapper);
 
-                    fetch(`${API_BASE} /api/create-checkout`, {
+                    fetch(`${API_BASE}/api/create-checkout`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ email: userEmail })
@@ -2311,7 +2311,7 @@
                         })
                         .catch(error => {
                             console.error('Error:', error);
-                            Swal.fire('Error', 'Could not open billing portal');
+                            Swal.fire('Error', 'Could not open billing portal.');
                             // Restore original content on error
                             planDisplayElement.innerHTML = originalContent;
                             planDisplayElement.classList.remove('loading');
@@ -2888,7 +2888,7 @@
 
                 const iconContent = suggestionSubreddit ?
                     `<span class="suggestion-icon subreddit-icon">${suggestionSubreddit.charAt(0).toUpperCase()}</span>` :
-                    '<img src="../assets/search-favicon.png" class="suggestion-favicon" alt="Search">';
+                    '<img src="/assets/search-favicon.png" class="suggestion-favicon" alt="Search">';
 
                 const subredditName = suggestionSubreddit ? `<span class="suggestion-subreddit">• r/${suggestionSubreddit.toLowerCase()}</span>` : '';
 
@@ -3222,10 +3222,15 @@
             hideSpeechBubble();
             showRareLines();
 
-            // Reset title and meta tags back to normal
+            // Reset title and meta tags 
             document.title = "KarmaFinder";
             document.querySelector('meta[name="description"]').content = "Find exactly what you're looking for on Reddit";
             document.querySelector('meta[property="og:title"]').content = "KarmaFinder";
+            // Remove the page parameter from URL
+            const url = new URL(window.location);
+            url.searchParams.delete('page');
+            url.searchParams.delete('section');
+            window.history.replaceState({}, '', url);
 
             // Enhanced search with query = vector search
             if (isEnhancedOn && hasQuery) {
@@ -3550,7 +3555,7 @@
                         preloadBookmarks();
                         setTimeout(() => {
                             if (!filtered.length) noResultsMessage();
-                        }, 0);
+                        }, 200);
 
                         updatePagination();
                         updateURL();
@@ -4878,12 +4883,13 @@
             );
 
             if (visibleCards.length === 0) {
-                showError("No results found. Try different search terms or filters.");
-                noResultsMessage();
-                paginationContainer.innerHTML = '';
+                setTimeout(() => {
+                    showError("No results found. Try different search terms or filters.");
+                    noResultsMessage();
+                    paginationContainer.innerHTML = '';
+                }, 200);
                 return;
             }
-
         }
 
 
@@ -6855,47 +6861,65 @@
                 // This is a magic link verification
                 verifyMagicLink(token);
             }
-
             // Check for payment success
             if (urlParams.get('success') === 'true') {
                 const sessionId = urlParams.get('session_id');
-                // Auto-login after successful payment
-                fetch(`${API_BASE}/api/auto-login-after-payment`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ session_id: sessionId })
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            // Set login state
-                            isLoggedIn = true;
-                            window.authToken = data.authToken;
-                            localStorage.setItem('isLoggedIn', 'true');
-                            localStorage.setItem('userEmail', data.email);
-                            localStorage.setItem('hasSubscription', data.hasSubscription);
-                            localStorage.setItem('planType', data.planType);
-                            localStorage.setItem('authToken', data.authToken);
-                            // Show correct message
-                            if (data.planType === 'premium') {
-                                Swal.fire({
-                                    title: 'Account Created!',
-                                    text: 'Your account has been created. Thank you for unlocking Premium!',
-                                    confirmButtonText: 'Great!'
-                                });
-                            } else if (data.planType === 'pro') {
-                                Swal.fire({
-                                    title: 'Account Created!',
-                                    text: 'Your account has been created. Thank you for unlocking Pro!',
-                                    confirmButtonText: 'Great!'
-                                });
+
+                // Check if we already processed this session
+                const processedSessions = JSON.parse(localStorage.getItem('processedSessions') || '[]');
+
+                if (sessionId && !processedSessions.includes(sessionId)) {
+                    // Auto-login after successful payment
+                    fetch(`${API_BASE}/api/auto-login-after-payment`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: sessionId })
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Set login state
+                                isLoggedIn = true;
+                                window.authToken = data.authToken;
+                                localStorage.setItem('isLoggedIn', 'true');
+                                localStorage.setItem('userEmail', data.email);
+                                localStorage.setItem('hasSubscription', data.hasSubscription);
+                                localStorage.setItem('planType', data.planType);
+                                localStorage.setItem('authToken', data.authToken);
+
+                                // Mark this session as processed
+                                processedSessions.push(sessionId);
+                                localStorage.setItem('processedSessions', JSON.stringify(processedSessions));
+
+                                // Show correct message
+                                if (data.planType === 'premium') {
+                                    Swal.fire({
+                                        title: 'Account Created!',
+                                        text: 'Your account has been created. Thank you for unlocking Premium!',
+                                        confirmButtonText: 'Great!'
+                                    });
+                                } else if (data.planType === 'pro') {
+                                    Swal.fire({
+                                        title: 'Account Created!',
+                                        text: 'Your account has been created. Thank you for unlocking Pro!',
+                                        confirmButtonText: 'Great!'
+                                    });
+                                }
+                                // FETTI TIME!
+                                moneyShot();
+                                updateLoginButton();
+                                showSpeechBubble("It's great value, honest.");
                             }
-                            // FETTI TIME!
-                            moneyShot();
-                            updateLoginButton();
-                            showSpeechBubble("It's great value, honest.");
-                        }
-                    });
+
+                            // Clean URL after processing
+                            const cleanUrl = window.location.origin + window.location.pathname;
+                            window.history.replaceState({}, document.title, cleanUrl);
+                        });
+                } else {
+                    // Already processed, just clean the URL
+                    const cleanUrl = window.location.origin + window.location.pathname;
+                    window.history.replaceState({}, document.title, cleanUrl);
+                }
             }
             updatePlanDisplay();
         });
@@ -6953,6 +6977,37 @@
 
         // Boolean that gets updated
         let isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+
+        // Kick you out if auth token is cleared
+        const authToken = localStorage.getItem('authToken');
+
+        if (isLoggedIn && authToken) {
+            fetch('/verify-token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ token: authToken })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.valid) {
+                        isLoggedIn = false;
+                        localStorage.setItem('isLoggedIn', 'false');
+                        clearUserDataOnLogout();
+                        sessionStorage.removeItem('bookmarks');
+                        document.querySelectorAll('.bookmark-icon').forEach(icon => {
+                            icon.classList.remove('saved');
+                        });
+                        localStorage.setItem('theme', 'default');
+                        applyTheme('default')
+                        updateLoginButton();
+                        updateThemeToggleVisibility();
+                        updatePlanDisplay();
+                        window.location.href = 'karmafinder.html';
+                    }
+                });
+        }
 
         function updateLoginButton() {
             const btnText = document.getElementById('loginBtnText');
@@ -7052,7 +7107,11 @@
         });
 
         document.getElementById('getPremiumContainer').onclick = () => {
-            window.open('features.html', '_blank');
+            if (isLoggedIn) {
+                window.open('karmafinder.html', '_blank');
+            } else {
+                window.open('features.html', '_blank');
+            }
         };
 
         const toggleManager = new ToggleManager();

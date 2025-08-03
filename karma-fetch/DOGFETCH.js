@@ -12,7 +12,23 @@ const cors = require('cors');
 const fetch = require('node-fetch');
 const path = require('path');
 const os = require('os');
+const { Server } = require('socket.io');
 const app = express();
+
+// Serve static frontend files from html folder
+app.use(express.static(path.join(__dirname, '../html')));
+
+// Serve assets
+app.use('/assets', express.static(path.join(__dirname, '../assets')));
+
+// Serve video files
+app.use('/temp', express.static(path.join(__dirname, 'temp')));
+
+// Serve index.html for homepage
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../html/karmafinder.html'));
+});
+
 const { execSync } = require('child_process');
 const { scheduleFileDeletion } = require('./cron-cleanup.js');
 const { pool } = require('./db');
@@ -215,9 +231,7 @@ app.use(cors({
 }));
 
 // Stripe webhook
-app.use('/api/webhook', express.raw({ type: 'application/json' }));
-
-app.post('/api/webhook', async (req, res) => {
+app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
 
     let event;
@@ -254,9 +268,9 @@ app.post('/api/webhook', async (req, res) => {
             const priceId = lineItems.data[0]?.price?.id;
 
             let planType;
-            if (priceId === 'price_1RhNDFD1lLWsoPSHMdd7uPvD') {
+            if (priceId === process.env.STRIPE_PRICE_ID_1) {
                 planType = 'premium';
-            } else if (priceId === 'price_1RhNE2D1lLWsoPSHJq3zAUpc') {
+            } else if (priceId === process.env.STRIPE_PRICE_ID_2) {
                 planType = 'pro';
             } else {
                 console.log(`⚠️ Unknown price ID: ${priceId}`);
@@ -287,9 +301,9 @@ app.post('/api/webhook', async (req, res) => {
             const priceId = subscription.items.data[0]?.price?.id;
 
             let planType;
-            if (priceId === 'price_1RhNDFD1lLWsoPSHMdd7uPvD') {
+            if (priceId === process.env.STRIPE_PRICE_ID_1) {
                 planType = 'premium';
-            } else if (priceId === 'price_1RhNE2D1lLWsoPSHJq3zAUpc') {
+            } else if (priceId === process.env.STRIPE_PRICE_ID_2) {
                 planType = 'pro';
             } else {
                 console.log(`⚠️ Unknown price ID: ${priceId}`);
@@ -315,25 +329,27 @@ app.post('/api/webhook', async (req, res) => {
         try {
             const customer = await stripe.customers.retrieve(subscription.customer);
 
+            // Delete subscription record
             await pool.query(`
-               DELETE FROM subscriptions 
-               WHERE email = $1
-           `, [customer.email]);
+           DELETE FROM subscriptions
+           WHERE email = $1
+       `, [customer.email]);
 
-            console.log(`🗑️ Subscription deleted for ${customer.email}`);
+            // Delete all sections for this user
+            await pool.query(`
+        DELETE FROM sections
+        WHERE user_id = $1
+        `, [subscription.customer]); 
+
         } catch (error) {
-            console.error('Error deleting subscription record:', error);
+            console.error('Error deleting subscription/user record:', error);
         }
     }
-
     res.json({ received: true });
 });
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-app.options('*', cors());
-app.use(express.static(path.join(__dirname, '../html')));
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -1004,7 +1020,7 @@ app.get('/search', async (req, res) => {
         });
         const redditData = await response.json();
 
-        // Read your actual HTML file and modify it
+        // Read the HTML file and modify it
         let html = fs.readFileSync(path.join(__dirname, '../html/karmafinder.html'), 'utf8');
 
         // Serve the assets folder for images
@@ -1067,10 +1083,11 @@ app.get('/search', async (req, res) => {
 app.get('/sitemap.xml', async (req, res) => {
     try {
         const searches = await pool.query(`
-            SELECT DISTINCT query 
-            FROM search_suggestions 
+            SELECT query
+            FROM search_suggestions
             WHERE query != '' AND query IS NOT NULL
-            ORDER BY score DESC
+            GROUP BY query
+            ORDER BY MAX(score) DESC
         `);
 
         let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
@@ -1098,12 +1115,20 @@ app.get('/sitemap.xml', async (req, res) => {
         sitemap += `
 </urlset>`;
 
-        res.set('Content-Type', 'text/xml');
+        res.set('Content-Type', 'application/xml');
         res.send(sitemap);
     } catch (error) {
-        console.error('Sitemap error:', error);
+        console.error('Sitemap error:', error.stack); 
         res.status(500).send('Error generating sitemap');
     }
+});
+
+app.get('/robots.txt', (req, res) => {
+    res.type('text/plain');
+    res.send(`User-agent: *
+Allow: /
+
+Sitemap: https://karmafinder.site/sitemap.xml`);
 });
 
 app.get('/image', async (req, res) => {
@@ -2117,91 +2142,134 @@ app.get('/api/reddit-video/:videoId', async (req, res) => {
             return res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
         }
 
-        console.log(`🎬 Processing ${videoId}...`);
+        console.log(`🎬 Starting: ${videoId}`);
 
-        // Find working video URL
+        // Select working video
         const videoQualities = ['480', '720', '360', '240'];
         let videoUrl = null;
         for (const q of videoQualities) {
             const testUrl = `https://v.redd.it/${videoId}/DASH_${q}.mp4`;
             try {
-                const r = await dogFetch(testUrl, { method: 'HEAD' });
+                const r = await dogFetch(testUrl, {
+                    method: 'HEAD',
+                    headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.reddit.com' }
+                });
                 if (r.ok) {
                     videoUrl = testUrl;
                     break;
                 }
             } catch (e) { /* skip */ }
         }
-
         if (!videoUrl) return res.status(404).json({ error: 'No video found' });
 
-        // Check for audio with different bitrates
+        // Try DASH audio
         const audioBitrates = ['128', '64', '256'];
         let audioUrl = null;
 
         for (const bitrate of audioBitrates) {
             const testAudioUrl = `https://v.redd.it/${videoId}/DASH_AUDIO_${bitrate}.mp4`;
-            console.log(`🔊 Trying audio bitrate: ${bitrate}...`);
             try {
-                const audioCheck = await dogFetch(testAudioUrl, { method: 'HEAD' });
+                const audioCheck = await dogFetch(testAudioUrl, {
+                    method: 'HEAD',
+                    headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.reddit.com' }
+                });
                 if (audioCheck.ok) {
-                    console.log(`✅ Found working audio: ${bitrate}kbps`);
+                    console.log(`✅ DASH audio found: ${bitrate}kbps`);
                     audioUrl = testAudioUrl;
                     break;
-                } else {
-                    console.log(`❌ Audio ${bitrate} failed`);
                 }
             } catch (e) {
-                console.log(`❌ Audio ${bitrate} failed`);
+                console.log(`❌ DASH audio ${bitrate} failed`);
             }
         }
 
-        // Try HLS if no DASH audio found
+        // Try HLS if DASH fails
         if (!audioUrl) {
-            console.log(`🔄 Trying HLS stream...`);
-            const hlsUrl = `https://v.redd.it/${videoId}/HLSPlaylist.m3u8?f=sd%2CsubsAll%2ChlsSpecOrder&v=1&a=1753933930%2CMmVhZGMxNTRiNDA5Y2M2YmIyY2NmMmI5YmQ4ZmVkMmNiOGU3ZTEyYzdlMTc2ODQ3NDNhZGUwYmZlYTZkOTJlMQ%3D%3D`;
+            const hlsUrl = `https://v.redd.it/${videoId}/HLSPlaylist.m3u8`;
             try {
-                const hlsCheck = await dogFetch(hlsUrl, { method: 'HEAD' });
+                const hlsCheck = await dogFetch(hlsUrl, {
+                    method: 'HEAD',
+                    headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.reddit.com' }
+                });
                 if (hlsCheck.ok) {
-                    console.log(`✅ Found HLS stream with audio, copying...`);
-                    await copyVideoOnly(hlsUrl, outputPath); // copies the full HLS stream
-                    console.log(`✅ Done: ${outputFileName}`);
+                    console.log(`✅ Using HLS fallback`);
+                    await copyVideoOnly(hlsUrl, outputPath);
+                    scheduleFileDeletion(outputPath, outputFileName);
                     return res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
                 }
             } catch (e) {
-                console.log(`❌ HLS failed too`);
+                console.log(`❌ HLS fallback failed`);
             }
         }
 
-        // Combine or copy based on what we found
+        // Last resort: fallback to Render proxy
+        if (!audioUrl) {
+            const proxyAudioUrl = `https://karmafinder.onrender.com/proxy-audio/${videoId}`;
+            try {
+                const proxyCheck = await dogFetch(proxyAudioUrl, { method: 'HEAD' });
+                if (proxyCheck.ok) {
+                    audioUrl = proxyAudioUrl;
+                }
+            } catch (e) {
+                console.log(`❌ Render proxy failed`);
+            }
+        }
+
+        // Combine or just copy video
         if (audioUrl) {
             await combineWithFfmpeg(videoUrl, audioUrl, outputPath);
         } else {
-            console.log(`📹 No audio available, copying video only...`);
+            console.log(`📹 No audio, copying video only`);
             await copyVideoOnly(videoUrl, outputPath);
         }
 
-        console.log(`✅ Done: ${outputFileName}`);
+        scheduleFileDeletion(outputPath, outputFileName);
         res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
 
-        // Auto delete after 7 minutes
-        scheduleFileDeletion(outputPath, outputFileName);
-
     } catch (err) {
-        const now = new Date().toLocaleTimeString();
-        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
-            ['error', '/api/reddit-video/:videoId', `${now} - ${err.message}`]);
-
         console.error('❌ Error:', err);
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)', [
+            'error',
+            '/api/reddit-video/:videoId',
+            `${new Date().toLocaleTimeString()} - ${err.message}`
+        ]);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/proxy-audio/:videoId', async (req, res) => {
+    const { videoId } = req.params;
+    const audioUrl = `https://v.redd.it/${videoId}/DASH_AUDIO_128.mp4`;
+
+    try {
+        const response = await fetch(audioUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0',
+                'Referer': 'https://www.reddit.com'
+            }
+        });
+
+        if (!response.ok) {
+            return res.status(404).send('Audio not found');
+        }
+
+        res.set('Content-Type', 'audio/mp4');
+        response.body.pipe(res);
+    } catch (err) {
+        console.error('Proxy error:', err);
+        res.status(500).send('Proxy failed');
     }
 });
 
 function copyVideoOnly(videoUrl, outputPath) {
     return new Promise((resolve, reject) => {
+        const headers = 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
+            'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+            'Chrome/115.0.0.0 Safari/537.36\r\n' +
+            'Referer: https://www.reddit.com/';
+
         const args = [
-            '-user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            '-headers', 'Referer: https://www.reddit.com/',
+            '-headers', headers,
             '-i', videoUrl,
             '-c', 'copy',
             '-y',
@@ -2231,12 +2299,15 @@ function copyVideoOnly(videoUrl, outputPath) {
 
 function combineWithFfmpeg(videoUrl, audioUrl, outputPath) {
     return new Promise((resolve, reject) => {
+        const headers = 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
+            'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+            'Chrome/115.0.0.0 Safari/537.36\r\n' +
+            'Referer: https://www.reddit.com/';
+
         const args = [
-            '-user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            '-headers', 'Referer: https://www.reddit.com/',
+            '-headers', headers,
             '-i', videoUrl,
-            '-user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            '-headers', 'Referer: https://www.reddit.com/',
+            '-headers', headers,
             '-i', audioUrl,
             '-c:v', 'copy',
             '-c:a', 'aac',
@@ -2322,7 +2393,7 @@ app.post('/api/auth/magic-link', async (req, res) => {
         console.log('Token saved to database');
 
         // Build magic link URL with optional redirect
-        let magicLinkUrl = `http://127.0.0.1:5500/html/karmafinder.html?token=${token}`;
+        let magicLinkUrl = `https://karmafinder.site/karmafinder.html?token=${token}`;
         if (redirect) {
             magicLinkUrl += `&redirect=${redirect}`;
         }
@@ -2415,66 +2486,293 @@ app.post('/api/auth/verify/:token', async (req, res) => {
 });
 
 app.post('/api/auto-login-after-payment', async (req, res) => {
+    const connection = await pool.connect();
+
     try {
         const { session_id } = req.body;
 
-        // Get session from Stripe to find the email
-        const session = await stripe.checkout.sessions.retrieve(session_id);
-        const customer = await stripe.customers.retrieve(session.customer);
-        const email = customer.email;
-
-        // Get subscription data from your database
-        const subscriptionResult = await pool.query(`
-            SELECT user_id, plan_type 
-            FROM subscriptions 
-            WHERE email = $1
-        `, [email]);
-
-        if (subscriptionResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Subscription not found' });
+        // Validate input
+        if (!session_id) {
+            return res.status(400).json({
+                success: false,
+                error: 'Session ID is required'
+            });
         }
 
-        const subscription = subscriptionResult.rows[0];
+        // Get session from Stripe with validation
+        let session, customer;
+        try {
+            session = await stripe.checkout.sessions.retrieve(session_id);
 
-        // Send welcome email
-        let subject, greeting;
-        if (subscription.plan_type === 'pro') {
-            subject = 'Welcome to KarmaFinder Pro!';
-            greeting = 'Your Pro account is ready!';
-        } else {
-            subject = 'Welcome to KarmaFinder Premium!';
-            greeting = 'Your premium account is ready!';
+            if (!session) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Checkout session not found'
+                });
+            }
+
+            // Validate session is actually completed and paid
+            if (session.payment_status !== 'paid') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Payment not completed'
+                });
+            }
+
+            if (!session.customer) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'No customer associated with session'
+                });
+            }
+
+            customer = await stripe.customers.retrieve(session.customer);
+
+            if (!customer || !customer.email) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Customer email not found'
+                });
+            }
+
+        } catch (stripeError) {
+            console.error('Stripe API error in auto-login:', stripeError);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to validate payment session'
+            });
         }
 
-        await resend.emails.send({
-            from: 'welcome@karmafinder.site',
-            to: email,
-            subject: subject,
-            html: `
+        const email = customer.email.toLowerCase().trim();
+
+        // Get subscription with line items to determine plan type
+        let subscription, planType;
+        try {
+            subscription = await stripe.subscriptions.retrieve(session.subscription);
+
+            // Get line items to determine plan type
+            const lineItems = await stripe.checkout.sessions.listLineItems(session_id);
+            const priceId = lineItems.data[0]?.price?.id;
+
+            if (priceId === process.env.STRIPE_PRICE_ID_1) {
+                planType = 'premium';
+            } else if (priceId === process.env.STRIPE_PRICE_ID_2) {
+                planType = 'pro';
+            } else {
+                console.warn(`Unknown price ID in auto-login: ${priceId}`);
+                planType = 'premium'; // Default fallback
+            }
+
+        } catch (stripeError) {
+            console.error('Failed to get subscription details:', stripeError);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to retrieve subscription details'
+            });
+        }
+
+        // Retry logic for database lookup (handles race condition with webhook)
+        let dbSubscription = null;
+        let retries = 0;
+        const maxRetries = 15; // 15 retries = up to 7.5 seconds
+
+        console.log(`🔄 Looking for subscription for email: ${email}`);
+
+        while (!dbSubscription && retries < maxRetries) {
+            try {
+                const subscriptionResult = await connection.query(`
+                    SELECT user_id, plan_type, auth_token 
+                    FROM subscriptions 
+                    WHERE LOWER(email) = $1
+                `, [email]);
+
+                if (subscriptionResult.rows.length > 0) {
+                    dbSubscription = subscriptionResult.rows[0];
+                    console.log(`✅ Found subscription for ${email} after ${retries} retries`);
+                    break;
+                }
+
+                // Wait before retry (exponential backoff)
+                const delay = Math.min(500 + (retries * 100), 1000);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                retries++;
+
+                console.log(`⏳ Subscription not found yet, retry ${retries}/${maxRetries}`);
+
+            } catch (dbError) {
+                console.error(`Database error on retry ${retries}:`, dbError);
+                // Continue retrying unless it's the last attempt
+                if (retries === maxRetries - 1) {
+                    throw dbError;
+                }
+                await new Promise(resolve => setTimeout(resolve, 500));
+                retries++;
+            }
+        }
+
+        // If still not found after retries, create the subscription record
+        if (!dbSubscription) {
+            console.log(`⚠️ Subscription not found after ${maxRetries} retries, creating manually`);
+
+            try {
+                await connection.query('BEGIN');
+
+                const insertResult = await connection.query(`
+                    INSERT INTO subscriptions (email, user_id, plan_type, stripe_subscription_id)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (email) DO UPDATE SET
+                        user_id = EXCLUDED.user_id,
+                        plan_type = EXCLUDED.plan_type,
+                        stripe_subscription_id = EXCLUDED.stripe_subscription_id
+                    RETURNING user_id, plan_type
+                `, [email, customer.id, planType, subscription.id]);
+
+                dbSubscription = insertResult.rows[0];
+                await connection.query('COMMIT');
+
+                console.log(`✅ Created subscription record for ${email}`);
+
+            } catch (insertError) {
+                await connection.query('ROLLBACK');
+                console.error('Failed to create subscription record:', insertError);
+                return res.status(500).json({
+                    success: false,
+                    error: 'Failed to create subscription record'
+                });
+            }
+        }
+
+        // Ensure user has a default section for bookmarks
+        try {
+            const sectionCheck = await connection.query(`
+                SELECT id FROM sections WHERE user_id = $1 LIMIT 1
+            `, [dbSubscription.user_id]);
+
+            if (sectionCheck.rows.length === 0) {
+                await connection.query(`
+                    INSERT INTO sections (user_id, name, sort_order, created_at)
+                    VALUES ($1, 'Bookmarks', 0, NOW())
+                `, [dbSubscription.user_id]);
+
+                console.log(`✅ Created default section for user ${dbSubscription.user_id}`);
+            }
+        } catch (sectionError) {
+            console.error('Failed to create default section:', sectionError);
+            // Don't fail the whole request for this
+        }
+
+        // Generate or get auth token
+        let authToken = dbSubscription.auth_token;
+
+        if (!authToken) {
+            authToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+            try {
+                await connection.query(`
+                    UPDATE subscriptions 
+                    SET auth_token = $1 
+                    WHERE user_id = $2
+                `, [authToken, dbSubscription.user_id]);
+
+                console.log(`✅ Generated auth token for user ${dbSubscription.user_id}`);
+
+            } catch (tokenError) {
+                console.error('Failed to save auth token:', tokenError);
+                return res.status(500).json({
+                    success: false,
+                    error: 'Failed to generate authentication token'
+                });
+            }
+        }
+
+        // Send welcome email (non-blocking)
+        const sendWelcomeEmail = async () => {
+            try {
+                let subject, greeting;
+                if (dbSubscription.plan_type === 'pro') {
+                    subject = 'Welcome to KarmaFinder Pro! 🚀';
+                    greeting = 'Your Pro account is ready!';
+                } else {
+                    subject = 'Welcome to KarmaFinder Premium! ⭐';
+                    greeting = 'Your Premium account is ready!';
+                }
+
+                await resend.emails.send({
+                    from: 'welcome@karmafinder.site',
+                    to: email,
+                    subject: subject,
+                    html: `
        <h2>${greeting}</h2>
        <p>Thanks for supporting KarmaFinder! You now have access to Enhanced Search, unlimited bookmarks, and themes.</p>
        <p><a href="${req.headers.origin}/html/karmafinder.html">Start searching</a></p>
        <p>Questions? Just reply to this email.</p>
    `
-        });
-        
-        // Generate permanent auth token
-        const authToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                });
 
-        // Save token to database
-        await pool.query('UPDATE subscriptions SET auth_token = $1 WHERE user_id = $2', [authToken, subscription.user_id]);
+                console.log(`📧 Welcome email sent to ${email}`);
 
-        res.json({
+            } catch (emailError) {
+                console.error('Failed to send welcome email:', emailError);
+                // Log but don't fail the request
+                await pool.query(`
+                    INSERT INTO monitoring_logs (log_level, endpoint, error_message) 
+                    VALUES ($1, $2, $3)
+                `, ['warning', '/api/auto-login-after-payment',
+                    `Failed to send welcome email to ${email}: ${emailError.message}`]);
+            }
+        };
+
+        // Send welcome email asynchronously
+        sendWelcomeEmail();
+
+        // Return success response
+        const response = {
             success: true,
             email: email,
             hasSubscription: true,
-            planType: subscription.plan_type,
-            authToken  
-        });
+            planType: dbSubscription.plan_type,
+            authToken: authToken,
+            message: 'Login successful! Welcome to KarmaFinder.'
+        };
+
+        console.log(`✅ Auto-login successful for ${email} (${dbSubscription.plan_type})`);
+        res.json(response);
 
     } catch (error) {
+        // Log error for monitoring
+        const now = new Date().toLocaleTimeString();
+        await pool.query(`
+            INSERT INTO monitoring_logs (log_level, endpoint, error_message) 
+            VALUES ($1, $2, $3)
+        `, ['error', '/api/auto-login-after-payment', `${now} - ${error.message}`]);
+
         console.error('Auto-login error:', error);
-        res.status(500).json({ error: error.message });
+
+        res.status(500).json({
+            success: false,
+            error: 'Login failed. Please try again or contact support.',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+
+    } finally {
+        connection.release();
+    }
+});
+
+app.post('/verify-token', async (req, res) => {
+    const { token } = req.body;
+
+    try {
+        const result = await pool.query('SELECT auth_token FROM subscriptions WHERE auth_token = $1', [token]);
+
+        if (result.rows.length > 0) {
+            res.json({ valid: true });
+        } else {
+            res.json({ valid: false });
+        }
+    } catch (error) {
+        console.error('Error verifying token:', error);
+        res.json({ valid: false });
     }
 });
 
@@ -2496,7 +2794,7 @@ app.post('/api/create-checkout', async (req, res) => {
                 if (customer.data.length > 0) {
                     const session = await stripe.billingPortal.sessions.create({
                         customer: customer.data[0].id,
-                        return_url: `${req.headers.origin}/html/features.html`,
+                        return_url: `${req.headers.origin}/karmafinder.html`,
                     });
 
                     return res.json({ url: session.url, isPortal: true });
@@ -2507,12 +2805,12 @@ app.post('/api/create-checkout', async (req, res) => {
         const sessionData = {
             payment_method_types: ['card'],
             line_items: [{
-                price: 'price_1RhNDFD1lLWsoPSHMdd7uPvD',
+                price: process.env.STRIPE_PRICE_ID_1,
                 quantity: 1,
             }],
             mode: 'subscription',
-            success_url: `${req.headers.origin}/html/karmafinder.html?success=true&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${req.headers.origin}/html/features.html`,
+            success_url: `${req.headers.origin}/karmafinder.html?success=true&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${req.headers.origin}/karmafinder.html`,
         };
         const session = await stripe.checkout.sessions.create(sessionData);
         res.json({ url: session.url });
@@ -2544,7 +2842,7 @@ app.post('/api/create-checkout-pro', async (req, res) => {
                 if (customer.data.length > 0) {
                     const session = await stripe.billingPortal.sessions.create({
                         customer: customer.data[0].id,
-                        return_url: `${req.headers.origin}/html/features.html`,
+                        return_url: `${req.headers.origin}/karmafinder.html`,
                     });
 
                     return res.json({ url: session.url, isPortal: true });
@@ -2555,12 +2853,12 @@ app.post('/api/create-checkout-pro', async (req, res) => {
         const sessionData = {
             payment_method_types: ['card'],
             line_items: [{
-                price: 'price_1RhNE2D1lLWsoPSHJq3zAUpc',
+                price: process.env.STRIPE_PRICE_ID_2,
                 quantity: 1,
             }],
             mode: 'subscription',
-            success_url: `${req.headers.origin}/html/karmafinder.html?success=true&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${req.headers.origin}/html/features.html`,
+            success_url: `${req.headers.origin}/karmafinder.html?success=true&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${req.headers.origin}/karmafinder.html`,
         };
         const session = await stripe.checkout.sessions.create(sessionData);
         res.json({ url: session.url });
@@ -2573,6 +2871,7 @@ app.post('/api/create-checkout-pro', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
 const { QdrantClient } = require('@qdrant/js-client-rest');
 
 const qdrant = new QdrantClient({
@@ -3130,14 +3429,14 @@ async function startServer() {
     const token = await getRedditAppToken();
     console.log('✅ Reddit app token fetched:', token.slice(0, 12), '...');
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
         const host = process.env.NODE_ENV === 'production'
             ? 'https://karmafinder.site'
             : `http://localhost:${PORT}`;
 
         console.log(`🚀 FETCH server running at ${host}`);
 
-        // Start system monitoring AFTER server is running
+        // Start system monitoring 
         setInterval(logSystemHealth, 5 * 60 * 1000);
         console.log('💓 System health monitoring started');
     });

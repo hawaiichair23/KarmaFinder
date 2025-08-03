@@ -213,7 +213,7 @@ div:where(.swal2-container) textarea:where(.swal2-textarea)::placeholder {
     justify-content: center;
     z-index: 1000;
     border-width: 1.5px;
-    opacity: 1;
+    opacity: 0;
 }
 
 body.dark-mode .scroll-container-minimal {

@@ -11,10 +11,6 @@ window.authToken = localStorage.getItem('authToken');
 // Use a separate offset for each section so scrolling works for both tabs
 const sectionOffsets = {};
 
-window.addEventListener('load', function () {
-    window.scrollTo(0, 0);
-});
-
 const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get('page') === 'bookmarks') {
     document.title = "Bookmarks";
@@ -83,6 +79,7 @@ function initBookmarks() {
     createContextMenu();
     setupContextMenuHandlers();
     handleBookmarksPI();
+    initializeTabs();
 }
 
 function handleBookmarksPI(bookmarkCount) {
@@ -284,21 +281,17 @@ async function insertTabsUI(tabsData) {
     setupTabEvents();
 }
 
-
 async function initializeTabs() {
     try {
         const authToken = getAuthToken();
-
         const response = await fetch(`${API_BASE}/api/sections`, {
             headers: {
                 'Authorization': authToken
             }
         });
-
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-
         const data = await response.json();
 
         // If user has no sections, create a default "Bookmarks" section
@@ -311,7 +304,6 @@ async function initializeTabs() {
                 },
                 body: JSON.stringify({ name: 'Bookmarks' })
             });
-
             // Fetch sections again to get the newly created one
             const newResponse = await fetch(`${API_BASE}/api/sections`, {
                 headers: {
@@ -319,10 +311,20 @@ async function initializeTabs() {
                 }
             });
             const newData = await newResponse.json();
-            await insertTabsUI(newData.sections);
-        } else {
-            await insertTabsUI(data.sections);
+            data.sections = newData.sections; 
         }
+
+        // Check if URL has section parameter, if not add the first section
+        const urlParams = new URLSearchParams(window.location.search);
+        if (!urlParams.get('section')) {
+            const url = new URL(window.location);
+            url.searchParams.set('section', data.sections[0].id);
+            window.history.replaceState({}, '', url);
+            loadSectionContent(data.sections[0].id);
+        }
+
+        await insertTabsUI(data.sections);
+
     } catch (error) {
         console.error('Failed to load sections:', error);
     }
@@ -616,9 +618,17 @@ function positionScrollIndicator() {
         return;
     }
 
+    const resultCards = document.querySelectorAll('.result-card');
+
+    // Hide indicator if no bookmark cards are present
+    if (resultCards.length === 0) {
+        indicator.style.display = 'none';
+        indicator.style.opacity = '0';
+        return;
+    }
+
     const body = document.body;
     const html = document.documentElement;
-
     // Get the actual height of all content
     const documentHeight = Math.max(
         body.scrollHeight,
@@ -627,17 +637,17 @@ function positionScrollIndicator() {
         html.scrollHeight,
         html.offsetHeight
     );
-
     // Position it near the bottom of content
     indicator.style.position = 'absolute';
     indicator.style.top = (documentHeight + 1005) + 'px';
     indicator.style.left = '50%';
     indicator.style.transform = 'translateX(-50%)';
-    
+
     // Get active section
     const activeTab = document.querySelector('.tab.active');
     if (!activeTab) {
         indicator.style.display = 'none';
+        indicator.style.opacity = '0';
         return;
     }
     const sectionId = activeTab.dataset.tabId;
@@ -648,10 +658,10 @@ function positionScrollIndicator() {
         setTimeout(() => {
             indicator.style.display = 'flex';
             indicator.style.opacity = '1';
-
         }, 1000);
     } else {
         indicator.style.display = 'none';
+        indicator.style.opacity = '0';
     }
 }
 

@@ -539,6 +539,10 @@ const BIG_SUBS = [
     'pcmasterrace',
     'hydrohomies',
     'moviesinthemaking',
+    'instagram',
+    'squaredcircle',
+    'piercing',
+    'tinder',
     'musictheory'
 ]
 
