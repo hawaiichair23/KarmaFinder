@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <link rel="icon" type="image/ico" sizes="32x32" href="../assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32x32.png">
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -253,6 +253,19 @@ header a,
             display: block;
             border-radius: 24px;
             margin: 0;  /* Remove auto centering since container will be sized to video */
+        }
+
+        .product-hunt-container {
+            position: absolute;
+            top: 67px;
+            right: 110px;
+            z-index: 9999;
+            display: none;
+            align-items: center;
+        }
+
+        .product-hunt-container.visible {
+            display: flex;
         }
 
         /* Video Section */
@@ -882,7 +895,7 @@ header a,
 <div style="text-align: center;">
     <div class="link-container"
         style="display: flex; justify-content: center; align-items: center; position: relative; padding: 0.3rem 0;">
-        <a href="karmafinder.html" class="logo">KarmaFinder</a>
+        <a href="/" class="logo">KarmaFinder</a>
     </div>
 </div>
             <p class="hero-tagline">
@@ -957,7 +970,14 @@ header a,
                 </p>
             </div>
     </section>
-
+    <div class="product-hunt-container visible">
+        <a href="https://www.producthunt.com/products/karmafinder?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-karmafinder"
+            target="_blank"><img
+                src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1003431&theme=neutral&t=1754867587170"
+                alt="KarmaFinder - The&#0032;lightning&#0045;fast&#0032;Reddit&#0032;search&#0032;tool&#0046; | Product Hunt"
+                style="width: 250px; height: 54px;" width="250" height="54" /></a>
+    </div>
+    
 <section class="donation-section">
         <h2>Upgrade to KarmaFinder Premium ⭐</h2>
         <p>Unlock Premium to create an account and access exclusive features.</p>
@@ -984,7 +1004,7 @@ header a,
                     </div>
                 </div>
 
-                <button onclick="window.location.href='karmafinder.html'" class="subscribe-button free-button">Use Free</button>
+                <button onclick="window.location.href='/'" class="subscribe-button free-button">Use Free</button>
             </div>
 
             <div class="plan-card featured">

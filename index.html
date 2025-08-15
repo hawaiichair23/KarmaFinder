@@ -3,9 +3,9 @@
 
 <head>
     <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
-    <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="bookmarks.css">
-    <link rel="icon" type="image/ico" sizes="32x32" href="/assets/favicon-32x32.png">
+    <link rel="stylesheet" href="html/styles.css"/>
+    <link rel="stylesheet" href="html/bookmarks.css"/>
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
@@ -43,7 +43,7 @@
                 "--meta-text": "#606065",
                 "--placeholder-bg": "#f1f1f6",
                 "--footie-color": "#a1a1a1",
-                "--border-color": "rgb(210, 210, 218)",
+                "--border-color": "rgba(221, 221, 229, 1)",
                 "--border-dark": "rgb(121, 121, 121)",
                 "--shadow-light": "rgba(0, 0, 0, 0.1)",
                 "--shadow-card": "rgba(0, 0, 0, 0.25)",
@@ -332,11 +332,11 @@
     <div class="plan-display-container" tabindex="3">
         <div id="plan-display">Pro</div>
     </div>
+            
     <div class="container">
-        <header
-            style="display: flex; justify-content: center; align-items: center; position: relative; padding: 0.3rem 0;">
+        <header>
             <div style="text-align: center;">
-                <a href="karmafinder.html" class="link-container">
+                <a href="/" class="link-container">
                     <div class="logo">KarmaFinder</div>
                 </a>
                 <div class="tagline">Find exactly what you're looking for on Reddit 🔎</div>
@@ -482,12 +482,11 @@
         // SEVEN MINUTES. SEVEN MINUTES IS ALL I CAN SPARE TO PLAY WITH YOU.
         const CACHE_DURATION_MS = 7 * 60 * 1000;
 
-        // Configuration 
-        const IMAGE_PROXY_BASE = location.hostname === 'localhost'
+        // Configuration
+        const IMAGE_PROXY_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
             ? 'http://localhost:3000'
             : 'https://karmafinder.onrender.com';
-
-        const API_BASE = location.hostname === 'localhost'
+        const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
             ? 'http://localhost:3000'
             : 'https://karmafinder.site';
 
@@ -618,7 +617,7 @@
         // Load Blocklist 
         async function loadBlocklist() {
             try {
-                const response = await fetch('/blocklist.json');
+                const response = await fetch('html/blocklist.json');
                 const data = await response.json();
                 bannedSubreddits = data.bannedSubreddits;
             } catch (error) {
@@ -674,61 +673,65 @@
         //console.log('📥 DOMContentLoaded fired');
     });
         window.addEventListener('popstate', () => {
-                setTimeout(() => {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const isBookmarksPage = urlParams.get('page') === 'bookmarks';
+            setTimeout(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const isBookmarksPage = urlParams.get('page') === 'bookmarks';
 
-                    if (isBookmarksPage) {
-                        const sectionId = parseInt(urlParams.get('section') || '1', 10);
-                        //console.log('🔁 Restoring bookmarks page to section', sectionId);
-                        isLoading = false;
-                        //console.log("SECTION ID FROM MOOKBARK", sectionId)
-         
-                            loadSectionContent(sectionId, false, true); // Pass true for fromPopstate
+                if (isBookmarksPage) {
+                    const sectionId = parseInt(urlParams.get('section') || '1', 10);
+                    //console.log('🔁 Restoring bookmarks page to section', sectionId);
+                    isLoading = false;
+                    //console.log("SECTION ID FROM MOOKBARK", sectionId)
+        
+                        loadSectionContent(sectionId, false, true); // Pass true for fromPopstate
 
-                        initializeTabs();
-                        // Visually activate the corresponding tab
-                        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-                        const activeTab = document.querySelector(`.tab[data-tab-id="${sectionId}"]`);
-                        if (activeTab) {
-                            activeTab.classList.add('active');
-                        }
-
-                        return;
+                    initializeTabs();
+                    // Visually activate the corresponding tab
+                    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+                    const activeTab = document.querySelector(`.tab[data-tab-id="${sectionId}"]`);
+                    if (activeTab) {
+                        activeTab.classList.add('active');
                     }
 
-                    // ✅ This is the original behavior for search/home
-                    isPopstateEvent = true;
+                    return;
+                }
 
-                    applyFiltersToUI(getFiltersFromURL());
-                    restoreToggleStates();
-                    loadPaginationState('refresh');
+                // ✅ This is the original behavior for search/home
+                isPopstateEvent = true;
+                
+                // BTFO tabs
+                const tabsSection = document.querySelector('.tabs-section');
+                if (tabsSection) tabsSection.remove();
 
-                    const cachedPage = loadPageDataFromSession(currentPageIndex);
+                applyFiltersToUI(getFiltersFromURL());
+                restoreToggleStates();
+                loadPaginationState('refresh');
 
-                    if (cachedPage?.results?.length) {
-                        //console.log('🧭 Restoring page from popstate cache:', currentPageIndex);
+                const cachedPage = loadPageDataFromSession(currentPageIndex);
 
-                        currentAfter = cachedPage.after || null;
-                        currentBefore = cachedPage.before || null;
+                if (cachedPage?.results?.length) {
+                    //console.log('🧭 Restoring page from popstate cache:', currentPageIndex);
 
-                        if (typeof cachedPage.toggle1 === 'boolean') {
-                            document.getElementById('toggle1').checked = cachedPage.toggle1;
-                            document.getElementById('toggle2').checked = cachedPage.toggle2;
-                            toggleManager.updateSortDropdown();
-                        }
+                    currentAfter = cachedPage.after || null;
+                    currentBefore = cachedPage.before || null;
 
-                        displayResults(cachedPage.results);
-                        preloadBookmarks(window.stripeCustomerId);
-                        updatePagination();
-                        setTimeout(() => window.scrollTo(0, 0), 0);
-                    } else {
-                        handleSearchRequest(null, null, true, true);
+                    if (typeof cachedPage.toggle1 === 'boolean') {
+                        document.getElementById('toggle1').checked = cachedPage.toggle1;
+                        document.getElementById('toggle2').checked = cachedPage.toggle2;
+                        toggleManager.updateSortDropdown();
                     }
 
-                    isPopstateEvent = false;
-                }, 0);
-            });
+                    displayResults(cachedPage.results);
+                    preloadBookmarks(window.stripeCustomerId);
+                    updatePagination();
+                    setTimeout(() => window.scrollTo(0, 0), 0);
+                } else {
+                    handleSearchRequest(null, null, true, true);
+                }
+
+                isPopstateEvent = false;
+            }, 0);
+        });
 
 
 
@@ -1913,7 +1916,7 @@
                     // Prevent any change and redirect
                     e.preventDefault();
                     this.toggle1.checked = false;
-                    window.open('features.html', '_blank');
+                    window.open('html/features.html', '_blank');
                     return;
                 }
 
@@ -1935,7 +1938,7 @@
                     // Prevent any change and redirect
                     e.preventDefault();
                     this.toggle2.checked = true;
-                    window.open('features.html', '_blank');
+                    window.open('html/features.html', '_blank');
                     return;
                 }
 
@@ -2099,7 +2102,24 @@
             sessionStorage.setItem('isCompactActive', isCompactActive);
             sessionStorage.setItem('hasClickedOnce', hasClickedOnce);
         }
+    
+        function recalculateComfyDimensions(resultCard) {
+            const imgWrapper = resultCard.querySelector('.image-wrapper');
+            const resultImg = resultCard.querySelector('img.result-image');
 
+            if (imgWrapper && resultImg && imgWrapper.useSameSize && document.body.classList.contains('comfy-mode')) {
+                // Force a layout recalculation
+                resultImg.style.width = '';
+                resultImg.style.height = '';
+
+                // Wait for next frame to get accurate dimensions
+                requestAnimationFrame(() => {
+                    imgWrapper.comfyFirstWidth = resultImg.offsetWidth;
+                    imgWrapper.comfyFirstHeight = resultImg.offsetHeight;
+                });
+            }
+        }
+        
         comfyToggle.addEventListener('click', () => {
             if (isComfyActive) {
                 if (hasClickedOnce && !isCompactActive) return;
@@ -2113,15 +2133,17 @@
             }
             hasClickedOnce = true;
             document.body.classList.add('hasClickedOnce');
-
             if (isComfyActive) {
                 document.body.classList.add('comfy-mode');
+
+                // Recalculate dimensions for all gallery cards when switching to comfy mode
+                document.querySelectorAll('.result-card').forEach(card => {
+                    recalculateComfyDimensions(card);
+                });
             } else {
                 document.body.classList.remove('comfy-mode');
             }
-
             refreshInfiniteScrollLayout();
-
             saveStates();
         });
 
@@ -2146,49 +2168,7 @@
             // Wait for CSS layout to finish, then recalculate scroll indicator
             setTimeout(() => {
                 positionScrollIndicator();
-            }, 250); // Small delay to let CSS changes take effect
-        }
-
-        function positionScrollIndicator() {
-            const indicator = document.querySelector('.scroll-container-minimal');
-
-            const body = document.body;
-            const html = document.documentElement;
-
-            // Get the actual height of all content
-            const documentHeight = Math.max(
-                body.scrollHeight,
-                body.offsetHeight,
-                html.clientHeight,
-                html.scrollHeight,
-                html.offsetHeight
-            );
-
-            // Position it near the bottom of content
-            indicator.style.position = 'absolute';
-            indicator.style.top = (documentHeight + 1005) + 'px';
-            indicator.style.left = '50%';
-            indicator.style.transform = 'translateX(-50%)';
-
-            // Get active section
-            const activeTab = document.querySelector('.tab.active');
-            if (!activeTab) {
-                indicator.style.display = 'none';
-                return;
-            }
-            const sectionId = activeTab.dataset.tabId;
-
-            // Check section-specific hasMoreBookmarks
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('page') === 'bookmarks' && hasMoreBookmarks[sectionId]) {
-                setTimeout(() => {
-                    indicator.style.display = 'flex';
-                    indicator.style.opacity = '1';
-
-                }, 1000);
-            } else {
-                indicator.style.display = 'none';
-            }
+            }, 350); 
         }
 
         document.addEventListener('click', function (event) {
@@ -2866,19 +2846,13 @@
 
         function displaySuggestions(suggestions, suggestionsDiv) {
             // Fuck 'contrabassoon' in particular, that actually came up in the word completion api
-            const nsfwPattern = /(tits|titties|rape|raped|contrabassoon|fucking|fuck|fucker|fucked|breeder|tiddies|nudes|onlyfans|hentai|gonewild|boobs|cum|cock|shit|shits|shitted|shat|cocksucker|cocks|cunt|gape|gooning|gooner|goon|pussy|porn)/i;
 
-            // Filter out NSFW suggestions
-            const exceptions = /(peacock|woodcock|gamecock|cockpit|cocktail|cockroach|hancock|hitchcock|cucumber|circumference|document|accumulate|succumb|grape|drape|scrape|therapeutic)/i;
+            // GET THEE TO A NUNNERY
+            const nsfwPattern = /(contrabassoon|genitals|genital|fucking|fuck|fucker|tits|titties|fucked|tiddies|nudes|onlyfans|hentai|\brape\b|breeder|raped|gonewild|boobs|\bcum\b|\bcock\b|shit|shits|shitted|shat|cocksucker|cocks|cunt|gape|gooning|gooner|goon|pussy|porn)/i;
+
+            // Defend the virtuous words 
             const filteredSuggestions = suggestions.filter(suggestion => {
                 const query = typeof suggestion === 'string' ? suggestion : suggestion.query;
-
-                // If it matches an exception, keep it
-                if (exceptions.test(query)) {
-                    return true;
-                }
-
-                // Otherwise apply NSFW filter
                 return !nsfwPattern.test(query);
             });
 
@@ -3218,7 +3192,7 @@
             const hasQuery = filters.query && filters.query.trim() !== '';
             const hasSubreddit = filters.subreddit && filters.subreddit.trim() !== '';
 
-            // First, reset title and housekeeping before search
+            // First, housekeeping before search
             hideSpeechBubble();
             showRareLines();
 
@@ -3226,11 +3200,6 @@
             document.title = "KarmaFinder";
             document.querySelector('meta[name="description"]').content = "Find exactly what you're looking for on Reddit";
             document.querySelector('meta[property="og:title"]').content = "KarmaFinder";
-            // Remove the page parameter from URL
-            const url = new URL(window.location);
-            url.searchParams.delete('page');
-            url.searchParams.delete('section');
-            window.history.replaceState({}, '', url);
 
             // Enhanced search with query = vector search
             if (isEnhancedOn && hasQuery) {
@@ -3261,6 +3230,10 @@
         function handleSearchRequest(after = null, before = null, navigateBack = false, isInitialLoad = false) {
             if (isPopstateEvent) navigateBack = true;
 
+            // BTFO tabs
+            const tabsSection = document.querySelector('.tabs-section');
+            if (tabsSection) tabsSection.remove();
+        
             // Clean after/before tokens from URL when landing on first page
             if (currentPageIndex === 0) {
                 const params = new URLSearchParams(window.location.search);
@@ -3422,8 +3395,8 @@
 
 
     function performSearch(after = null, before = null, navigateBack = false, isInitialLoad = false) {
-        //console.log('🟢 performSearch() called with:', { after, before, navigateBack, isInitialLoad });
-        //console.log('🔍 Current Index:', currentPageIndex);
+        console.log('🟢 performSearch() called with:', { after, before, navigateBack, isInitialLoad });
+        console.log('🔍 Current Index:', currentPageIndex);
 
         // Handle back navigation with saved page state
         if (navigateBack || isPopstateEvent) {
@@ -3439,7 +3412,7 @@
         const contentType = currentFilters.contentType || 'all';
         const limit = 10;
 
-        // Clear tokens if we're on front page (page 0)
+        // Clear tokens if we're on front page 
         if (currentPageIndex === 0) {
             currentAfter = null;
             currentBefore = null;
@@ -3449,15 +3422,16 @@
 
         // Handle back navigation with saved page state
         if (navigateBack || isPopstateEvent) {
-            currentFilters = getFiltersFromURL();
             const cachedPage = loadPageDataFromSession(currentPageIndex);
 
             if (
                 cachedPage?.results?.length &&
                 cachedPage.query === currentFilters.query &&
-                cachedPage.subreddit === currentFilters.subreddit
+                (cachedPage.subreddit === currentFilters.subreddit ||
+                ((!cachedPage.subreddit || cachedPage.subreddit === "") &&
+                (!currentFilters.subreddit || currentFilters.subreddit === "all")))
             ) {
-                //console.log("🧭 Using cached page from session (back/forward)");
+                console.log("🧭 Using cached page from session (back/forward)");
 
                 currentAfter = cachedPage.after || null;
                 currentBefore = cachedPage.before || null;
@@ -3466,7 +3440,7 @@
                     currentPageIndex === 0 ? 'page_1' : currentAfter,
                     currentFilters
                 );
-                //console.log('🏷️ Token for this page (cached):', tokenForThisPage);
+                console.log('🏷️ Token for this page (cached):', tokenForThisPage);
 
                 displayResults(cachedPage.results);
                 preloadBookmarks(window.stripeCustomerId);
@@ -3481,6 +3455,10 @@
         if (!navigateBack) {
             currentAfter = after || currentAfter;
             currentBefore = before || currentBefore;
+        } else {
+            // For back navigation, use the tokens passed in
+            currentAfter = after || null;
+            currentBefore = before || null;
         }
 
         if (subreddit && subreddit !== 'all') {
@@ -3520,7 +3498,8 @@
                     const trimmedData = dbResult.data.children.map(trimRedditPostData);
                     const filtered = filterPostsByTime(trimmedData, currentFilters.time);
    
-                    saveAfterToken(currentFilters, currentPageIndex + 1, currentAfter);
+                    saveAfterToken(currentFilters, currentPageIndex, currentAfter);
+                    console.log('saved after token', currentAfter);
                     savePaginationState(filtered);
            
                     displayResults(filtered);
@@ -3548,7 +3527,7 @@
                             savePostsToDatabase(filtered.map(p => ({ data: p })), tokenForThisPage);
                         }
   
-                        saveAfterToken(currentFilters, currentPageIndex + 1, currentAfter);
+                        saveAfterToken(currentFilters, currentPageIndex, currentAfter);
                         savePaginationState(filtered);
 
                         displayResults(filtered);
@@ -3764,8 +3743,10 @@
                         if (imageUrl) {
                             const img = new Image();
                             const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
+                            img.onload = () => {
+                                preloadedImages[index] = img;
+                            };
                             img.src = proxyUrl;
-                            preloadedImages[index] = img;
                         }
                     }
                 };
@@ -3813,15 +3794,13 @@
                                     }, 500);
                                 };
 
+                                img.onload = () => {
+                                    preloadedImages[index] = img;
+                                };
                                 img.src = proxyUrl;
-                                preloadedImages[index] = img;
                             }
                         }
                     }
-                };
-
-                const updatePreloadStatus = () => {
-                    const readyCount = Object.values(preloadedImages).filter(img => img.complete).length;
                 };
 
                 const navigateGallery = (direction) => {
@@ -4030,7 +4009,7 @@
 
                 // Initialize counter
                 updateCounter();
-                preloadAllImages(currentIndex);
+                preloadAllImages();
             }
 
             const mediaId = galleryData[0]?.media_id;
@@ -4881,8 +4860,8 @@
             const visibleCards = Array.from(allCards).filter(card =>
                 window.getComputedStyle(card).display !== 'none'
             );
-
-            if (visibleCards.length === 0) {
+            const isBookmarksPage = urlParams.get('page') === 'bookmarks';
+            if (visibleCards.length === 0 && !isBookmarksPage) {
                 setTimeout(() => {
                     showError("No results found. Try different search terms or filters.");
                     noResultsMessage();
@@ -5715,7 +5694,7 @@
                 const useSameSize = imageWrapper.useSameSize;
 
                 // Add preloaded images storage for modal, share preloaded images from main gallery if available
-                const modalPreloadedImages = imageWrapper.preloadedImages || {};
+                const modalPreloadedImages = imageWrapper.preloadedImages;
 
                 let lastModalNavigationTime = 0;
                 const MODAL_THROTTLE_DELAY = 70;
@@ -5799,22 +5778,20 @@
 
                     // Check if we have a preloaded image
                     if (modalPreloadedImages[targetIndex] && modalPreloadedImages[targetIndex].complete) {
-                        // Force decode the preloaded image before using it
                         modalPreloadedImages[targetIndex].decode().then(() => {
                             newImg.src = modalPreloadedImages[targetIndex].src;
                             performImageSwapAndAnimate();
                         }).catch(() => {
-                            // Fallback if decode fails
-                            const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
-                            newImg.onload = () => performImageSwapAndAnimate();
-                            newImg.src = proxyUrl;
+                            //console.error(`❌ Failed to decode preloaded image ${targetIndex + 1}`);
+                            return;
                         });
                     } else {
+                        // Single fallback: load on-demand
                         const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
                         newImg.onload = () => performImageSwapAndAnimate();
                         newImg.onerror = () => {
-                            console.error(`❌ Failed to load modal image ${targetIndex + 1}`);
-                            performImageSwapAndAnimate();
+                            console.error(`❌ Failed to load image ${targetIndex + 1}`);
+                            return;
                         };
                         newImg.src = proxyUrl;
                     }
@@ -6653,20 +6630,19 @@
                 prevButton.textContent = '← Previous';
                 prevButton.addEventListener('click', () => {
                     const prevPageData = loadPageDataFromSession(currentPageIndex - 1);
-
+                    console.log('Page  cached data:', prevPageData);
+                    console.log('Page  after token should be:', prevPageData?.after);
                     if (prevPageData) {
                         currentPageIndex--;
                         currentAfter = prevPageData.after || null;
                         currentBefore = prevPageData.before || null;
-
-                        handleSearchRequest(prevPageData.results, false, true); // args: results, navigateBack, isPopstate
+                        handleSearchRequest(prevPageData.after, prevPageData.before, true, false);
                     } else {
                         console.warn('No session data found for previous page');
                     }
                 });
                 paginationContainer.appendChild(prevButton);
             }
-
 
             // → Next button
             if (visibleCards.length >= 10 && currentAfter) {
@@ -7004,7 +6980,7 @@
                         updateLoginButton();
                         updateThemeToggleVisibility();
                         updatePlanDisplay();
-                        window.location.href = 'karmafinder.html';
+                        window.location.href = '/';
                     }
                 });
         }
@@ -7038,13 +7014,13 @@
                         applyTheme('default')
                         updateLoginButton();
                         // Always redirect to main page on logout
-                        window.location.href = 'karmafinder.html';
+                        window.location.href = '/';
                     }
                 };
             } else {
                 btnText.textContent = 'Log In';
                 btn.onclick = () => {
-                    window.location.href = 'login.html';
+                    window.location.href = 'html/login.html';
                 };
             }
             updateThemeToggleVisibility();
@@ -7086,7 +7062,7 @@
                     const urlParams = new URLSearchParams(window.location.search);
                     const redirect = urlParams.get('redirect');
                     if (redirect === 'bookmarks') {
-                        window.location.href = 'karmafinder.html?page=bookmarks';
+                        window.location.href = '/?page=bookmarks';
                         return;
                     }
                     window.history.replaceState({}, document.title, window.location.pathname);
@@ -7102,15 +7078,15 @@
         document.querySelector('.bookmark-link').addEventListener('click', function (e) {
             if (!isLoggedIn) {
                 e.preventDefault();
-                window.location.href = 'login.html?redirect=bookmarks';
+                window.location.href = 'html/login.html?redirect=bookmarks';
             }
         });
 
         document.getElementById('getPremiumContainer').onclick = () => {
             if (isLoggedIn) {
-                window.open('karmafinder.html', '_blank');
+                window.open('/', '_blank');
             } else {
-                window.open('features.html', '_blank');
+                window.open('html/features.html', '_blank');
             }
         };
 
@@ -7459,7 +7435,6 @@
         if (isPopstateEvent) return;
             const urlParams = new URLSearchParams(window.location.search);
             const isBookmarksPage = urlParams.get('page') === 'bookmarks';
-            if (isBookmarksPage) return;
 
             const subredditTyped = document.getElementById('subreddit-input').value.trim();
             const chipVisible = subredditChipContainer.style.display === 'flex';
@@ -7885,7 +7860,7 @@
     </script>
 
     <script>
-        fetch('words.json')
+        fetch('html/words.json')
             .then(res => res.json())
             .then(words => {
                 window.englishWords = words;
@@ -7897,7 +7872,7 @@
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2/dist/fuse.min.js"></script>
-    <script src="bookmarks.js"></script>
+    <script src="html/bookmarks.js"></script>
 
     <div class="hermes-context-menu" id="hermesContextMenu">
         <div class="hermes-context-menu-item" id="muteHermes">

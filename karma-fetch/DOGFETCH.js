@@ -12,11 +12,10 @@ const cors = require('cors');
 const fetch = require('node-fetch');
 const path = require('path');
 const os = require('os');
-const { Server } = require('socket.io');
 const app = express();
 
-// Serve static frontend files from html folder
-app.use(express.static(path.join(__dirname, '../html')));
+// Serve static frontend files from html folder 
+app.use(express.static(path.join(__dirname, '../')));
 
 // Serve assets
 app.use('/assets', express.static(path.join(__dirname, '../assets')));
@@ -26,7 +25,7 @@ app.use('/temp', express.static(path.join(__dirname, 'temp')));
 
 // Serve index.html for homepage
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../html/karmafinder.html'));
+    res.sendFile(path.join(__dirname, '../index.html'));
 });
 
 const { execSync } = require('child_process');
@@ -225,8 +224,8 @@ app.use((req, res, next) => {
 
 app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    origin: ['https://karmafinder.site', 'https://www.karmafinder.site'],
-    credentials: true,
+    origin: '*', 
+    credentials: false,  
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -1021,7 +1020,7 @@ app.get('/search', async (req, res) => {
         const redditData = await response.json();
 
         // Read the HTML file and modify it
-        let html = fs.readFileSync(path.join(__dirname, '../html/karmafinder.html'), 'utf8');
+        let html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 
         // Serve the assets folder for images
         app.use('/assets', express.static(path.join(__dirname, '../assets')));
@@ -1458,9 +1457,18 @@ app.get('/api/top-searches', async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT query, subreddit, score
-            FROM search_suggestions 
-            ORDER BY score DESC 
-            LIMIT 6
+        FROM (
+            SELECT *,
+                ROW_NUMBER() OVER (
+                    PARTITION BY query
+                    ORDER BY score DESC
+                ) AS rn
+            FROM search_suggestions
+        ) t
+        WHERE rn = 1
+        ORDER BY score DESC
+        LIMIT 6;
+
         `);
         res.json(result.rows);
     } catch (error) {
@@ -2393,7 +2401,7 @@ app.post('/api/auth/magic-link', async (req, res) => {
         console.log('Token saved to database');
 
         // Build magic link URL with optional redirect
-        let magicLinkUrl = `https://karmafinder.site/karmafinder.html?token=${token}`;
+        let magicLinkUrl = `https://karmafinder.site/?token=${token}`;
         if (redirect) {
             magicLinkUrl += `&redirect=${redirect}`;
         }
@@ -2704,8 +2712,7 @@ app.post('/api/auto-login-after-payment', async (req, res) => {
                     html: `
        <h2>${greeting}</h2>
        <p>Thanks for supporting KarmaFinder! You now have access to Enhanced Search, unlimited bookmarks, and themes.</p>
-       <p><a href="${req.headers.origin}/html/karmafinder.html">Start searching</a></p>
-       <p>Questions? Just reply to this email.</p>
+       <p><a href="${req.headers.origin}/">Start searching</a></p>
    `
                 });
 
@@ -2794,7 +2801,7 @@ app.post('/api/create-checkout', async (req, res) => {
                 if (customer.data.length > 0) {
                     const session = await stripe.billingPortal.sessions.create({
                         customer: customer.data[0].id,
-                        return_url: `${req.headers.origin}/karmafinder.html`,
+                        return_url: `${req.headers.origin}/`,
                     });
 
                     return res.json({ url: session.url, isPortal: true });
@@ -2809,8 +2816,8 @@ app.post('/api/create-checkout', async (req, res) => {
                 quantity: 1,
             }],
             mode: 'subscription',
-            success_url: `${req.headers.origin}/karmafinder.html?success=true&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${req.headers.origin}/karmafinder.html`,
+            success_url: `${req.headers.origin}/?success=true&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${req.headers.origin}/`,
         };
         const session = await stripe.checkout.sessions.create(sessionData);
         res.json({ url: session.url });
@@ -2842,7 +2849,7 @@ app.post('/api/create-checkout-pro', async (req, res) => {
                 if (customer.data.length > 0) {
                     const session = await stripe.billingPortal.sessions.create({
                         customer: customer.data[0].id,
-                        return_url: `${req.headers.origin}/karmafinder.html`,
+                        return_url: `${req.headers.origin}/`,
                     });
 
                     return res.json({ url: session.url, isPortal: true });
@@ -2857,8 +2864,8 @@ app.post('/api/create-checkout-pro', async (req, res) => {
                 quantity: 1,
             }],
             mode: 'subscription',
-            success_url: `${req.headers.origin}/karmafinder.html?success=true&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${req.headers.origin}/karmafinder.html`,
+            success_url: `${req.headers.origin}/?success=true&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${req.headers.origin}/`,
         };
         const session = await stripe.checkout.sessions.create(sessionData);
         res.json({ url: session.url });

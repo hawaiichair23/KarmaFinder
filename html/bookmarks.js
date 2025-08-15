@@ -97,8 +97,8 @@ function handleBookmarksPI(bookmarkCount) {
         "How goes it.",
         "It's a rainy Tuesday.",
         "Keeping tabs, I see.",
-        "Books Marked.",
-        "We could have called it the Dog Ears. Instead, it's called Bookmarks. That wasn't political or anything."
+        "Books Marked."
+        //"We could have called it the Dog Ears. Instead, it's called Bookmarks. That wasn't political or anything."
     ];
 
     if (bookmarkCount < 20) {
@@ -1391,7 +1391,6 @@ function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false)
 
                 displayResults(transformedData, isLoadMore);
 
-                // In loadSectionContent, right after the successful pushState:
                 if (!isLoadMore && !fromPopstate) {
                     const url = new URL(window.location);
                     url.searchParams.set('section', sectionId);

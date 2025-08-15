@@ -26,7 +26,7 @@
     --footie-color: #a1a1a1;
 
     /* Border & Shadow */
-    --border-color: rgb(198, 198, 202);
+    --border-color: rgba(221, 221, 229, 1);
     --border-dark: #6b6b6b;
     --shadow-light: rgba(0, 0, 0, 0.1);
     --shadow-card: rgba(0, 0, 0, 0.25);
@@ -2501,8 +2501,6 @@ body.dark-mode .login-link:hover {
     background-color: var(--hover-bg-lite);
 }
 
-
-/* Or if you want a more custom disabled look */
 select:disabled {
     color: #dcae3b;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
