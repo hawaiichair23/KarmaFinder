@@ -27,9 +27,9 @@
 
 ### **Imports**
 
-- Connect to Reddit via OAuth in one click
+- Import Reddit saves instantly using OAuth single click login
 - See number of unique posts
-- Import saves in order to any section
+- Saves populate in order to any section
 
 <img width="1919" height="828" alt="pic3" src="https://github.com/user-attachments/assets/eb81edd1-35b7-4fd1-93e8-af0fbfe3a20f" />
 
@@ -38,7 +38,6 @@
 - Move any post with dropdown menu
 - Organize posts inside custom sections with drag-and-drop
 - Choose emoji, rename, and delete sections
-- Import Reddit saves instantly using OAuth single click login
 - Generate public links to share curated bookmark collections with anyone, no login required
 
 <img width="1918" height="849" alt="pic8" src="https://github.com/user-attachments/assets/b27b2f3f-8ad5-4ef1-8fd6-a554df0a2479" />
