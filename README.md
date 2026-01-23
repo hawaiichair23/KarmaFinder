@@ -44,6 +44,7 @@
 - Dynamic search suggestions with automatic spell check <br>
     
 
+
 <img width="1916" height="873" alt="pic7" src="https://github.com/user-attachments/assets/48c1b936-957f-466a-8748-dfcb8fc0f1e8" />
 
 ### **Media**
