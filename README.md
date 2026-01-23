@@ -3,7 +3,7 @@
 
 # **KarmaFinder**
 
-**A fast & responsive browser-based Reddit client** with natural language semantic search, bookmark features, themes and more.
+**A fast & responsive browser-based Reddit client** with semantic search, bookmark features, advanced filters, themes and more.
 
 **Live Site:** https://karmafinder.site/
 
