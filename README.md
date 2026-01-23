@@ -12,7 +12,6 @@
 <img width="1911" height="872" alt="pic3" src="https://github.com/user-attachments/assets/2aaba838-7609-4a0f-9fe0-65fcce11a891" />
 
 <img width="1918" height="881" alt="pic4" src="https://github.com/user-attachments/assets/7e4aaf62-16c5-412f-9e28-4398341c6854" />
-<img width="1918" height="879" alt="pic5" src="https://github.com/user-attachments/assets/5357942b-8d08-49a6-8c18-292c89b7e214" />
 <img width="1914" height="890" alt="pic6" src="https://github.com/user-attachments/assets/71d50492-da63-4244-8acf-2bc6de0292a2" />
 
 **Demo Video:** https://karmafinder.site/html/features.html
@@ -22,11 +21,15 @@
 - Passwordless magic link login, optional
 - NSFW filter with pattern detection
 
+<img width="1918" height="879" alt="pic5" src="https://github.com/user-attachments/assets/5357942b-8d08-49a6-8c18-292c89b7e214" />
+
 **Bookmarks**
 
-- Organize posts into custom sections with drag-and-drop
-- Import Reddit saves directly
-- Share collections with anyone
+- Organize posts inside custom sections with drag-and-drop
+- Choose emoji and rename tabs
+- Choose a tab for each post with a dropdown
+- Import Reddit saves instantly using OAuth single click login
+- Generate public links to share curated bookmark collections with anyone, no login required
 
 **Search**
 
