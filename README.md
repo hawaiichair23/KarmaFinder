@@ -14,8 +14,8 @@
 
 ### **Features**
 - Batch rendering for performance, caching for quick responses, minimal API load
-- Passwordless magic link login, optional
-- NSFW filter with pattern detection
+- Passwordless magic link login (login optional)
+- NSFW blur filter with pattern detection
 
 <img width="1921" height="877" alt="pic1" src="https://github.com/user-attachments/assets/ce3fb592-ef48-4221-9407-c72db4f96f16" />
 
@@ -67,3 +67,8 @@
 - Configurable layouts: Comfy and Compact modes for different card sizes
 - Top 8 comments on every post without clicking through
 - Hermes - animated kittie mascot with 100+ unique contextual responses <img width="24" height="25" alt="KarmaFinder logo" src="https://github.com/user-attachments/assets/2650bd36-1834-4b96-96bb-851e9536a6e2" />
+
+### **Misc Features**
+- Batch rendering for performance, caching for quick responses, minimal API load
+- Passwordless magic link login (login optional)
+- NSFW blur filter with pattern detection
