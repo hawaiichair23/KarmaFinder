@@ -58,6 +58,8 @@
 - YouTube and Streamable embeds 
 - Modal viewer with zoom and smooth gallery navigation with preloading & decoding for seamless transitions
 - Markdown and image support in comments
+  
+<img width="1712" height="853" alt="pic9" src="https://github.com/user-attachments/assets/413c7ae7-d2ed-4566-8940-7254898e2472" />
 
 ### **UI**
 
