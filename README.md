@@ -72,3 +72,14 @@
 - Batch rendering for performance, caching for quick responses, minimal API load
 - Passwordless magic link login (login optional)
 - NSFW blur filter with pattern detection
+
+# **Install**
+## Local Installation
+```bash
+git clone https://github.com/yourusername/karmafinder.git
+cd karmafinder
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
