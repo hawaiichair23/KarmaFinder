@@ -1,39 +1,52 @@
 
 <img width="1900" height="823" alt="pic2" src="https://github.com/user-attachments/assets/b2a64bf4-2732-4495-97e7-6678a8b25f36" />
 
-KarmaFinder
+##**KarmaFinder**
 
-A fast & responsive browser-based Reddit client with natural language semantic search, bookmark features, themes and more.
+**A fast & responsive browser-based Reddit client** with natural language semantic search, bookmark features, themes and more.
 
 <img width="1921" height="877" alt="pic1" src="https://github.com/user-attachments/assets/ce3fb592-ef48-4221-9407-c72db4f96f16" />
+
+**Section analytics and metadata** - Track creation date, bookmark count, top subreddit, last modified, with custom descriptions for organizing collections
+
 <img width="1911" height="872" alt="pic3" src="https://github.com/user-attachments/assets/2aaba838-7609-4a0f-9fe0-65fcce11a891" />
+
 <img width="1918" height="881" alt="pic4" src="https://github.com/user-attachments/assets/7e4aaf62-16c5-412f-9e28-4398341c6854" />
 <img width="1918" height="879" alt="pic5" src="https://github.com/user-attachments/assets/5357942b-8d08-49a6-8c18-292c89b7e214" />
 <img width="1914" height="890" alt="pic6" src="https://github.com/user-attachments/assets/71d50492-da63-4244-8acf-2bc6de0292a2" />
 
-Demo Video: https://karmafinder.site/html/features.html
+**Demo Video:** https://karmafinder.site/html/features.html
 
-Bookmarks
+**Features**
+- Batch rendering for performance, caching for quick responses, minimal API load
+- Passwordless magic link login, optional
+- NSFW filter with pattern detection
+
+**Bookmarks**
 
 - Organize posts into custom sections with drag-and-drop
 - Import Reddit saves directly
 - Share collections with anyone
 
-Search
+**Search**
 
-- Vector search using Pinecone - semantic results beyond exact keyword matching
+- Natural language semantic search with vector embeddings using Pinecone with query matching and algorithmic ranking
 - Filter by content type (video/image/text/links)
 - Combine filters Reddit doesn't allow (hot + past week, etc.)
 - Search suggestions from dictionary, word completion API, and user input
+- Dynamic search suggestions with automatic spell check
 
-Media
+**Media**
 
 - Plyr.io player for smooth playback
 - YouTube and Streamable embeds
 - Reddit videos: ffmpeg merges audio/video streams and caches on CDN
-- Modal viewer with zoom and gallery navigation
+- Reddit gallery images support
+- Image preloading and decoding
+- Modal viewer with zoom and gallery navigation, smooth gallery navigation with transitions
+- Markdown and image support in comments
 
-UI
+**UI**
 
 - Multiple themes (Forest, Bluebird, dark, light)
 - Smooth animations throughout
