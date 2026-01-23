@@ -1,7 +1,7 @@
 
 <img width="1900" height="823" alt="pic2" src="https://github.com/user-attachments/assets/b2a64bf4-2732-4495-97e7-6678a8b25f36" />
 
-##KarmaFinder
+**KarmaFinder**
 
 **A fast & responsive browser-based Reddit client** with natural language semantic search, bookmark features, themes and more.
 
