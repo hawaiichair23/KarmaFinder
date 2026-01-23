@@ -1,5 +1,5 @@
 
-<img width="1918" height="885" alt="pic2" src="https://github.com/user-attachments/assets/a1529e33-ccb6-4c5a-9b90-593185529342" />
+<img width="1900" height="823" alt="pic2" src="https://github.com/user-attachments/assets/b2a64bf4-2732-4495-97e7-6678a8b25f36" />
 
 KarmaFinder
 
