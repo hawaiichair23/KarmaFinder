@@ -5,6 +5,8 @@
 <img width="1918" height="879" alt="pic5" src="https://github.com/user-attachments/assets/5357942b-8d08-49a6-8c18-292c89b7e214" />
 <img width="1914" height="890" alt="pic6" src="https://github.com/user-attachments/assets/71d50492-da63-4244-8acf-2bc6de0292a2" />
 
+Demo Video: https://karmafinder.site/html/features.html
+
 Bookmarks
 
 - Organize posts into custom sections with drag-and-drop
