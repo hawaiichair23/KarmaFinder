@@ -17,7 +17,7 @@
 
 <img width="1921" height="877" alt="pic1" src="https://github.com/user-attachments/assets/ce3fb592-ef48-4221-9407-c72db4f96f16" />
 
-###**Section analytics and metadata** 
+### **Section analytics and metadata** 
 - Track creation date, bookmark count, top subreddit, last modified, with custom descriptions for organizing collections
 - Share info via copy link or over social media
 
@@ -43,6 +43,13 @@
 - Search suggestions from dictionary, word completion API, and user input
 - Dynamic search suggestions with automatic spell check <br>
     
+
+
+
+
+
+
+
 
 
 <img width="1916" height="873" alt="pic7" src="https://github.com/user-attachments/assets/48c1b936-957f-466a-8748-dfcb8fc0f1e8" />
