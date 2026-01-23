@@ -12,7 +12,6 @@
 <img width="1911" height="872" alt="pic3" src="https://github.com/user-attachments/assets/2aaba838-7609-4a0f-9fe0-65fcce11a891" />
 
 <img width="1918" height="881" alt="pic4" src="https://github.com/user-attachments/assets/7e4aaf62-16c5-412f-9e28-4398341c6854" />
-<img width="1914" height="890" alt="pic6" src="https://github.com/user-attachments/assets/71d50492-da63-4244-8acf-2bc6de0292a2" />
 
 **Demo Video:** https://karmafinder.site/html/features.html
 
@@ -25,29 +24,29 @@
 
 **Bookmarks**
 
+- Move any post with dropdown menu
 - Organize posts inside custom sections with drag-and-drop
-- Choose emoji and rename tabs
-- Choose a tab for each post with a dropdown
+- Choose emoji and rename, delete, share tabs
 - Import Reddit saves instantly using OAuth single click login
 - Generate public links to share curated bookmark collections with anyone, no login required
 
 **Search**
 
-- Natural language semantic search with vector embeddings using Pinecone with query matching and algorithmic ranking
+- Enhanced Search: semantic search with vector embeddings using Pinecone, query matching and algorithmic ranking
 - Filter by content type (video/image/text/links)
 - Combine filters Reddit doesn't allow (hot + past week, etc.)
 - Search suggestions from dictionary, word completion API, and user input
 - Dynamic search suggestions with automatic spell check
 
+<img width="1916" height="873" alt="pic7" src="https://github.com/user-attachments/assets/48c1b936-957f-466a-8748-dfcb8fc0f1e8" />
+
 **Media**
 
 - Plyr.io player for smooth playback
 - YouTube and Streamable embeds
-- Reddit videos: ffmpeg merges audio/video streams and caches on CDN
-- Reddit gallery images support
-- Image preloading and decoding
-- Modal viewer with zoom and gallery navigation, smooth gallery navigation with transitions
-- Markdown and image support in comments
+- Reddit videos: ffmpeg merges audio/video streams and caches on local CDN
+- Modal viewer with zoom and gallery navigation, smooth gallery navigation with preloading & decoding for seamless transitions
+- Markdown and injection-safe image support in comments
 
 **UI**
 
