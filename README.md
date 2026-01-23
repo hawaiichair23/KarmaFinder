@@ -25,10 +25,11 @@
 
 ### **Imports**
 
-- Connect to Reddit via OAuth
-- See number of unique posts, choose which section to import to
+- Connect to Reddit via OAuth in one click
+- See number of unique posts
+- Import saves in order to any section
 
-<img width="1830" height="685" alt="pic3" src="https://github.com/user-attachments/assets/4b8142d9-f443-4291-8e0e-8b46f2feaf99" />
+<img width="1919" height="828" alt="pic3" src="https://github.com/user-attachments/assets/eb81edd1-35b7-4fd1-93e8-af0fbfe3a20f" />
 
 ### **Bookmarks**
 
