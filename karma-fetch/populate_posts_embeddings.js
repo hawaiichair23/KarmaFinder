@@ -1,23 +1,18 @@
 require('dotenv').config();
 const axios = require('axios');
-const { QdrantClient } = require('@qdrant/js-client-rest');
 let redditTokenExpiry = 0;
 
-const qdrant = new QdrantClient({
-    url: process.env.QDRANT_URL,
-    apiKey: process.env.QDRANT_API_KEY
+const { Pinecone } = require('@pinecone-database/pinecone');
+const pc = new Pinecone({
+    apiKey: process.env.PINECONE_API_KEY
 });
- 
-let totalPointsInserted = 355780;
 
-// Later: consider going up to 1200 for the biggest subs? that'd add 300 to current ones
+let totalPointsInserted = 311118;
 
 const BIG_SUBS = [
- 
 ]
 
 const MEDIUM_SUBS = [
-
 ]
 
 // Reddit OAuth token
@@ -35,7 +30,7 @@ async function getRedditToken() {
             headers: {
                 'Authorization': `Basic ${basicAuth}`,
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'User-Agent': process.env.REDDIT_USER_AGENT_1
+                'User-Agent': process.env.REDDIT_USER_AGENT_2
             },
             body: 'grant_type=client_credentials'
         });
@@ -56,36 +51,34 @@ async function getRedditToken() {
     }
 }
 
-async function createCollection() {
+async function createIndex() {
     try {
-        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'api-key': process.env.QDRANT_API_KEY
-            },
-            body: JSON.stringify({
-                vectors: {
-                    size: 768,
-                    distance: "Cosine"
-                }
-            })
-        });
-
-        if (response.ok) {
-            console.log("Created reddit_posts collection");
-        } else {
-            console.log("ℹCollection already exists or error:", await response.text());
+        const indexList = await pc.listIndexes();
+        if (indexList.indexes.some(index => index.name === 'reddit-posts')) {
+            return;
         }
+
+        await pc.createIndex({
+            name: 'reddit-posts',
+            dimension: 384,
+            metric: 'cosine',
+            spec: {
+                serverless: {
+                    cloud: 'aws',
+                    region: 'us-east-1'
+                }
+            }
+        });
+        console.log("Created reddit-posts index");
     } catch (error) {
-        console.error('Error creating collection:', error.message);
+        console.log("Error with index:", error.message);
     }
 }
-
 let apiRequestCount = 0;
 
+// Current Setting: Top 100
 async function fetchRedditPosts(subreddit, limit = 100, after = null) {
-    const url = `https://oauth.reddit.com/r/${subreddit}/hot`;
+    const url = `https://oauth.reddit.com/r/${subreddit}/top`;
     const params = {
         limit
     };
@@ -96,7 +89,7 @@ async function fetchRedditPosts(subreddit, limit = 100, after = null) {
             params,
             headers: {
                 'Authorization': `Bearer ${redditToken}`,
-                'User-Agent': process.env.REDDIT_USER_AGENT_1
+                'User-Agent': process.env.REDDIT_USER_AGENT_2
             }
         });
         apiRequestCount++;
@@ -152,56 +145,43 @@ async function getEmbeddings(texts) {
 
 async function insertBatch(posts) {
     try {
-        const points = posts.map((post) => ({
-            id: totalPointsInserted++,
-            vector: post.embedding,
-            payload: {
+        const index = pc.index('reddit-posts');
+
+        const vectors = posts.map((post) => ({
+            id: post.reddit_post_id,  
+            values: post.embedding,
+            metadata: {
                 reddit_post_id: post.reddit_post_id,
-                title: post.title,
-                url: post.url,
-                permalink: post.permalink,
+                title: post.title || '',
+                url: post.url || '',
+                permalink: post.permalink || '',
                 subreddit: post.subreddit,
-                score: post.score,
-                is_video: post.is_video,
-                domain: post.domain,
-                author: post.author,
-                created_utc: post.created_utc,
-                num_comments: post.num_comments,
-                over_18: post.over_18,
-                selftext: post.selftext,
-                body: post.body,
-                is_gallery: post.is_gallery,
-                gallery_data: post.gallery_data,
-                media_metadata: post.media_metadata,
-                crosspost_parent_list: post.crosspost_parent_list,
-                content_type: post.content_type,
-                locked: post.locked,
-                stickied: post.stickied,
-                preview: post.preview,
-                indexed_at: post.indexed_at
+                score: post.score || 0,
+                is_video: post.is_video || false,
+                domain: post.domain || '',
+                author: post.author || '',
+                created_utc: post.created_utc || 0,
+                num_comments: post.num_comments || 0,
+                over_18: post.over_18 || false,
+                preview: post.preview ? JSON.stringify(post.preview) : '',
+                selftext: post.selftext || '',
+                body: post.body || '',
+                is_gallery: post.is_gallery || false,
+                gallery_data: post.gallery_data ? JSON.stringify(post.gallery_data) : '',
+                media_metadata: post.media_metadata ? JSON.stringify(post.media_metadata) : '',
+                crosspost_parent_list: post.crosspost_parent_list ? JSON.stringify(post.crosspost_parent_list) : '',
+                content_type: post.content_type || '',
+                locked: post.locked || false,
+                stickied: post.stickied || false,
+                indexed_at: post.indexed_at || ''
             }
         }));
 
-        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts/points`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'api-key': process.env.QDRANT_API_KEY
-            },
-            body: JSON.stringify({
-                points: points
-            })
-        });
-
-        if (response.ok) {
-            console.log(`Inserted ${posts.length} posts to Qdrant`);
-            return true;
-        } else {
-            console.error('Qdrant insert failed:', await response.text());
-            return false;
-        }
+        await index.upsert(vectors);
+        console.log(`Inserted ${posts.length} posts to Pinecone`);
+        return true;
     } catch (error) {
-        console.error('Qdrant insert error:', error.message);
+        console.error('Pinecone insert error:', error.message);
         return false;
     }
 }
@@ -249,16 +229,16 @@ async function main() {
     console.log(`Starting point IDs from: ${totalPointsInserted}`);
 
     await getRedditToken();
-    await createCollection();
+    await createIndex();
 
-    console.log('\n Starting subreddits crawl (300 posts each)');
+    console.log('\n Starting subreddits crawl (400 posts each, hot posts)');
     for (const sub of BIG_SUBS) {
-        await processSubreddit(sub, 300);
+        await processSubreddit(sub, 400);
     }
 
-    console.log('\n Processing additional MEDIUM_SUBS (100 posts each)');
+    console.log('\n Processing additional MEDIUM_SUBS (90 posts each, hot posts)');
     for (const sub of MEDIUM_SUBS) {
-        await processSubreddit(sub, 100);
+        await processSubreddit(sub, 50);
     }
 
     console.log('\n Complete!');

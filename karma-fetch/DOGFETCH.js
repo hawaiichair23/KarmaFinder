@@ -14,6 +14,15 @@ const path = require('path');
 const os = require('os');
 const app = express();
 
+const API_BASE = 'http://localhost:3000';
+
+app.use(cors({
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: '*',
+    credentials: false,
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 // Serve static frontend files from html folder 
 app.use(express.static(path.join(__dirname, '../')));
 
@@ -25,6 +34,10 @@ app.use('/temp', express.static(path.join(__dirname, 'temp')));
 
 // Serve index.html for homepage
 app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../index.html'));
+});
+
+app.get('/share/:shareCode', (req, res) => {
     res.sendFile(path.join(__dirname, '../index.html'));
 });
 
@@ -47,6 +60,37 @@ redisClient.on('connect', () => {
 
 // Connect to Redis
 redisClient.connect();
+
+// RedGifs token management
+let redgifsToken = null;
+let redgifsTokenExpiry = 0;
+
+async function getRedGifsToken() {
+    // Check if we have a valid token
+    if (redgifsToken && Date.now() < redgifsTokenExpiry) {
+        return redgifsToken;
+    }
+
+    try {
+        console.log('🔑 Fetching new RedGifs token...');
+        const response = await fetch('https://api.redgifs.com/v2/auth/temporary');
+        const data = await response.json();
+
+        if (data.token) {
+            redgifsToken = data.token;
+            // Token expires in 24 hours, refresh after 23 hours to be safe
+            redgifsTokenExpiry = Date.now() + (23 * 60 * 60 * 1000);
+            console.log('✅ Got RedGifs token:', redgifsToken.slice(0, 16) + '...');
+            return redgifsToken;
+        } else {
+            console.error('❌ Failed to get RedGifs token:', data);
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ RedGifs token fetch error:', error.message);
+        return null;
+    }
+}
 
 // Redis helper functions for progressive search caching
 function buildRedisKey(subreddit, sort, query, time, contentType, afterToken, postId = null) {
@@ -182,12 +226,6 @@ function getNextClient() {
 let emergencyMode = process.env.EMERGENCY_MODE === 'true';
 let fallbackMode = process.env.REDDIT_FALLBACK_MODE || 'oauth';
 
-function activateEmergency(mode = 'json') {
-    emergencyMode = true;
-    fallbackMode = mode;
-    console.log('🚨 EMERGENCY ACTIVATED - Switching to:', mode);
-}
-
 function requireAdmin(req, res, next) {
     const adminKey = req.headers['x-admin-key'] || req.query.admin;
     if (adminKey !== process.env.ADMIN_SECRET) {
@@ -221,13 +259,6 @@ app.use((req, res, next) => {
 
     next();
 });
-
-app.use(cors({
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    origin: '*', 
-    credentials: false,  
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
 
 // Stripe webhook
 app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -403,39 +434,59 @@ async function getOGImage(url) {
 async function getRedditAppToken() {
     if (emergencyMode) {
         console.log('⚠️ Emergency mode active, skipping OAuth');
-        return null; // Skip getting tokens
+        return null;
     }
 
     const client = getNextClient();
 
-    // Check if this client already has a valid token
     if (client.accessToken && Date.now() < client.tokenExpiry) {
         return client.accessToken;
     }
 
-    // Get new token for this client
     const basicAuth = Buffer.from(`${client.clientId}:${client.clientSecret}`).toString('base64');
 
-    const res = await fetch('https://www.reddit.com/api/v1/access_token', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Basic ${basicAuth}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': client.userAgent
-        },
-        body: 'grant_type=client_credentials'
-    });
+    try {
+        const res = await fetch('https://www.reddit.com/api/v1/access_token', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${basicAuth}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': client.userAgent
+            },
+            body: 'grant_type=client_credentials'
+        });
 
-    const data = await res.json();
+        const data = await res.json();
 
-    if (data.access_token) {
-        client.accessToken = data.access_token;
-        client.tokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
-        console.log("🔐 Got Reddit app token:", data.access_token.slice(0, 16) + '...');
-        return client.accessToken;
-    } else {
-        console.error("❌ Failed to get Reddit app token:", data);
-        throw new Error("Could not fetch token");
+        if (data.access_token) {
+            client.accessToken = data.access_token;
+            client.tokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
+            console.log("🔐 Got Reddit app token:", data.access_token.slice(0, 16) + '...');
+            return client.accessToken;
+        } else {
+            console.error("❌ Failed to get Reddit app token:", data);
+            return null;
+        }
+    } catch (error) {
+        // Log EVERYTHING about the error
+        console.error('🔥 REDDIT TOKEN FETCH ERROR:');
+        console.error('   Error Type:', error.name);
+        console.error('   Error Code:', error.code);
+        console.error('   Message:', error.message);
+        console.error('   Stack:', error.stack);
+
+        // Specific error handling
+        if (error.code === 'ETIMEDOUT') {
+            console.error('   ⏰ TIMEOUT: Reddit took too long to respond');
+        } else if (error.code === 'ECONNREFUSED') {
+            console.error('   🚫 CONNECTION REFUSED: Reddit rejected the connection');
+        } else if (error.code === 'ENOTFOUND') {
+            console.error('   🌐 DNS ERROR: Could not resolve reddit.com');
+        } else if (error.code === 'ECONNRESET') {
+            console.error('   💔 CONNECTION RESET: Reddit dropped the connection');
+        }
+
+        return null; // App keeps running
     }
 }
 
@@ -537,7 +588,12 @@ async function hedgedRedditRequest(url, isEmergencyMode, hedgeDelayMs = 2000) {
 
     // Get token if not in emergency mode
     if (!isEmergencyMode) {
-        token = await getRedditAppToken();
+        try {
+            token = await getRedditAppToken();
+        } catch (error) {
+            console.error('Token fetch failed in hedgedRequest:', error.message);
+            token = null;
+        }
     }
 
     // Start first request
@@ -687,7 +743,15 @@ app.get('/reddit/icons', async (req, res) => {
                         aboutData = await aboutRes.json();
                     } else {
                         // Normal OAuth mode
-                        const token = await getRedditAppToken();
+                        let token;
+                        try {
+                            token = await getRedditAppToken();
+                        } catch (error) {
+                            console.error(`Failed to get token for r/${subreddit}:`, error.message);
+                            icons[subreddit] = null;
+                            continue; // Skip this subreddit
+                        }
+
                         aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
                             headers: {
                                 ...headers,
@@ -1007,6 +1071,11 @@ app.get('/search', async (req, res) => {
         }
 
         const token = await getRedditAppToken();
+        if (!token) {
+            console.error('❌ Cannot perform search - no Reddit token available');
+            return res.status(503).send('Reddit authentication temporarily unavailable. Please try again.');
+        }
+
         const oauthUrl = redditUrl.replace('https://www.reddit.com', 'https://oauth.reddit.com');
         // Add delay between Reddit requests
         await new Promise(resolve => setTimeout(resolve, 5));
@@ -1014,7 +1083,7 @@ app.get('/search', async (req, res) => {
             headers: {
                 ...headers,
                 'Authorization': `Bearer ${token}`,
-                'User-Agent': getCurrentUserAgent() 
+                'User-Agent': getCurrentUserAgent()
             }
         });
         const redditData = await response.json();
@@ -1084,7 +1153,8 @@ app.get('/sitemap.xml', async (req, res) => {
         const searches = await pool.query(`
             SELECT query
             FROM search_suggestions
-            WHERE query != '' AND query IS NOT NULL
+            WHERE query != '' AND query IS NOT NULL 
+AND query !~* '(genitals|genital|\\yass\\y|\\yjav\\y|\\ynude\\y|\\ysex\\y|undress|fucking|fuck|fucker|tits|titties|milf|loli|fucked|tiddies|nudes|shota|guro|onlyfans|hentai|\\yrape\\y|breeder|raped|gonewild|boobs|\\ycum\\y|\\ycock\\y|shit|shits|shitted|shat|cocksucker|cocks|cunt|gape|gooning|gooner|goon|pussy|porn|pantyhose)'
             GROUP BY query
             ORDER BY MAX(score) DESC
         `);
@@ -1175,7 +1245,7 @@ app.get('/image', async (req, res) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Length', mediaBuffer.byteLength);
-        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
         res.setHeader('Surrogate-Control', 'no-store');
@@ -1688,6 +1758,12 @@ app.post('/api/bookmarks', async (req, res) => {
             ]
         );
 
+        // Update section's last_modified timestamp
+        await pool.query(
+            'UPDATE sections SET last_modified = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2',
+            [sectionId, stripeCustomerId]
+        );
+
         res.json({ success: true, message: 'Bookmark added' });
     } catch (error) {
         const now = new Date().toLocaleTimeString();
@@ -1721,11 +1797,27 @@ app.delete('/api/bookmarks/:reddit_post_id', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Missing post ID' });
         }
 
-        // Delete bookmark
-        await pool.query(
-            'DELETE FROM bookmarks WHERE user_id = $1 AND reddit_post_id = $2',
+        // Get the section_id before deleting
+        const bookmarkResult = await pool.query(
+            'SELECT section_id FROM bookmarks WHERE user_id = $1 AND reddit_post_id = $2',
             [stripeCustomerId, reddit_post_id]
         );
+
+        if (bookmarkResult.rows.length > 0) {
+            const sectionId = bookmarkResult.rows[0].section_id;
+
+            // Delete bookmark
+            await pool.query(
+                'DELETE FROM bookmarks WHERE user_id = $1 AND reddit_post_id = $2',
+                [stripeCustomerId, reddit_post_id]
+            );
+
+            // Update section's last_modified timestamp
+            await pool.query(
+                'UPDATE sections SET last_modified = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2',
+                [sectionId, stripeCustomerId]
+            );
+        }
 
         res.json({ success: true, message: 'Bookmark removed' });
     } catch (error) {
@@ -1778,7 +1870,7 @@ app.get('/api/bookmarks', async (req, res) => {
     }
 });
 
-// 4b. Get bookmarks for a user by section 
+// 4b. Get bookmarks for a user by section  
 app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
     try {
         const authToken = req.headers.authorization;
@@ -1798,20 +1890,55 @@ app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
 
         console.log('userId:', stripeCustomerId, 'sectionId:', sectionId, 'limit:', limit, 'offset:', offset);
 
+        // Get total count
+        const countResult = await pool.query(`
+            SELECT COUNT(*) as total_count
+            FROM bookmarks
+            WHERE user_id = $1 AND section_id = $2
+        `, [stripeCustomerId, parseInt(sectionId)]);
+
+        const topSubredditResult = await pool.query(`
+            SELECT subreddit, COUNT(*) as count
+            FROM bookmarks 
+            WHERE user_id = $1 AND section_id = $2 AND subreddit IS NOT NULL
+            GROUP BY subreddit 
+            ORDER BY count DESC, MAX(score) DESC 
+            LIMIT 1
+        `, [stripeCustomerId, parseInt(sectionId)]);
+
+        const topSubreddit = topSubredditResult.rows.length > 0 ? topSubredditResult.rows[0].subreddit : null;
+
+        const sectionResult = await pool.query(`
+            SELECT name, description, created_at, emoji, last_modified
+            FROM sections
+            WHERE id = $1 AND user_id = $2
+        `, [parseInt(sectionId), stripeCustomerId]);
+
+        const sectionData = sectionResult.rows[0] || {};
+        // Get bookmarks
         const result = await pool.query(`
-           SELECT id, reddit_post_id, title, url, permalink, subreddit, score,
-                  is_video, domain, author, created_utc, num_comments, over_18,
-                  selftext, body, is_gallery, gallery_data, media_metadata,
-                  crosspost_parent_list, content_type, icon_url, locked, stickied, preview
-           FROM bookmarks
-           WHERE user_id = $1 AND section_id = $2
-           ORDER BY sort_order ASC, created_utc ASC, reddit_post_id
-           LIMIT $3 OFFSET $4
-       `, [stripeCustomerId, parseInt(sectionId), parseInt(limit), parseInt(offset)]);
+            SELECT id, reddit_post_id, title, url, permalink, subreddit, score,
+                   is_video, domain, author, created_utc, num_comments, over_18,
+                   selftext, body, is_gallery, gallery_data, media_metadata,
+                   crosspost_parent_list, content_type, icon_url, locked, stickied, preview
+            FROM bookmarks
+            WHERE user_id = $1 AND section_id = $2
+            ORDER BY sort_order ASC, created_utc ASC, reddit_post_id
+            LIMIT $3 OFFSET $4
+        `, [stripeCustomerId, parseInt(sectionId), parseInt(limit), parseInt(offset)]);
 
         console.log('Returned bookmarks:', result.rows.length);
 
-        res.json({ bookmarks: result.rows });
+        res.json({
+            bookmarks: result.rows,
+            total_count: parseInt(countResult.rows[0].total_count),
+            top_subreddit: topSubreddit,
+            description: sectionData.description,
+            created_at: sectionData.created_at,
+            name: sectionData.name,
+            emoji: sectionData.emoji,
+            last_modified: sectionData.last_modified
+        });
     } catch (error) {
         const now = new Date().toLocaleTimeString();
         await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
@@ -1917,11 +2044,28 @@ app.put('/api/bookmarks/:bookmarkId/section', async (req, res) => {
 
         const userId = userResult.rows[0].user_id;
 
-        await pool.query(`
-            UPDATE bookmarks
-            SET section_id = $1
-            WHERE reddit_post_id = $2 AND user_id = $3
-        `, [sectionId, bookmarkId, userId]);
+        // Get the current section_id before updating
+        const currentSectionResult = await pool.query(
+            'SELECT section_id FROM bookmarks WHERE reddit_post_id = $1 AND user_id = $2',
+            [bookmarkId, userId]
+        );
+
+        if (currentSectionResult.rows.length > 0) {
+            const oldSectionId = currentSectionResult.rows[0].section_id;
+
+            // Update the bookmark's section
+            await pool.query(`
+        UPDATE bookmarks
+        SET section_id = $1
+        WHERE reddit_post_id = $2 AND user_id = $3
+    `, [sectionId, bookmarkId, userId]);
+
+            // Update both old and new sections' last_modified timestamps
+            await pool.query(
+                'UPDATE sections SET last_modified = CURRENT_TIMESTAMP WHERE id IN ($1, $2) AND user_id = $3',
+                [oldSectionId, sectionId, userId]
+            );
+        }
 
         res.json({ success: true });
 
@@ -1932,6 +2076,89 @@ app.put('/api/bookmarks/:bookmarkId/section', async (req, res) => {
 
         console.error('Error updating bookmark section:', error);
         res.status(500).json({ error: 'Failed to update section' });
+    }
+});
+
+// Update bookmark score
+app.put('/api/bookmarks/:reddit_post_id/score', async (req, res) => {
+    try {
+        const authToken = req.headers.authorization;
+        const { reddit_post_id } = req.params;
+        const { score } = req.body;
+
+        const userId = await validateAuthToken(authToken);
+
+        await pool.query(
+            'UPDATE bookmarks SET score = $1 WHERE user_id = $2 AND reddit_post_id = $3',
+            [score, userId, reddit_post_id]
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating bookmark score:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Copy bookmark from shared content
+app.post('/api/bookmarks/copy', async (req, res) => {
+    try {
+        const authToken = req.headers.authorization;
+        const { redditPostId, sectionId } = req.body;
+
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid auth token' });
+        }
+
+        const userId = userResult.rows[0].user_id;
+
+        // Check if user already has this bookmark
+        const existingBookmark = await pool.query(
+            'SELECT id FROM bookmarks WHERE user_id = $1 AND reddit_post_id = $2',
+            [userId, redditPostId]
+        );
+
+        if (existingBookmark.rows.length > 0) {
+            // Just move to new section if they already have it
+            await pool.query(
+                'UPDATE bookmarks SET section_id = $1 WHERE user_id = $2 AND reddit_post_id = $3',
+                [sectionId, userId, redditPostId]
+            );
+        } else {
+            // Get original bookmark data
+            const originalBookmark = await pool.query(
+                'SELECT * FROM bookmarks WHERE reddit_post_id = $1 LIMIT 1',
+                [redditPostId]
+            );
+
+            if (originalBookmark.rows.length > 0) {
+                const bookmark = originalBookmark.rows[0];
+
+                // First, shift all existing bookmarks in target section down by 1
+                await pool.query(
+                    'UPDATE bookmarks SET sort_order = sort_order + 1 WHERE user_id = $1 AND section_id = $2',
+                    [userId, sectionId]
+                );
+
+                // Then insert the new bookmark at position 0 (top)
+                await pool.query(`
+            INSERT INTO bookmarks (user_id, section_id, reddit_post_id, title, url, permalink, subreddit, score, is_video, domain, author, created_utc, num_comments, over_18, selftext, body, is_gallery, gallery_data, media_metadata, crosspost_parent_list, content_type, icon_url, locked, stickied, preview, sort_order)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, 0)
+        `, [userId, sectionId, bookmark.reddit_post_id, bookmark.title, bookmark.url, bookmark.permalink, bookmark.subreddit, bookmark.score, bookmark.is_video, bookmark.domain, bookmark.author, bookmark.created_utc, bookmark.num_comments, bookmark.over_18, bookmark.selftext, bookmark.body, bookmark.is_gallery, bookmark.gallery_data, bookmark.media_metadata, bookmark.crosspost_parent_list, bookmark.content_type, bookmark.icon_url, bookmark.locked, bookmark.stickied, bookmark.preview]);
+            }
+        }
+
+        // Update section's last_modified timestamp
+        await pool.query(
+            'UPDATE sections SET last_modified = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2',
+            [sectionId, userId]
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Copy bookmark error:', error);
+        res.status(500).json({ error: 'Failed to copy bookmark' });
     }
 });
 
@@ -2079,6 +2306,231 @@ app.delete('/api/sections/:sectionId', async (req, res) => {
     }
 });
 
+// Share sections endpoint
+app.post('/api/sections/:sectionId/share', async (req, res) => {
+    try {
+        const authToken = req.headers.authorization;
+        const userId = await validateAuthToken(authToken);
+        const { sectionId } = req.params;
+
+        // Verify user owns section
+        const sectionCheck = await pool.query(
+            'SELECT id FROM sections WHERE id = $1 AND user_id = $2',
+            [sectionId, userId]
+        );
+
+        if (sectionCheck.rows.length === 0) {
+            return res.status(403).json({ error: 'Section not found' });
+        }
+
+        // Check if share code already exists for this section
+        const existingShare = await pool.query(
+            'SELECT share_code FROM share_links WHERE section_id = $1',
+            [sectionId]
+        );
+
+        let shareCode;
+        if (existingShare.rows.length > 0) {
+            // Reuse existing share code
+            shareCode = existingShare.rows[0].share_code;
+        } else {
+            // Generate new share code (existing logic)
+            const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let attempts = 0;
+
+            do {
+                shareCode = '';
+                for (let i = 0; i < 9; i++) {
+                    shareCode += chars[Math.floor(Math.random() * chars.length)];
+                }
+
+                const existing = await pool.query('SELECT id FROM share_links WHERE share_code = $1', [shareCode]);
+                if (existing.rows.length === 0) break;
+                attempts++;
+            } while (attempts < 5);
+
+            if (attempts >= 5) {
+                return res.status(500).json({ error: 'Failed to generate unique share code' });
+            }
+
+            await pool.query(
+                'INSERT INTO share_links (share_code, section_id) VALUES ($1, $2)',
+                [shareCode, sectionId]
+            );
+        }
+
+        const shareUrl = `${req.protocol}://${req.get('host')}/share/${shareCode}`;
+
+        res.json({ shareCode, shareUrl });
+
+    } catch (error) {
+        console.error('Share creation error:', error);
+        res.status(500).json({ error: 'Failed to create share link' });
+    }
+});
+
+// Get code for section
+app.get('/api/share/:shareCode', async (req, res) => {
+    try {
+        const { shareCode } = req.params;
+
+        const result = await pool.query(`
+            SELECT s.id, s.name, s.emoji, s.user_id, s.created_at, s.description, s.last_modified
+            FROM share_links sl 
+            JOIN sections s ON sl.section_id = s.id 
+            WHERE sl.share_code = $1
+        `, [shareCode]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Share not found' });
+        }
+
+        const section = result.rows[0];
+
+        const offset = parseInt(req.query.offset) || 0;
+        const limit = parseInt(req.query.limit) || 11;
+
+        // ADD THIS COUNT QUERY HERE:
+        const totalCountResult = await pool.query(
+            'SELECT COUNT(*) as total FROM bookmarks WHERE section_id = $1',
+            [section.id]
+        );
+
+        const bookmarks = await pool.query(
+            'SELECT * FROM bookmarks WHERE section_id = $1 ORDER BY sort_order ASC OFFSET $2 LIMIT $3',
+            [section.id, offset, limit]
+        );
+
+        const topSubredditResult = await pool.query(`
+            SELECT subreddit, COUNT(*) as count
+            FROM bookmarks 
+            WHERE section_id = $1 AND subreddit IS NOT NULL
+            GROUP BY subreddit 
+            ORDER BY count DESC, MAX(score) DESC 
+            LIMIT 1
+        `, [section.id]);
+
+        const topSubreddit = topSubredditResult.rows.length > 0 ? topSubredditResult.rows[0].subreddit : null;
+
+        res.json({
+            section,
+            bookmarks: bookmarks.rows,
+            total_count: parseInt(totalCountResult.rows[0].total), // ADD THIS LINE
+            top_subreddit: topSubreddit,
+            created_at: section.created_at,
+            last_modified: section.last_modified
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to load shared content' });
+    }
+});
+
+// Section description endpoint
+app.put('/api/sections/:sectionId/description', async (req, res) => {
+    try {
+        const authToken = req.headers.authorization;
+        const userId = await validateAuthToken(authToken);
+        const { sectionId } = req.params;
+        const { description } = req.body;
+
+        if (!description || typeof description !== 'string') {
+            return res.status(400).json({ error: 'Invalid description' });
+        }
+
+        if (description.length > 500) {
+            return res.status(400).json({ error: 'Description too long (max 500 characters)' });
+        }
+
+        // Strip HTML tags and dangerous characters
+        const sanitizedDescription = description
+            .replace(/<[^>]*>/g, '') // Remove all HTML tags
+            .replace(/[<>&"']/g, (match) => {
+                const htmlEntities = {
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '&': '&amp;',
+                    '"': '&quot;',
+                    "'": '&#x27;'
+                };
+                return htmlEntities[match];
+            })
+            .trim();
+
+        // Verify user owns section
+        const result = await pool.query(
+            'UPDATE sections SET description = $1, last_modified = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 RETURNING *',
+            [sanitizedDescription, sectionId, userId] // Use sanitizedDescription here!
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(403).json({ error: 'Section not found or unauthorized' });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update description' });
+    }
+});
+
+// send html response for opengl
+app.get('/share/:shareCode', async (req, res) => {
+    try {
+        const { shareCode } = req.params;
+
+        const result = await pool.query(`
+            SELECT s.id, s.name, s.emoji, s.user_id, s.created_at, s.description, s.last_modified
+            FROM share_links sl 
+            JOIN sections s ON sl.section_id = s.id 
+            WHERE sl.share_code = $1
+        `, [shareCode]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).send('Share not found');
+        }
+
+        const section = result.rows[0];
+        const bookmarkCount = await pool.query(
+            'SELECT COUNT(*) as count FROM bookmarks WHERE section_id = $1',
+            [section.id]
+        );
+
+        const count = bookmarkCount.rows[0].count;
+        const title = `${section.emoji || '📌'} ${section.name} - KarmaFinder Collection`;
+        const description = `${section.description || 'Curated Reddit collection'} - ${count} bookmarks`;
+        const shareUrl = `${req.protocol}://${req.get('host')}/share/${shareCode}`;
+
+        res.send(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${title}</title>
+    
+    <!-- Required Open Graph Meta Tags -->
+    <meta property="og:title" content="${title}" />
+    <meta property="og:description" content="${description}" />
+    <meta property="og:url" content="${shareUrl}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="${req.protocol}://${req.get('host')}/favicon.ico" />
+    
+    <!-- Standard Meta Tags -->
+    <meta name="description" content="${description}" />
+    
+    <!-- Include your CSS and JS -->
+    <link rel="stylesheet" href="/html/bookmarks.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+    <div class="results-container"></div>
+    <script src="/html/bookmarks.js"></script>
+</body>
+</html>`);
+
+    } catch (error) {
+        console.error('Share page error:', error);
+        res.status(500).send('Error loading share page');
+    }
+});
+
 app.put('/api/sections/:sectionId', async (req, res) => {
     const authToken = req.headers.authorization;
     const { sectionId } = req.params;
@@ -2100,13 +2552,13 @@ app.put('/api/sections/:sectionId', async (req, res) => {
         let query, values;
 
         if (name && emoji) {
-            query = `UPDATE sections SET name = $1, emoji = $2 WHERE id = $3 AND user_id = $4 RETURNING id, name, emoji`;
+            query = 'UPDATE sections SET name = $1, emoji = $2, last_modified = CURRENT_TIMESTAMP WHERE id = $3 AND user_id = $4 RETURNING id, name, emoji';
             values = [name.trim(), emoji, sectionId, userId];
         } else if (name) {
-            query = `UPDATE sections SET name = $1 WHERE id = $2 AND user_id = $3 RETURNING id, name, emoji`;
+            query = `UPDATE sections SET name = $1, last_modified = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 RETURNING id, name, emoji`;
             values = [name.trim(), sectionId, userId];
         } else if (emoji) {
-            query = `UPDATE sections SET emoji = $1 WHERE id = $2 AND user_id = $3 RETURNING id, name, emoji`;
+            query = `UPDATE sections SET emoji = $1, last_modified = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 RETURNING id, name, emoji`;
             values = [emoji, sectionId, userId];
         } else {
             return res.status(400).json({ error: 'No valid fields to update' });
@@ -2142,6 +2594,9 @@ app.use('/temp', express.static(tempDir));
 app.get('/api/reddit-video/:videoId', async (req, res) => {
     try {
         const { videoId } = req.params;
+        // Get URLs from query parameters if provided by frontend
+        const { fallbackUrl, dashUrl, hlsUrl: providedHlsUrl } = req.query;
+
         const outputFileName = `combined_${videoId}.mp4`;
         const outputPath = path.join(tempDir, outputFileName);
 
@@ -2152,87 +2607,102 @@ app.get('/api/reddit-video/:videoId', async (req, res) => {
 
         console.log(`🎬 Starting: ${videoId}`);
 
-        // Select working video
-        const videoQualities = ['480', '720', '360', '240'];
-        let videoUrl = null;
-        for (const q of videoQualities) {
-            const testUrl = `https://v.redd.it/${videoId}/DASH_${q}.mp4`;
+        // If frontend provided URLs, try those FIRST
+        if (fallbackUrl) {
+            console.log(`🔄 Trying provided fallbackUrl...`);
             try {
-                const r = await dogFetch(testUrl, {
-                    method: 'HEAD',
-                    headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.reddit.com' }
-                });
-                if (r.ok) {
-                    videoUrl = testUrl;
-                    break;
-                }
-            } catch (e) { /* skip */ }
-        }
-        if (!videoUrl) return res.status(404).json({ error: 'No video found' });
+                const baseVideoUrl = fallbackUrl;
+                const audioUrl = `https://v.redd.it/${videoId}/DASH_AUDIO_128.mp4`;
 
-        // Try DASH audio
-        const audioBitrates = ['128', '64', '256'];
-        let audioUrl = null;
-
-        for (const bitrate of audioBitrates) {
-            const testAudioUrl = `https://v.redd.it/${videoId}/DASH_AUDIO_${bitrate}.mp4`;
-            try {
-                const audioCheck = await dogFetch(testAudioUrl, {
-                    method: 'HEAD',
-                    headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.reddit.com' }
-                });
-                if (audioCheck.ok) {
-                    console.log(`✅ DASH audio found: ${bitrate}kbps`);
-                    audioUrl = testAudioUrl;
-                    break;
-                }
+                await combineWithFfmpeg(baseVideoUrl, audioUrl, outputPath);
+                scheduleFileDeletion(outputPath, outputFileName);
+                return res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
             } catch (e) {
-                console.log(`❌ DASH audio ${bitrate} failed`);
+                console.log(`❌ Provided fallbackUrl failed: ${e.message}`);
             }
         }
 
-        // Try HLS if DASH fails
-        if (!audioUrl) {
-            const hlsUrl = `https://v.redd.it/${videoId}/HLSPlaylist.m3u8`;
+        if (providedHlsUrl) {
+            console.log(`🔄 Trying provided hlsUrl...`);
             try {
-                const hlsCheck = await dogFetch(hlsUrl, {
-                    method: 'HEAD',
-                    headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.reddit.com' }
-                });
-                if (hlsCheck.ok) {
-                    console.log(`✅ Using HLS fallback`);
-                    await copyVideoOnly(hlsUrl, outputPath);
-                    scheduleFileDeletion(outputPath, outputFileName);
-                    return res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
-                }
+                await copyVideoOnly(providedHlsUrl, outputPath);
+                scheduleFileDeletion(outputPath, outputFileName);
+                return res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
             } catch (e) {
-                console.log(`❌ HLS fallback failed`);
+                console.log(`❌ Provided hlsUrl failed: ${e.message}`);
             }
         }
 
-        // Last resort: fallback to Render proxy
-        if (!audioUrl) {
-            const proxyAudioUrl = `https://karmafinder.onrender.com/proxy-audio/${videoId}`;
+        if (dashUrl) {
+            console.log(`🔄 Trying provided dashUrl...`);
             try {
-                const proxyCheck = await dogFetch(proxyAudioUrl, { method: 'HEAD' });
-                if (proxyCheck.ok) {
-                    audioUrl = proxyAudioUrl;
-                }
+                await copyVideoOnly(dashUrl, outputPath);
+                scheduleFileDeletion(outputPath, outputFileName);
+                return res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
             } catch (e) {
-                console.log(`❌ Render proxy failed`);
+                console.log(`❌ Provided dashUrl failed: ${e.message}`);
             }
         }
 
-        // Combine or just copy video
-        if (audioUrl) {
+        // Try downloading 480p video + 128kbps audio first (most common)
+        let videoUrl = `https://v.redd.it/${videoId}/DASH_480.mp4`;
+        let audioUrl = `https://v.redd.it/${videoId}/DASH_AUDIO_128.mp4`;
+
+        try {
             await combineWithFfmpeg(videoUrl, audioUrl, outputPath);
-        } else {
-            console.log(`📹 No audio, copying video only`);
-            await copyVideoOnly(videoUrl, outputPath);
+            scheduleFileDeletion(outputPath, outputFileName);
+            return res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
+        } catch (firstError) {
+            console.log(`❌ 480p + 128kbps failed, trying alternatives...`);
         }
 
-        scheduleFileDeletion(outputPath, outputFileName);
-        res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
+        // Fallback 1: Try different video quality (720p)
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        videoUrl = `https://v.redd.it/${videoId}/DASH_720.mp4`;
+        try {
+            await combineWithFfmpeg(videoUrl, audioUrl, outputPath);
+            scheduleFileDeletion(outputPath, outputFileName);
+            return res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
+        } catch (e) {
+            console.log(`❌ 720p failed`);
+        }
+
+        // Fallback 2: Try video-only 480p (no audio)
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        videoUrl = `https://v.redd.it/${videoId}/DASH_480.mp4`;
+        try {
+            await copyVideoOnly(videoUrl, outputPath);
+            scheduleFileDeletion(outputPath, outputFileName);
+            return res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
+        } catch (e) {
+            console.log(`❌ Video-only failed`);
+        }
+
+        // Fallback 3: Try HLS
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const hlsUrl = `https://v.redd.it/${videoId}/HLSPlaylist.m3u8`;
+        try {
+            await copyVideoOnly(hlsUrl, outputPath);
+            scheduleFileDeletion(outputPath, outputFileName);
+            return res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
+        } catch (e) {
+            console.log(`❌ HLS failed`);
+        }
+
+        // Fallback 4: Try Render proxy for audio
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        videoUrl = `https://v.redd.it/${videoId}/DASH_480.mp4`;
+        audioUrl = `https://karmafinder.onrender.com/proxy-audio/${videoId}`;
+        try {
+            await combineWithFfmpeg(videoUrl, audioUrl, outputPath);
+            scheduleFileDeletion(outputPath, outputFileName);
+            return res.json({ success: true, videoUrl: `/temp/${outputFileName}` });
+        } catch (e) {
+            console.log(`❌ Render proxy failed`);
+        }
+
+        // All failed
+        return res.status(404).json({ error: 'No video found' });
 
     } catch (err) {
         console.error('❌ Error:', err);
@@ -2269,83 +2739,259 @@ app.get('/proxy-audio/:videoId', async (req, res) => {
     }
 });
 
+// Get RedGifs video URL
+app.get('/api/redgifs/:videoId', async (req, res) => {
+    try {
+        const { videoId } = req.params;
+
+        // Get token
+        const token = await getRedGifsToken();
+        if (!token) {
+            return res.status(500).json({ error: 'Failed to get RedGifs token' });
+        }
+
+        // Fetch video data
+        const response = await fetch(`https://api.redgifs.com/v2/gifs/${videoId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const data = await response.json();
+
+        // ADD THIS:
+        console.log('RedGifs API response:', JSON.stringify(data, null, 2));
+
+        if (!data.gif || !data.gif.urls) {
+            return res.status(404).json({ error: 'Video not found' });
+        }
+
+        if (!data.gif || !data.gif.urls) {
+            return res.status(404).json({ error: 'Video not found' });
+        }
+
+        // Return the direct MP4 URL
+        const videoUrl = data.gif.urls.hd || data.gif.urls.sd;
+
+        const proxiedUrl = videoUrl.replace('https://media.redgifs.com/', '/proxy-redgifs/media/');
+
+        const thumbnailUrl = data.gif.urls.poster
+            ? data.gif.urls.poster.replace('https://thumbs2.redgifs.com/', '/proxy-redgifs/thumbs2/')
+            : null;
+
+        res.json({
+            success: true,
+            videoUrl: proxiedUrl,
+            thumbnail: thumbnailUrl
+        });
+
+    } catch (error) {
+        console.error('RedGifs API error:', error);
+        res.status(500).json({ error: 'Failed to fetch RedGifs video' });
+    }
+});
+
 function copyVideoOnly(videoUrl, outputPath) {
     return new Promise((resolve, reject) => {
-        const headers = 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
-            'AppleWebKit/537.36 (KHTML, like Gecko) ' +
-            'Chrome/115.0.0.0 Safari/537.36\r\n' +
-            'Referer: https://www.reddit.com/';
+        const isHLS = videoUrl.includes('.m3u8');
 
-        const args = [
-            '-headers', headers,
-            '-i', videoUrl,
-            '-c', 'copy',
-            '-y',
-            outputPath
-        ];
+        if (isHLS) {
+            // HLS must be processed by ffmpeg - it will fetch all segments
+            const headers = 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
+                'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+                'Chrome/115.0.0.0 Safari/537.36\r\n' +
+                'Referer: https://www.reddit.com/';
 
-        const ff = spawn('ffmpeg', args);
+            const args = [
+                '-headers', headers,
+                '-i', videoUrl,
+                '-c', 'copy',
+                '-bsf:a', 'aac_adtstoasc',
+                '-y',
+                outputPath
+            ];
 
-        // ADD TIMEOUT
-        const timeout = setTimeout(() => {
-            ff.kill('SIGKILL');
-            reject(new Error('FFmpeg timeout after 60 seconds'));
-        }, 60000);
+            const ff = spawn('ffmpeg', args);
 
-        ff.stderr.on('data', d => process.stdout.write(d.toString()));
-        ff.on('error', (err) => {
-            clearTimeout(timeout);
-            reject(err);
-        });
-        ff.on('close', code => {
-            clearTimeout(timeout);
-            if (code === 0) resolve();
-            else reject(new Error(`FFmpeg exited with code ${code}`));
-        });
+            const timeout = setTimeout(() => {
+                ff.kill('SIGKILL');
+                reject(new Error('FFmpeg timeout after 60 seconds'));
+            }, 60000);
+
+            ff.stderr.on('data', d => process.stdout.write(d.toString()));
+            ff.on('error', (err) => {
+                clearTimeout(timeout);
+                reject(err);
+            });
+            ff.on('close', code => {
+                clearTimeout(timeout);
+                if (code === 0) resolve();
+                else reject(new Error(`FFmpeg exited with code ${code}`));
+            });
+        } else {
+            // Regular MP4 - download through Node
+            (async () => {
+                try {
+                    const response = await fetch(videoUrl, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                            'Referer': 'https://www.reddit.com/'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        return reject(new Error(`Failed: ${response.status}`));
+                    }
+
+                    const buffer = Buffer.from(await response.arrayBuffer());
+                    await fs.promises.writeFile(outputPath, buffer);
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                }
+            })();
+        }
     });
 }
 
-function combineWithFfmpeg(videoUrl, audioUrl, outputPath) {
-    return new Promise((resolve, reject) => {
-        const headers = 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
-            'AppleWebKit/537.36 (KHTML, like Gecko) ' +
-            'Chrome/115.0.0.0 Safari/537.36\r\n' +
-            'Referer: https://www.reddit.com/';
+async function combineWithFfmpeg(videoUrl, audioUrl, outputPath) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Download video and audio through Node (with proper headers)
+            console.log('📥 Downloading video through proxy...');
+            const videoResponse = await fetch(videoUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115.0.0.0',
+                    'Referer': 'https://www.reddit.com/'
+                }
+            });
 
-        const args = [
-            '-headers', headers,
-            '-i', videoUrl,
-            '-headers', headers,
-            '-i', audioUrl,
-            '-c:v', 'copy',
-            '-c:a', 'aac',
-            '-map', '0:v:0',
-            '-map', '1:a:0',
-            '-shortest',
-            '-y',
-            outputPath
-        ];
+            const audioResponse = await fetch(audioUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115.0.0.0',
+                    'Referer': 'https://www.reddit.com/'
+                }
+            });
 
-        const ff = spawn('ffmpeg', args);
+            if (!videoResponse.ok || !audioResponse.ok) {
+                return reject(new Error(`Failed to download - Video: ${videoResponse.status}, Audio: ${audioResponse.status}`));
+            }
 
-        // ADD TIMEOUT
-        const timeout = setTimeout(() => {
-            ff.kill('SIGKILL');
-            reject(new Error('FFmpeg timeout after 60 seconds'));
-        }, 60000);
+            // Save to temp files
+            const tempVideo = path.join(tempDir, `temp_video_${Date.now()}.mp4`);
+            const tempAudio = path.join(tempDir, `temp_audio_${Date.now()}.mp4`);
 
-        ff.stderr.on('data', d => process.stdout.write(d.toString()));
-        ff.on('error', (err) => {
-            clearTimeout(timeout);
-            reject(err);
-        });
-        ff.on('close', code => {
-            clearTimeout(timeout);
-            if (code === 0) resolve();
-            else reject(new Error(`FFmpeg exited with code ${code}`));
-        });
+            const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
+            const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+
+            await fs.promises.writeFile(tempVideo, videoBuffer);
+            await fs.promises.writeFile(tempAudio, audioBuffer);
+
+            console.log('✅ Downloaded files, combining with ffmpeg...');
+
+            // Now use ffmpeg with LOCAL files (no network requests = no 403)
+            const args = [
+                '-i', tempVideo,
+                '-i', tempAudio,
+                '-c:v', 'copy',
+                '-c:a', 'aac',
+                '-map', '0:v:0',
+                '-map', '1:a:0',
+                '-shortest',
+                '-y',
+                outputPath
+            ];
+
+            const ff = spawn('ffmpeg', args);
+
+            const timeout = setTimeout(() => {
+                ff.kill('SIGKILL');
+                reject(new Error('FFmpeg timeout after 60 seconds'));
+            }, 60000);
+
+            ff.stderr.on('data', d => process.stdout.write(d.toString()));
+
+            ff.on('error', (err) => {
+                clearTimeout(timeout);
+                fs.promises.unlink(tempVideo).catch(() => { });
+                fs.promises.unlink(tempAudio).catch(() => { });
+                reject(err);
+            });
+
+            ff.on('close', code => {
+                clearTimeout(timeout);
+                fs.promises.unlink(tempVideo).catch(() => { });
+                fs.promises.unlink(tempAudio).catch(() => { });
+
+                if (code === 0) resolve();
+                else reject(new Error(`FFmpeg exited with code ${code}`));
+            });
+
+        } catch (error) {
+            reject(error);
+        }
     });
 }
+
+app.get('/proxy-reddit/*', async (req, res) => {
+    try {
+        const path = req.params[0];
+        const redditUrl = `https://v.redd.it/${path}`;
+
+        console.log('🔍 Proxying:', redditUrl);
+
+        const response = await fetch(redditUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://www.reddit.com/'
+            }
+        });
+
+        console.log('📥 Reddit response:', response.status);
+
+        if (!response.ok) {
+            return res.status(response.status).send('Reddit returned error');
+        }
+
+        res.set('Content-Type', response.headers.get('content-type'));
+        res.set('Content-Length', response.headers.get('content-length'));
+        response.body.pipe(res);
+
+    } catch (error) {
+        console.error('❌ Proxy error:', error);
+        res.status(500).send('Proxy failed');
+    }
+});
+
+app.get('/proxy-redgifs/*', async (req, res) => {
+    try {
+        const path = req.params[0];
+        const redgifsUrl = `https://media.redgifs.com/${path}`;
+
+        console.log('🔍 Proxying RedGifs:', redgifsUrl);
+
+        const response = await fetch(redgifsUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://www.redgifs.com/'
+            }
+        });
+
+        console.log('📥 RedGifs response:', response.status);
+
+        if (!response.ok) {
+            return res.status(response.status).send('RedGifs returned error');
+        }
+
+        res.set('Content-Type', response.headers.get('content-type'));
+        res.set('Content-Length', response.headers.get('content-length'));
+        response.body.pipe(res);
+
+    } catch (error) {
+        console.error('❌ RedGifs proxy error:', error);
+        res.status(500).send('Proxy failed');
+    }
+});
 
 app.get('/api/subscription/:email', async (req, res) => {
     try {
@@ -2375,6 +3021,404 @@ app.get('/api/subscription/:email', async (req, res) => {
     }
 });
 
+
+// Reddit OAuth Configuration
+const REDDIT_CONFIG = {
+    clientId: process.env.REDDIT_WEBAPP_CLIENT,
+    clientSecret: process.env.REDDIT_WEBAPP_SECRET,
+    redirectUri: process.env.NODE_ENV === 'production'
+        ? 'https://karmafinder.site/auth/reddit/callback'
+        : 'http://localhost:3000/auth/reddit/callback',
+    userAgent: 'KarmaFinder:1.0.0 (by /u/karmafinder-dev)'
+};
+
+// Store OAuth states temporarily (use Redis in production)
+const oauthStates = new Map();
+
+/**
+ * Validates auth token and returns user_id
+ */
+async function validateAuthToken(authToken) {
+    if (!authToken) {
+        throw new Error('No auth token provided');
+    }
+
+    const result = await pool.query(
+        'SELECT user_id FROM subscriptions WHERE auth_token = $1',
+        [authToken]
+    );
+
+    if (result.rows.length === 0) {
+        throw new Error('Invalid auth token');
+    }
+
+    return result.rows[0].user_id;
+}
+
+/**
+ * Route: Start Reddit OAuth flow
+ */
+app.get('/auth/reddit/start', async (req, res) => {
+    try {
+        const authToken = req.query.auth_token;
+        const userId = await validateAuthToken(authToken);
+        const state = crypto.randomBytes(32).toString('hex');
+        oauthStates.set(state, {
+            userId,
+            expires: Date.now() + 10 * 60 * 1000
+        });
+
+        const authUrl = new URL('https://www.reddit.com/api/v1/authorize');
+        authUrl.searchParams.append('client_id', REDDIT_CONFIG.clientId);
+        authUrl.searchParams.append('response_type', 'code');
+        authUrl.searchParams.append('state', state);
+        authUrl.searchParams.append('redirect_uri', REDDIT_CONFIG.redirectUri);
+        authUrl.searchParams.append('duration', 'temporary');
+        authUrl.searchParams.append('scope', 'identity history read');
+
+        res.redirect(authUrl.toString());
+    } catch (error) {
+        console.error('Reddit OAuth start error:', error);
+        res.status(401).json({ error: 'Authentication failed' });
+    }
+});
+
+/**
+ * Route: Handle Reddit OAuth callback 
+ */
+app.get('/auth/reddit/callback', async (req, res) => {
+    try {
+        const { code, state, error } = req.query;
+
+        if (error) {
+            console.error('Reddit OAuth error:', error);
+            return res.redirect('/?page=bookmarks&reddit_auth=error&error_type=' + encodeURIComponent(error));
+        }
+
+        if (!code || !state) {
+            return res.status(400).send('Missing authorization code or state');
+        }
+
+        // Validate state parameter
+        const stateData = oauthStates.get(state);
+        if (!stateData || Date.now() > stateData.expires) {
+            return res.status(400).send('Invalid or expired state parameter');
+        }
+
+        // Exchange code for access token
+        const tokenResponse = await fetch('https://www.reddit.com/api/v1/access_token', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${Buffer.from(`${REDDIT_CONFIG.clientId}:${REDDIT_CONFIG.clientSecret}`).toString('base64')}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': REDDIT_CONFIG.userAgent
+            },
+            body: new URLSearchParams({
+                grant_type: 'authorization_code',
+                code: code,
+                redirect_uri: REDDIT_CONFIG.redirectUri
+            })
+        });
+
+        const tokenData = await tokenResponse.json();
+
+        if (!tokenData.access_token) {
+            throw new Error('Failed to get access token');
+        }
+
+        // Get Reddit user info
+        const userResponse = await fetch('https://oauth.reddit.com/api/v1/me', {
+            headers: {
+                'Authorization': `Bearer ${tokenData.access_token}`,
+                'User-Agent': REDDIT_CONFIG.userAgent
+            }
+        });
+
+        const userData = await userResponse.json();
+
+        // Store Reddit token in database
+        await pool.query(
+            'UPDATE subscriptions SET reddit_access_token = $1, reddit_username = $2 WHERE user_id = $3',
+            [tokenData.access_token, userData.name, stateData.userId]
+        );
+
+        // Clean up state
+        oauthStates.delete(state);
+
+        res.redirect('/?page=bookmarks&reddit_auth=success&auto_import=true');
+
+    } catch (error) {
+        console.error('Reddit callback error:', error);
+        res.status(500).send('OAuth callback failed. Please try again.');
+    }
+});
+
+module.exports = {
+    validateAuthToken
+};
+
+app.post('/api/reddit/import', async (req, res) => {
+    try {
+        const authToken = req.headers.authorization;
+        if (!authToken) {
+            return res.status(401).json({ error: 'No auth token provided' });
+        }
+
+        const { sectionId } = req.body;
+        if (!sectionId) {
+            return res.status(400).json({ error: 'Section ID is required' });
+        }
+
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid auth token' });
+        }
+        const userId = userResult.rows[0].user_id;
+
+        // Verify section belongs to user
+        const sectionResult = await pool.query(
+            'SELECT id FROM sections WHERE id = $1 AND user_id = $2',
+            [sectionId, userId]
+        );
+        if (sectionResult.rows.length === 0) {
+            return res.status(403).json({ error: 'Section not found or unauthorized' });
+        }
+
+        // Get Reddit token
+        const result = await pool.query(
+            'SELECT reddit_access_token, reddit_username FROM subscriptions WHERE user_id = $1',
+            [userId]
+        );
+
+        if (result.rows.length === 0 || !result.rows[0].reddit_access_token) {
+            return res.status(404).json({ error: 'No Reddit account linked' });
+        }
+
+        const { reddit_access_token, reddit_username } = result.rows[0];
+
+        // Fetch saved posts from Reddit
+        const savedResponse = await fetch(`https://oauth.reddit.com/user/${reddit_username}/saved?limit=100`, {
+            headers: {
+                'Authorization': `Bearer ${reddit_access_token}`,
+                'User-Agent': REDDIT_CONFIG.userAgent
+            }
+        });
+
+        const savedData = await savedResponse.json();
+
+        if (!savedResponse.ok) {
+            return res.status(500).json({ error: 'Reddit API returned error: ' + JSON.stringify(savedData) });
+        }
+
+        if (!savedData.data || !savedData.data.children) {
+            return res.status(500).json({ error: 'Unexpected Reddit response format' });
+        }
+
+        // Get existing Reddit posts to avoid duplicates
+        const existingPosts = await pool.query(
+            'SELECT reddit_post_id FROM bookmarks WHERE user_id = $1 AND reddit_post_id IS NOT NULL',
+            [userId]
+        );
+
+        const existingIds = new Set(existingPosts.rows.map(row => row.reddit_post_id));
+
+        // Filter unique posts
+        const uniquePosts = savedData.data.children.filter(child =>
+            !existingIds.has(child.data.id)
+        );
+
+        if (uniquePosts.length === 0) {
+            return res.json({ imported: 0 });
+        }
+
+        // Import bookmarks with partial success handling
+        let importedCount = 0;
+        const client = await pool.connect();
+
+        try {
+            await client.query('BEGIN');
+
+            for (const child of uniquePosts) {
+                const data = child.data;
+                const title = data.title || `Comment in r/${data.subreddit}`;
+                const url = data.url || `https://reddit.com${data.permalink}`;
+
+                try {
+                    await client.query(
+                        `INSERT INTO bookmarks (user_id, reddit_post_id, title, url, permalink, subreddit, score, is_video, domain, author, created_utc, num_comments, over_18, preview, selftext, body, is_gallery, gallery_data, media_metadata, crosspost_parent_list, content_type, icon_url, locked, stickied, section_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)`,
+                        [
+                            userId,
+                            data.id,
+                            data.title || `Comment in r/${data.subreddit}`,
+                            data.url || `https://reddit.com${data.permalink}`,
+                            data.permalink,
+                            data.subreddit,
+                            data.score || 0,
+                            data.is_video || false,
+                            data.domain,
+                            data.author,
+                            data.created_utc,
+                            data.num_comments || 0,
+                            data.over_18 || false,
+                            JSON.stringify(data.preview || null), 
+                            data.selftext || '',
+                            data.body || '',
+                            data.is_gallery || false,
+                            JSON.stringify(data.gallery_data || null),
+                            JSON.stringify(data.media_metadata || null),
+                            JSON.stringify(data.crosspost_parent_list || []),
+                            data.content_type || '',
+                            null, // icon_url
+                            data.locked || false,
+                            data.stickied || false,
+                            sectionId
+                        ]
+                    );
+                    importedCount++;
+                } catch (insertError) {
+                    console.warn('Failed to insert bookmark:', data.id, insertError.message);
+                }
+            }
+
+            await client.query('COMMIT');
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+
+        if (importedCount > 0) {
+            const sortClient = await pool.connect();
+            try {
+                await sortClient.query('BEGIN');
+
+                // First, shift all existing bookmarks down to make room at the top
+                await sortClient.query(
+                    'UPDATE bookmarks SET sort_order = sort_order + $1 WHERE user_id = $2 AND section_id = $3',
+                    [importedCount, userId, sectionId]
+                );
+
+                // Then assign Reddit imports to positions 0, 1, 2, 3... (top of the list)
+                for (let i = 0; i < uniquePosts.length; i++) {
+                    const postId = uniquePosts[i].data.id;
+                    await sortClient.query(
+                        'UPDATE bookmarks SET sort_order = $1 WHERE user_id = $2 AND reddit_post_id = $3 AND section_id = $4',
+                        [i, userId, postId, sectionId]
+                    );
+                }
+
+                await sortClient.query('COMMIT');
+            } catch (sortError) {
+                await sortClient.query('ROLLBACK');
+                console.error('Error updating sort order:', sortError);
+            } finally {
+                sortClient.release();
+            }
+        }
+
+        // Update section's last_modified timestamp
+        if (importedCount > 0) {
+            await pool.query(
+                'UPDATE sections SET last_modified = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2',
+                [sectionId, userId]
+            );
+        }
+
+        res.json({ imported: importedCount });
+
+    } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/reddit/import', `${now} - ${error.message}`]);
+        console.error('Reddit import error:', error);
+        res.status(500).json({ error: 'Failed to import bookmarks' });
+    }
+});
+
+app.get('/api/reddit/saved-count', async (req, res) => {
+    try {
+        const authToken = req.headers.authorization?.replace('Bearer ', '');
+        const userId = await validateAuthToken(authToken);
+
+        // Get Reddit token
+        const result = await pool.query(
+            'SELECT reddit_access_token, reddit_username FROM subscriptions WHERE user_id = $1',
+            [userId]
+        );
+
+        if (result.rows.length === 0 || !result.rows[0].reddit_access_token) {
+            return res.status(404).json({ error: 'No Reddit account linked' });
+        }
+
+        const { reddit_access_token, reddit_username } = result.rows[0];
+
+        // Fetch saved posts from Reddit
+        const savedResponse = await fetch(`https://oauth.reddit.com/user/${reddit_username}/saved?limit=100`, {
+            headers: {
+                'Authorization': `Bearer ${reddit_access_token}`,
+                'User-Agent': REDDIT_CONFIG.userAgent
+            }
+        });
+
+        console.log('Reddit API response status:', savedResponse.status);
+        const savedData = await savedResponse.json();
+        console.log('Reddit API response data:', savedData);
+
+        if (!savedResponse.ok) {
+            console.log('Reddit API error:', savedData);
+            return res.status(500).json({ error: 'Reddit API returned error: ' + JSON.stringify(savedData) });
+        }
+
+        if (!savedData.data || !savedData.data.children) {
+            console.log('Unexpected Reddit response format:', savedData);
+            return res.status(500).json({ error: 'Unexpected Reddit response format' });
+        }
+
+        // Get existing Reddit posts to avoid duplicates
+        const existingPosts = await pool.query(
+            'SELECT reddit_post_id FROM bookmarks WHERE user_id = $1 AND reddit_post_id IS NOT NULL',
+            [userId]
+        );
+
+        const existingIds = new Set(existingPosts.rows.map(row => row.reddit_post_id));
+
+        // Count unique posts (not already imported)
+        const uniquePosts = savedData.data.children.filter(child =>
+            !existingIds.has(child.data.id)
+        );
+
+        res.json({
+            username: reddit_username,
+            totalSaved: savedData.data.children.length,
+            uniqueCount: uniquePosts.length,
+            alreadyImported: existingIds.size
+        });
+
+    } catch (error) {
+        console.error('Error getting Reddit saved count:', error);
+        res.status(500).json({ error: 'Failed to get Reddit data' });
+    }
+});
+
+app.delete('/api/reddit/disconnect', async (req, res) => {
+    try {
+        const authToken = req.headers.authorization;
+        const userId = await validateAuthToken(authToken);
+
+        await pool.query(
+            'UPDATE subscriptions SET reddit_access_token = NULL, reddit_username = NULL WHERE user_id = $1',
+            [userId]
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Reddit disconnect error:', error);
+        res.status(500).json({ error: 'Failed to disconnect Reddit account' });
+    }
+});
+
 app.post('/api/auth/magic-link', async (req, res) => {
     const { email, redirect } = req.body;
 
@@ -2394,14 +3438,14 @@ app.post('/api/auth/magic-link', async (req, res) => {
 
         // Save token to database
         await pool.query(`
-           INSERT INTO magic_links (email, token, expires_at)
-           VALUES ($1, $2, $3)
-       `, [email, token, expiresAt]);
+            INSERT INTO magic_links (email, token, expires_at, redirect_url)
+            VALUES ($1, $2, $3, $4)
+            `, [email, token, expiresAt, redirect]);
 
         console.log('Token saved to database');
 
         // Build magic link URL with optional redirect
-        let magicLinkUrl = `https://karmafinder.site/?token=${token}`;
+        let magicLinkUrl = `${API_BASE}/?token=${token}`;
         if (redirect) {
             magicLinkUrl += `&redirect=${redirect}`;
         }
@@ -2435,7 +3479,7 @@ app.post('/api/auth/verify/:token', async (req, res) => {
     try {
         // Check if token exists and is valid
         const result = await pool.query(`
-            SELECT email FROM magic_links
+            SELECT email, redirect_url FROM magic_links
             WHERE token = $1
             AND expires_at > NOW()
             AND used = FALSE
@@ -2446,6 +3490,7 @@ app.post('/api/auth/verify/:token', async (req, res) => {
         }
 
         const email = result.rows[0].email;
+        const redirectUrl = result.rows[0].redirect_url;
 
         // Check subscription status
         const subscriptionResult = await pool.query(`
@@ -2481,7 +3526,8 @@ app.post('/api/auth/verify/:token', async (req, res) => {
             email,
             hasSubscription,
             planType,
-            authToken  
+            authToken,
+            redirect: redirectUrl 
         });
     } catch (error) {
         const now = new Date().toLocaleTimeString();
@@ -2699,7 +3745,7 @@ app.post('/api/auto-login-after-payment', async (req, res) => {
                 let subject, greeting;
                 if (dbSubscription.plan_type === 'pro') {
                     subject = 'Welcome to KarmaFinder Pro! 🚀';
-                    greeting = 'Your Pro account is ready!';
+                    greeting = 'Your Pro account is ready!';      
                 } else {
                     subject = 'Welcome to KarmaFinder Premium! ⭐';
                     greeting = 'Your Premium account is ready!';
@@ -2879,140 +3925,9 @@ app.post('/api/create-checkout-pro', async (req, res) => {
     }
 });
 
-const { QdrantClient } = require('@qdrant/js-client-rest');
-
-const qdrant = new QdrantClient({
-    url: process.env.QDRANT_URL,
-    apiKey: process.env.QDRANT_API_KEY,
-    checkCompatibility: false
-});
-
-const COLLECTION_NAME = 'reddit_posts';
-
-app.get('/debug/find-duplicates', async (req, res) => {
-    try {
-        // Get all posts with their reddit_post_id and point id
-        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts/points/scroll`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'api-key': process.env.QDRANT_API_KEY
-            },
-            body: JSON.stringify({
-                limit: 400000,
-                with_payload: ["reddit_post_id"],
-                with_vector: false
-            })
-        });
-
-        const result = await response.json();
-
-        // Group by reddit_post_id
-        const postGroups = {};
-        result.result.points.forEach(point => {
-            const postId = point.payload.reddit_post_id;
-            if (!postGroups[postId]) {
-                postGroups[postId] = [];
-            }
-            postGroups[postId].push(point.id);
-        });
-
-        // Find duplicates (groups with more than 1 point)
-        const duplicates = Object.entries(postGroups)
-            .filter(([postId, pointIds]) => pointIds.length > 1)
-            .map(([postId, pointIds]) => ({
-                reddit_post_id: postId,
-                point_ids: pointIds,
-                duplicate_count: pointIds.length
-            }));
-
-        res.json({
-            total_duplicates: duplicates.length,
-            duplicate_posts: duplicates.slice(0, 20), // Show first 20
-            total_points_to_remove: duplicates.reduce((sum, dup) => sum + (dup.duplicate_count - 1), 0)
-        });
-
-    } catch (error) {
-        res.json({ error: error.message });
-    }
-});
-
-app.get('/debug/remove-duplicates', async (req, res) => {
-    try {
-        console.log('🧹 Starting duplicate removal...');
-
-        // Get duplicates (reuse your existing logic)
-        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts/points/scroll`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'api-key': process.env.QDRANT_API_KEY
-            },
-            body: JSON.stringify({
-                limit: 500000,
-                with_payload: ["reddit_post_id"],
-                with_vector: false
-            })
-        });
-
-        const result = await response.json();
-
-        // Group by reddit_post_id
-        const postGroups = {};
-        result.result.points.forEach(point => {
-            const postId = point.payload.reddit_post_id;
-            if (!postGroups[postId]) {
-                postGroups[postId] = [];
-            }
-            postGroups[postId].push(point.id);
-        });
-
-        // Find point IDs to delete (keep lowest ID, delete the rest)
-        const pointsToDelete = [];
-        Object.values(postGroups).forEach(pointIds => {
-            if (pointIds.length > 1) {
-                // Sort and keep first (lowest), delete the rest
-                pointIds.sort((a, b) => a - b);
-                pointsToDelete.push(...pointIds.slice(1));
-            }
-        });
-
-        console.log(`🗑️ Deleting ${pointsToDelete.length} duplicate points...`);
-
-        // Delete in batches of 100
-        let deleted = 0;
-        for (let i = 0; i < pointsToDelete.length; i += 100) {
-            const batch = pointsToDelete.slice(i, i + 100);
-
-            const deleteResponse = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts/points/delete`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'api-key': process.env.QDRANT_API_KEY
-                },
-                body: JSON.stringify({
-                    points: batch
-                })
-            });
-
-            if (deleteResponse.ok) {
-                deleted += batch.length;
-                console.log(`✅ Deleted batch ${Math.floor(i / 100) + 1}, total: ${deleted}/${pointsToDelete.length}`);
-            } else {
-                console.error('❌ Delete failed:', await deleteResponse.text());
-            }
-        }
-
-        res.json({
-            success: true,
-            duplicates_removed: deleted,
-            points_remaining: result.result.points.length - deleted
-        });
-
-    } catch (error) {
-        console.error('❌ Error removing duplicates:', error);
-        res.json({ error: error.message });
-    }
+const { Pinecone } = require('@pinecone-database/pinecone');
+const pc = new Pinecone({
+    apiKey: process.env.PINECONE_API_KEY
 });
 
 app.post('/api/vector-search', async (req, res) => {
@@ -3028,29 +3943,28 @@ app.post('/api/vector-search', async (req, res) => {
         // === SCORING CONFIGURATION - EASY TO ADJUST ===
         const SCORING_CONFIG = {
             // Base vector similarity weight (0.0 - 1.0)
-            vectorSimilarity: 0.7,
+            vectorSimilarity: 0.9,
 
             // Title matching boosts
-            titleFullMatch: 3.0,      // Exact phrase match in title
-            titlePartialMatch: 1.8,   // Per word match in title
+            titleFullMatch: 2.0,      // Exact phrase match in title
+            titlePartialMatch: 0.8,   // Per word match in title
 
             // Missing word penalties
-            missingWordPenalty: -0.8, // Penalty per missing important word
+            missingWordPenalty: -0.5, // Penalty per missing important word
             minWordLength: 3,         // Only penalize missing words >= this length
 
             // Subreddit matching (if query contains subreddit name)
-            subredditFullMatch: 2.8,  // Full subreddit name match
+            subredditFullMatch: 3.8,  // Full subreddit name match
 
             // Subtle boosts
-            recencyBoost: 0.15,       // Max boost for newest posts
-            upvoteBoost: 2.00,        // Max boost for highly upvoted posts
+            recencyBoost: 0.25,       // Max boost for newest posts
+            upvoteBoost: 2.5,        // Max boost for highly upvoted posts
 
             // Normalization factors
-            maxUpvotes: 10000,        // Posts above this get max upvote boost
+            maxUpvotes: 1,        // Posts above this get max upvote boost
             maxAgeDays: 365           // Posts older than this get no recency boost
         };
 
-        // Convert the subreddit to lowercase if it exists
         const subreddit = rawSubreddit ? rawSubreddit.toLowerCase() : null;
 
         // Check Redis cache first
@@ -3064,29 +3978,12 @@ app.post('/api/vector-search', async (req, res) => {
             return res.status(500).json({ error: 'Failed to get embedding' });
         }
 
-        // Build search body
-        const searchBody = {
-            vector: {
-                name: "",
-                vector: embedding
-            },
-            limit: limit * 5,
-            with_payload: true
+        // Build Pinecone filter
+        const filter = {
+            score: { $gte: minScore }
         };
 
-        // Build base filter for score
-        const baseFilter = {
-            must: [
-                {
-                    key: "score",
-                    range: {
-                        gte: minScore
-                    }
-                }
-            ]
-        };
-
-        // Add time filter if not 'all'
+        // Add time filter
         if (timeFilter !== 'all') {
             const now = Math.floor(Date.now() / 1000);
             let timeCutoff = 0;
@@ -3101,66 +3998,41 @@ app.post('/api/vector-search', async (req, res) => {
             }
 
             if (timeCutoff > 0) {
-                baseFilter.must.push({
-                    key: "created_utc",
-                    range: {
-                        gte: timeCutoff
-                    }
-                });
+                filter.created_utc = { $gte: timeCutoff };
             }
         }
 
-        // Add subreddit filter if specified
+        // Add subreddit filter
         if (subreddit) {
-            baseFilter.must.push({
-                key: "subreddit",
-                match: { value: subreddit }
-            });
+            filter.subreddit = { $eq: subreddit };
         }
 
-        searchBody.filter = baseFilter;
-
-        // Fetch from Qdrant
-        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts/points/search`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'api-key': process.env.QDRANT_API_KEY
-            },
-            body: JSON.stringify(searchBody)
+        // Query Pinecone
+        const index = pc.index('reddit-posts');
+        const queryResponse = await index.query({
+            vector: embedding,
+            topK: limit * 5,
+            filter: filter,
+            includeMetadata: true,
+            includeValues: false
         });
 
-        const qdrantResponse = await response.json();
-
-        if (!response.ok) {
-            console.error('❌ Qdrant API Error Status:', response.status);
-            return res.status(500).json({
-                error: 'Qdrant search failed',
-                details: qdrantResponse,
-                status: response.status
-            });
-        }
-
-        const qdrantResult = qdrantResponse.result;
-
         // === SCORING LOGIC ===
-        const scoredResults = qdrantResult.map(hit => {
-            const similarity = hit.score;
-            const payload = hit.payload;
+        const scoredResults = queryResponse.matches.map(match => {
+            const similarity = match.score;
+            const metadata = match.metadata;
 
             const queryLower = query.toLowerCase();
-            const titleLower = (payload.title || '').toLowerCase();
-            const subredditName = (payload.subreddit || '').toLowerCase();
+            const titleLower = (metadata.title || '').toLowerCase();
+            const subredditName = (metadata.subreddit || '').toLowerCase();
 
-            // 1. TITLE MATCHING (Priority #1)
+            // 1. TITLE MATCHING
             let titleScore = 0;
             let missingWordPenalty = 0;
 
             if (titleLower.includes(queryLower)) {
-                // Full phrase match - big boost
                 titleScore = SCORING_CONFIG.titleFullMatch;
             } else {
-                // Check individual word matches
                 const queryWords = queryLower.split(/\s+/).filter(word => word.length >= SCORING_CONFIG.minWordLength);
                 const titleWords = titleLower.split(/\s+/);
 
@@ -3179,44 +4051,42 @@ app.post('/api/vector-search', async (req, res) => {
                     titleScore = (matchedWords / queryWords.length) * SCORING_CONFIG.titlePartialMatch;
                 }
 
-                // Apply penalty for missing important words
                 missingWordPenalty = missingWords * SCORING_CONFIG.missingWordPenalty;
             }
 
-            // 2. SUBREDDIT MATCHING (Full match only)
+            // 2. SUBREDDIT MATCHING
             let subredditScore = 0;
             const queryWords = queryLower.split(/\s+/);
             for (const word of queryWords) {
                 if (subredditName === word || subredditName.includes(word)) {
                     subredditScore = SCORING_CONFIG.subredditFullMatch;
-                    break; // Only give bonus once
+                    break;
                 }
             }
 
-            // 3. RECENCY BOOST (Subtle)
+            // 3. RECENCY BOOST
             const now = Math.floor(Date.now() / 1000);
-            const postAgeDays = (now - payload.created_utc) / (24 * 60 * 60);
+            const postAgeDays = (now - metadata.created_utc) / (24 * 60 * 60);
             const recencyScore = Math.max(0,
                 (SCORING_CONFIG.maxAgeDays - postAgeDays) / SCORING_CONFIG.maxAgeDays
             ) * SCORING_CONFIG.recencyBoost;
 
-            // 4. UPVOTE BOOST (Subtle)
-            const upvoteScore = Math.min(payload.score / SCORING_CONFIG.maxUpvotes, 1.0) * SCORING_CONFIG.upvoteBoost;
+            // 4. UPVOTE BOOST
+            const upvoteScore = Math.min(metadata.score / SCORING_CONFIG.maxUpvotes, 1.0) * SCORING_CONFIG.upvoteBoost;
 
             // 5. FINAL WEIGHTED SCORE
             const finalScore =
                 similarity * SCORING_CONFIG.vectorSimilarity +
                 titleScore +
-                missingWordPenalty +  // This will be negative
+                missingWordPenalty +
                 subredditScore +
                 recencyScore +
                 upvoteScore;
 
             return {
-                ...hit,
+                ...match,
                 similarity,
                 weighted_score: finalScore,
-                // Debug info
                 debug: {
                     titleScore,
                     missingWordPenalty,
@@ -3225,14 +4095,34 @@ app.post('/api/vector-search', async (req, res) => {
                     upvoteScore,
                     vectorScore: similarity * SCORING_CONFIG.vectorSimilarity
                 },
-                payload
+                payload: metadata
             };
         });
 
-        // Sort by final score and limit results
+        // Sort by final score, remove duplicates, then limit results
+        const seen = new Set();
         const finalResults = scoredResults
             .sort((a, b) => b.weighted_score - a.weighted_score)
+            .filter(result => {
+                const id = result.payload.reddit_post_id;
+                if (seen.has(id)) return false;
+                seen.add(id);
+                return true;
+            })
             .slice(0, limit);
+
+        // Check for empty results
+        if (finalResults.length === 0) {
+            const emptyResponse = {
+                data: {
+                    children: [],
+                    after: null,
+                    before: null
+                }
+            };
+            await setCachedVectorSearch(query, subreddit, timeFilter, emptyResponse);
+            return res.json(emptyResponse);
+        }
 
         // Log top results for debugging
         console.log('Top 3 results scoring breakdown:');
@@ -3262,13 +4152,13 @@ app.post('/api/vector-search', async (req, res) => {
                         selftext: hit.payload.selftext,
                         body: hit.payload.body,
                         is_gallery: hit.payload.is_gallery,
-                        gallery_data: hit.payload.gallery_data,
-                        media_metadata: hit.payload.media_metadata,
-                        crosspost_parent_list: hit.payload.crosspost_parent_list || [],
+                        gallery_data: hit.payload.gallery_data ? JSON.parse(hit.payload.gallery_data) : null,
+                        media_metadata: hit.payload.media_metadata ? JSON.parse(hit.payload.media_metadata) : null,
+                        crosspost_parent_list: hit.payload.crosspost_parent_list ? JSON.parse(hit.payload.crosspost_parent_list) : [],
                         content_type: hit.payload.content_type,
                         locked: hit.payload.locked,
                         stickied: hit.payload.stickied,
-                        preview: hit.payload.preview,
+                        preview: hit.payload.preview ? JSON.parse(hit.payload.preview) : null,
                         similarity: hit.similarity,
                         weighted_score: hit.weighted_score
                     }
@@ -3286,86 +4176,6 @@ app.post('/api/vector-search', async (req, res) => {
         console.error('Vector search error:', error.message);
         res.status(500).json({ error: 'Vector search failed' });
     }
-});
- 
-app.get('/api/points-sample', async (req, res) => {
-    try {
-        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts/points/scroll`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'api-key': process.env.QDRANT_API_KEY
-            },
-            body: JSON.stringify({
-                limit: 5000,
-                with_payload: true,
-                with_vector: true
-            })
-        });
-
-        const data = await response.json();
-        res.json(data.result.points);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 1. Basic collection stats
-app.get('/debug/collection-info', async (req, res) => {
-    try {
-        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts`, {
-            headers: { 'api-key': process.env.QDRANT_API_KEY }
-        });
-        const info = await response.json();
-        res.json(info.result);
-    } catch (error) {
-        res.json({ error: error.message });
-    }
-});
-
-// Count posts per subreddit
-app.get('/debug/posts-per-sub', async (req, res) => {
-    try {
-        const response = await fetch(`${process.env.QDRANT_URL}/collections/reddit_posts/points/scroll`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'api-key': process.env.QDRANT_API_KEY
-            },
-            body: JSON.stringify({
-                limit: 550000, 
-                with_payload: ["subreddit"],
-                with_vector: false
-            })
-        });
-
-        const result = await response.json();
-        const counts = {};
-
-        result.result.forEach(point => {  
-            const sub = point.payload?.subreddit;
-            if (sub) counts[sub] = (counts[sub] || 0) + 1;
-        });
-
-        res.json({
-            total_points_found: result.result.length,  
-            unique_subreddits: Object.keys(counts).length,
-            breakdown: sorted
-        });
-    } catch (error) {
-        res.json({ error: error.message });
-    }
-});
-
-app.get('/test-embedding', async (req, res) => {
-    const embedding1 = await getSearchEmbedding("cats");
-    const embedding2 = await getSearchEmbedding("programming");
-    res.json({
-        cats_first5: embedding1?.slice(0, 5),
-        programming_first5: embedding2?.slice(0, 5),
-        are_same: JSON.stringify(embedding1) === JSON.stringify(embedding2),
-        flask_working: embedding1 !== null
-    });
 });
 
 app.get('/admin', (req, res) => {

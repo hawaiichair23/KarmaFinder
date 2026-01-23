@@ -23,21 +23,6 @@ const deleteOldEntries = async () => {
 
 cron.schedule('0 2 * * *', deleteOldEntries);
 
-cron.schedule('0 3 * * *', async () => {
-    try {
-        const result = await pool.query(`
-            DELETE FROM media_analysis
-            WHERE created_at < NOW() - INTERVAL '5 days'
-        `);
-
-        const now = new Date();
-        const readable = now.toLocaleString();
-        console.log(`🧹 Deleted ${result.rowCount} MEDIA_ANALYSIS rows older than 5 days at ${readable}`);
-    } catch (err) {
-        console.error('❌ Error deleting old media_analysis entries:', err.message);
-    }
-});
-
 cron.schedule('0 * * * *', async () => {
     try {
         const result = await pool.query(`
@@ -101,8 +86,8 @@ async function cleanOldPosts() {
 // Run every 7 minutes
 setInterval(cleanOldPosts, 7 * 60 * 1000);
 
-// Clean up old files every 5 minutes
-cron.schedule('*/5 * * * *', async () => {
+// Clean up old files every hour
+cron.schedule('0 * * * *', async () => {
     console.log('🧹 Running temp folder cleanup...');
     await cleanupTempFiles();
 });
@@ -117,7 +102,8 @@ async function cleanupTempFiles() {
 
         const files = await fs.promises.readdir(tempDir);
         const now = Date.now();
-        const maxAge = 7 * 60 * 1000; // 7 minutes in milliseconds
+        const maxAge = 7 * 24 * 60 * 60 * 1000  // 7 days in milliseconds
+        //const maxAge = 7 * 60 * 1000; // 7 minutes in milliseconds
 
         let deletedCount = 0;
 
@@ -169,6 +155,6 @@ module.exports = {
             } catch (err) {
                 console.log(`❌ Timer delete failed for ${outputFileName}:`, err.message);
             }
-        }, 7 * 60 * 1000);
+        }, 7 * 24 * 60 * 60 * 1000);  // 7 days in milliseconds
     }
 };

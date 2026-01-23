@@ -17,7 +17,9 @@ const BIG_SUBS = [
     'space',
     'politics',
     'aitah',
+    'reactiongifs',
     'wallstreetbets',
+    'bettereveryloop',
     'fauxmoi',
     'amioverreacting',
     'eldenring',
@@ -62,6 +64,7 @@ const BIG_SUBS = [
     'animemes',
     'blursedimages',
     'buyitforlife',
+    'marvel',
     'idiotsincars',
     'adviceanimals',
     'pareidolia',
@@ -87,6 +90,7 @@ const BIG_SUBS = [
     'bonehurtingjuice',
     'confession',
     'instant_regret',
+    'standupshots',
     'iasip',
     'crazyfuckingvideos',
     'marvelrivals',
@@ -110,6 +114,7 @@ const BIG_SUBS = [
     'playstation',
     'nextfuckinglevel',
     'natureisfuckinglit',
+    'houseofthedragon',
     'baking',
     'shitposting',
     'houseplants',
@@ -119,6 +124,7 @@ const BIG_SUBS = [
     'minecraftbuilds',
     'minecraftmemes',
     'minecraft',
+    'bodyweightfitness',
     'losangeles',
     'woodworking',
     'dankmemes',
@@ -126,6 +132,7 @@ const BIG_SUBS = [
     'announcements',
     'blog',
     'cursedcomments',
+    'solotravel',
     'blessedimages',
     'steam',
     'mapporn',
@@ -158,14 +165,21 @@ const BIG_SUBS = [
     'beginnerfitness',
     'sports',
     'law',
+    'edm',
+    'astrophotography',
+    'pubattlegrounds',
     'gadgets',
     'whatcouldgowrong',
     'technicallythetruth',
+    'thriftstorehauls',
+    'mypeopleneedme',
     'curatedtumblr',
     'thisismylifenow',
     'rareinsults',
     'woahdude',
     'mildlyinfuriating',
+    'rarepuppers',
+    'cricket',
     'murderedbywords',
     'peterexplainsthejoke',
     'meirl',
@@ -179,29 +193,20 @@ const BIG_SUBS = [
     'publicfreakout',
     'anticonsumption',
     'therewasanattempt',
+    'nvidia',
     'anime_irl',
     'soccercirclejerk',
+    'satisfyingasfuck',
     'beauty',
     'oddlysatisfying',
     'beautyguruchatter',
     'unexpected',
     'interestingasfuck',
+    'expectationvsreality',
+    'roadtrip',
     'notinteresting',
     'foodporn',
     'spaceporn',
-
-// arbitrary cutoff
-
-
-
-
-
-
-
-
-
-
-
     'kendricklamar',
     'beamazed',
     'explainthejoke',
@@ -215,6 +220,7 @@ const BIG_SUBS = [
     'olympics',
     'programming',
     'bitcoinbeginners',
+    'oddlyspecific',
     'superstonk',
     'collegebasketball',
     'cfb',
@@ -253,6 +259,7 @@ const BIG_SUBS = [
     'leagueoflegends',
     'eyebleach',
     'gifs',
+    'genshin_impact',
     'tiktokcringe',
     'kpop',
     'kanye',
@@ -260,6 +267,8 @@ const BIG_SUBS = [
     'learnuselesstalents',
     'cars',
     'everymanshouldknow',
+
+    //crashed here
     'cozyplaces',
     'artefactporn',
     'meditation',
@@ -274,6 +283,7 @@ const BIG_SUBS = [
     'tattoodesigns',
     'spacex',
     'roastme',
+    'bikinibottomtwitter',
     'atheism',
     'outoftheloop',
     'casualuk',
@@ -294,11 +304,13 @@ const BIG_SUBS = [
     'euphoria',
     'thelastofus',
     'strangerthings',
+    'spotify',
     'tennis',
     'television',
     'thewalkingdead',
     'thebear',
     'bleach',
+    'paranormal',
     'naruto',
     'jujutsukaisen',
     'thebachelor',
@@ -377,6 +389,7 @@ const BIG_SUBS = [
     'unitedstates',
     'china_irl',
     'indonesia',
+    'netflixbestof',
     'pakistan',
     'nigeria',
     'brazil',
@@ -446,6 +459,7 @@ const BIG_SUBS = [
     'sanantonio',
     'longhair',
     'celebs',
+    'disneyplus',
     'college',
     'poland',
     'mechanical_gifs',
@@ -454,6 +468,7 @@ const BIG_SUBS = [
     'cowboys',
     'cowboybebop',
     'steelers',
+    'pettyrevenge',
     'greenbaypackers',
     'saintseiya',
     'giftideas',
@@ -463,6 +478,7 @@ const BIG_SUBS = [
     'howyoudoin',
     'fortnite',
     'fortniteleaks',
+    'yoga',
     'math',
     'mathmemes',
     'healthyfood',
@@ -473,7 +489,9 @@ const BIG_SUBS = [
     'deadbedrooms',
     'stupidfood',
     'shittyfoodporn',
+    'hair',
     'uk_food',
+    'premierleague',
     'keto',
     'fuckcars',
     'costaricatravel',
@@ -488,8 +506,11 @@ const BIG_SUBS = [
     'loseit',
     'culinaryplating',
     'losangelesrams',
+    'health',
     'electricians',
+    '15minutefood',
     'elonmusk',
+    'bestof',
     'electricvehicles',
     'recipes',
     'cooking',
@@ -507,21 +528,6 @@ const BIG_SUBS = [
     'mac',
     'laptops',
     'shoestring',
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // missed
     'bossfight',
     'piratedgames',
     'relationships',
@@ -531,8 +537,10 @@ const BIG_SUBS = [
     'relationshipmemes',
     'justrolledintotheshop',
     'filmmakers',
+    'mma',
     'musicproduction',
     'gifrecipes',
+    'singularity',
     'neverbrokeabone',
     'justfuckmyshitup',
     'breadit',
@@ -543,11 +551,61 @@ const BIG_SUBS = [
     'squaredcircle',
     'piercing',
     'tinder',
-    'musictheory'
+    'musictheory',
+    'curledfeetsies',
+    'unity2d',
+    'livestreamfail',
+    'bayarea',
+    'thailandtourism',
+    'fantanoforever',
+    'photoshopbattles',
+    'animalsbeingderps',
+    'biology',
+    'survival',
+    'trippinthroughtime',
+    'dnd',
+    'fantasy',
+    'productivity',
+    'homestead',
+    'outfits',
+    'haircare',
+    'camping',
+    'overemployed',
+    'motorcycles',
+    'documentaries',
+    'recruitinghell',
+    'skincareaddiction',
+    'residency',
+    'skincareaddicts',
+    'skincareaddictionuk',
+    'sysadmin',
+    'digitalnomad',
+    'ithinkyoushouldleave',
+    'podcasts',
+    'nosleep',
+    'chemistry',
+    'running',
+    'compsci',
+    'artporn',
+    'dundermifflin',
+    'skincare_addiction',
+    'nintendoswitch',
+    'hbo',
+    'socialmedia',
+    'rap',
+    'confusing_perspective',
+    'nationalpark',
+    'finance',
+    'askacademia',
+    'google',
+    'adhd',
+    'indieheads',
+    'daytrading',
+    'ps4',
+    'ps5'
 ]
 
 const MEDIUM_SUBS = [
-    // missed
     'toolgifs',
     'soup',
     'memevideos',
@@ -565,20 +623,6 @@ const MEDIUM_SUBS = [
     'breadstapledtotrees',
     'me_irlgbt',
     'npr',
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     'windows',
     'ipad',
     'ipadpro',
