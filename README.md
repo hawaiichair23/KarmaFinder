@@ -1,4 +1,10 @@
 
+<img width="1918" height="885" alt="pic2" src="https://github.com/user-attachments/assets/a1529e33-ccb6-4c5a-9b90-593185529342" />
+
+KarmaFinder
+
+A browser-based Reddit client that's fast and responsive with natural language vector search, bookmark features, themes and more.
+
 <img width="1921" height="877" alt="pic1" src="https://github.com/user-attachments/assets/ce3fb592-ef48-4221-9407-c72db4f96f16" />
 <img width="1911" height="872" alt="pic3" src="https://github.com/user-attachments/assets/2aaba838-7609-4a0f-9fe0-65fcce11a891" />
 <img width="1918" height="881" alt="pic4" src="https://github.com/user-attachments/assets/7e4aaf62-16c5-412f-9e28-4398341c6854" />
