@@ -41,6 +41,8 @@
 - Import Reddit saves instantly using OAuth single click login
 - Generate public links to share curated bookmark collections with anyone, no login required
 
+<img width="1918" height="849" alt="pic8" src="https://github.com/user-attachments/assets/b27b2f3f-8ad5-4ef1-8fd6-a554df0a2479" />
+
 ### **Search**
 
 - Enhanced Search: semantic search with vector embeddings using Pinecone, query matching and algorithmic ranking
@@ -63,4 +65,4 @@
 - Multiple themes (Forest, Bluebird, dark, light)
 - Configurable layouts: Comfy and Compact modes for different card sizes
 - Top 8 comments on every post without clicking through
-- <img width="24" height="25" alt="KarmaFinder logo" src="https://github.com/user-attachments/assets/2650bd36-1834-4b96-96bb-851e9536a6e2" />Hermes - animated kittie mascot with 100+ unique contextual responses
+- Hermes - animated kittie mascot with 100+ unique contextual responses <img width="24" height="25" alt="KarmaFinder logo" src="https://github.com/user-attachments/assets/2650bd36-1834-4b96-96bb-851e9536a6e2" />
