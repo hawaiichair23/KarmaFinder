@@ -5,20 +5,22 @@
 
 **A fast & responsive browser-based Reddit client** with natural language semantic search, bookmark features, themes and more.
 
-<img width="1921" height="877" alt="pic1" src="https://github.com/user-attachments/assets/ce3fb592-ef48-4221-9407-c72db4f96f16" />
-
-**Section analytics and metadata** - Track creation date, bookmark count, top subreddit, last modified, with custom descriptions for organizing collections
-
-<img width="1911" height="872" alt="pic3" src="https://github.com/user-attachments/assets/2aaba838-7609-4a0f-9fe0-65fcce11a891" />
-
-<img width="1918" height="881" alt="pic4" src="https://github.com/user-attachments/assets/7e4aaf62-16c5-412f-9e28-4398341c6854" />
-
+**Live Site:** https://karmafinder.site/
 **Demo Video:** https://karmafinder.site/html/features.html
 
 **Features**
 - Batch rendering for performance, caching for quick responses, minimal API load
 - Passwordless magic link login, optional
 - NSFW filter with pattern detection
+
+<img width="1921" height="877" alt="pic1" src="https://github.com/user-attachments/assets/ce3fb592-ef48-4221-9407-c72db4f96f16" />
+
+**Section analytics and metadata** - Track creation date, bookmark count, top subreddit, last modified, with custom descriptions for organizing collections
+
+
+<img width="1911" height="872" alt="pic3" src="https://github.com/user-attachments/assets/2aaba838-7609-4a0f-9fe0-65fcce11a891" />
+
+<img width="1918" height="881" alt="pic4" src="https://github.com/user-attachments/assets/7e4aaf62-16c5-412f-9e28-4398341c6854" />
 
 <img width="1918" height="879" alt="pic5" src="https://github.com/user-attachments/assets/5357942b-8d08-49a6-8c18-292c89b7e214" />
 
@@ -37,6 +39,7 @@
 - Combine filters Reddit doesn't allow (hot + past week, etc.)
 - Search suggestions from dictionary, word completion API, and user input
 - Dynamic search suggestions with automatic spell check
+  
 
 <img width="1916" height="873" alt="pic7" src="https://github.com/user-attachments/assets/48c1b936-957f-466a-8748-dfcb8fc0f1e8" />
 
