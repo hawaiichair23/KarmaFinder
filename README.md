@@ -44,25 +44,23 @@
 ### **Search**
 
 - Enhanced Search: semantic search with vector embeddings using Pinecone, query matching and algorithmic ranking
-- Filter by content type (video/image/text/links)
+- Smart filtering with progressive fetch - batch filter by content type (video/image/text, time period) keeps fetching from Reddit until it collects 10 posts matching filters 
 - Combine filters Reddit doesn't allow (hot + past week, etc.)
-- Search suggestions from dictionary, word completion API, and user input
-- Dynamic search suggestions with automatic spell check <br>
+- Dynamic search suggestions with spell check from dictionary, word completion API, and user input
+
     
 <img width="1916" height="873" alt="pic7" src="https://github.com/user-attachments/assets/48c1b936-957f-466a-8748-dfcb8fc0f1e8" />
 
 ### **Media**
 
-- Plyr.io player for smooth playback
-- YouTube and Streamable embeds
-- Reddit videos: ffmpeg merges audio/video streams and caches on local CDN
-- Modal viewer with zoom and gallery navigation, smooth gallery navigation with preloading & decoding for seamless transitions
-- Markdown and injection-safe image support in comments
+- Plyr.io player for smooth playback on Reddit video: ffmpeg merges audio/video streams and caches on local CDN
+- YouTube and Streamable embeds 
+- Modal viewer with zoom and smooth gallery navigation with preloading & decoding for seamless transitions
+- Markdown and image support in comments
 
 ### **UI**
 
 - Multiple themes (Forest, Bluebird, dark, light)
-- Smooth animations throughout
 - Configurable layouts: Comfy and Compact modes for different card sizes
 - Top 8 comments on every post without clicking through
-- Hermes - animated kittie mascot with 100+ unique contextual responses
+- <img width="24" height="25" alt="KarmaFinder logo" src="https://github.com/user-attachments/assets/2650bd36-1834-4b96-96bb-851e9536a6e2" />Hermes - animated kittie mascot with 100+ unique contextual responses
