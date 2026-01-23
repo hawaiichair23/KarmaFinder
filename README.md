@@ -6,6 +6,8 @@
 **A fast & responsive browser-based Reddit client** with natural language semantic search, bookmark features, themes and more.
 
 **Live Site:** https://karmafinder.site/
+
+
 **Demo Video:** https://karmafinder.site/html/features.html
 
 ### **Features**
@@ -15,8 +17,9 @@
 
 <img width="1921" height="877" alt="pic1" src="https://github.com/user-attachments/assets/ce3fb592-ef48-4221-9407-c72db4f96f16" />
 
-**Section analytics and metadata** - Track creation date, bookmark count, top subreddit, last modified, with custom descriptions for organizing collections
-
+###**Section analytics and metadata** 
+- Track creation date, bookmark count, top subreddit, last modified, with custom descriptions for organizing collections
+- Share info via copy link or over social media
 
 <img width="1911" height="872" alt="pic3" src="https://github.com/user-attachments/assets/2aaba838-7609-4a0f-9fe0-65fcce11a891" />
 
