@@ -28,7 +28,7 @@
 - Connect to Reddit via OAuth
 - See number of unique posts, choose which section to import to
 
-<img width="1918" height="792" alt="pic3" src="https://github.com/user-attachments/assets/686e5103-fdad-4c2b-bca3-a089f6fef8df" />
+<img width="1830" height="685" alt="pic3" src="https://github.com/user-attachments/assets/4b8142d9-f443-4291-8e0e-8b46f2feaf99" />
 
 ### **Bookmarks**
 
