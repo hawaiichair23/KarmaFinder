@@ -8,7 +8,7 @@
 **Live Site:** https://karmafinder.site/
 **Demo Video:** https://karmafinder.site/html/features.html
 
-**Features**
+### **Features**
 - Batch rendering for performance, caching for quick responses, minimal API load
 - Passwordless magic link login, optional
 - NSFW filter with pattern detection
@@ -38,12 +38,12 @@
 - Filter by content type (video/image/text/links)
 - Combine filters Reddit doesn't allow (hot + past week, etc.)
 - Search suggestions from dictionary, word completion API, and user input
-- Dynamic search suggestions with automatic spell check
+- Dynamic search suggestions with automatic spell check <br>
     
 
 <img width="1916" height="873" alt="pic7" src="https://github.com/user-attachments/assets/48c1b936-957f-466a-8748-dfcb8fc0f1e8" />
 
-**Media**
+### **Media**
 
 - Plyr.io player for smooth playback
 - YouTube and Streamable embeds
@@ -51,7 +51,7 @@
 - Modal viewer with zoom and gallery navigation, smooth gallery navigation with preloading & decoding for seamless transitions
 - Markdown and injection-safe image support in comments
 
-**UI**
+### **UI**
 
 - Multiple themes (Forest, Bluebird, dark, light)
 - Smooth animations throughout
