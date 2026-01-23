@@ -1,7 +1,7 @@
 
 <img width="1900" height="823" alt="pic2" src="https://github.com/user-attachments/assets/b2a64bf4-2732-4495-97e7-6678a8b25f36" />
 <h1>
-  <img width="41" height="41" alt="search-favicon" src="https://github.com/user-attachments/assets/2477296e-bb94-4a0d-851b-15eae48eb31f" />
+  <img width="41" height="41" alt="search-favicon" src="https://github.com/user-attachments/assets/2477296e-bb94-4a0d-851b-15eae48eb31f" style="vertical-align: middle; />
   KarmaFinder 
 </h1>
 **A fast & responsive browser-based Reddit client** with semantic search, bookmark features, advanced filters, themes and more.
