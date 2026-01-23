@@ -38,7 +38,7 @@
 - Filter by content type (video/image/text/links)
 - Combine filters Reddit doesn't allow (hot + past week, etc.)
 - Search suggestions from dictionary, word completion API, and user input
-- Dynamic search suggestions with automatic spell check
+- Dynamic search suggestions with automatic spell check  
   
 
 <img width="1916" height="873" alt="pic7" src="https://github.com/user-attachments/assets/48c1b936-957f-466a-8748-dfcb8fc0f1e8" />
