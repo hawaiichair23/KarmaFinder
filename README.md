@@ -4,6 +4,7 @@
   <img width="34" height="35" alt="KarmaFinder logo" src="https://github.com/user-attachments/assets/2650bd36-1834-4b96-96bb-851e9536a6e2" />
   KarmaFinder 
 </h1>
+
 **A fast & responsive browser-based Reddit client** with semantic search, bookmark features, advanced filters, themes and more.
 
 **Live Site:** https://karmafinder.site/
