@@ -23,7 +23,10 @@
 
 <img width="1911" height="872" alt="pic3" src="https://github.com/user-attachments/assets/2aaba838-7609-4a0f-9fe0-65fcce11a891" />
 
-<img width="1918" height="881" alt="pic4" src="https://github.com/user-attachments/assets/7e4aaf62-16c5-412f-9e28-4398341c6854" />
+### **Imports**
+
+- Connect to Reddit via OAuth
+- See number of unique posts, choose which section to import to
 
 <img width="1918" height="879" alt="pic5" src="https://github.com/user-attachments/assets/5357942b-8d08-49a6-8c18-292c89b7e214" />
 
@@ -31,7 +34,7 @@
 
 - Move any post with dropdown menu
 - Organize posts inside custom sections with drag-and-drop
-- Choose emoji and rename, delete, share tabs
+- Choose emoji, rename, and delete sections
 - Import Reddit saves instantly using OAuth single click login
 - Generate public links to share curated bookmark collections with anyone, no login required
 
@@ -43,15 +46,6 @@
 - Search suggestions from dictionary, word completion API, and user input
 - Dynamic search suggestions with automatic spell check <br>
     
-
-
-
-
-
-
-
-
-
 <img width="1916" height="873" alt="pic7" src="https://github.com/user-attachments/assets/48c1b936-957f-466a-8748-dfcb8fc0f1e8" />
 
 ### **Media**
