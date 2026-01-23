@@ -3,7 +3,7 @@
 
 KarmaFinder
 
-A browser-based Reddit client that's fast and responsive with natural language vector search, bookmark features, themes and more.
+A fast & responsive browser-based Reddit client with natural language semantic search, bookmark features, themes and more.
 
 <img width="1921" height="877" alt="pic1" src="https://github.com/user-attachments/assets/ce3fb592-ef48-4221-9407-c72db4f96f16" />
 <img width="1911" height="872" alt="pic3" src="https://github.com/user-attachments/assets/2aaba838-7609-4a0f-9fe0-65fcce11a891" />
