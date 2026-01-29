@@ -76,7 +76,7 @@
 # **Install**
 ## Local Installation
 ```bash
-git clone https://github.com/yourusername/karmafinder.git
+git clone https://github.com/hawaiichair23/karmafinder.git
 cd karmafinder
 npm install
 npm run dev
