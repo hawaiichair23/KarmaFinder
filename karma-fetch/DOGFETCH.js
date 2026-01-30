@@ -1,11 +1,7 @@
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const util = require('util');
 const fs = require('fs');
 const tmp = require('tmp-promise');
 const { Resend } = require('resend');
 const crypto = require('crypto');
-const execAsync = promisify(exec);
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
@@ -59,6 +55,14 @@ redisClient.on('connect', () => {
 
 // Connect to Redis
 redisClient.connect();
+
+let pc = null;
+if (process.env.PINECONE_API_KEY) {
+    const { Pinecone } = require('@pinecone-database/pinecone');
+    pc = new Pinecone({
+        apiKey: process.env.PINECONE_API_KEY
+    });
+}
 
 // RedGifs token management
 let redgifsToken = null;
@@ -3932,12 +3936,16 @@ app.post('/api/create-checkout-pro', async (req, res) => {
 });
 }
 
-const { Pinecone } = require('@pinecone-database/pinecone');
-const pc = new Pinecone({
-    apiKey: process.env.PINECONE_API_KEY
-});
-
 app.post('/api/vector-search', async (req, res) => {
+
+    // Check if Pinecone is configured
+    if (!process.env.PINECONE_API_KEY) {
+        return res.status(501).json({
+            error: 'Semantic search not configured for this instance',
+            fallback: 'Use regular Reddit search instead'
+        });
+    }
+    
     try {
         const {
             query,
