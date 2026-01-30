@@ -3,3 +3,7 @@ node_modules/
 blocklist.json
 temp/
 *.log 
+subslist.js
+populate_posts_embeddings.js
+daddy-bot.js
+old/
