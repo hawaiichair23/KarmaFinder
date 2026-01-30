@@ -3,7 +3,6 @@ const { promisify } = require('util');
 const util = require('util');
 const fs = require('fs');
 const tmp = require('tmp-promise');
-const jwt = require('jsonwebtoken');
 const { Resend } = require('resend');
 const crypto = require('crypto');
 const execAsync = promisify(exec);
@@ -183,21 +182,21 @@ const redditClients = [
         requestCount: 0,
         lastReset: Date.now()
     },
-    {
+    process.env.REDDIT_CLIENT_2_ID && {
         clientId: process.env.REDDIT_CLIENT_2_ID,
         clientSecret: process.env.REDDIT_CLIENT_2_SECRET,
         userAgent: process.env.REDDIT_USER_AGENT_2,
         requestCount: 0,
         lastReset: Date.now()
     },
-    {
+    process.env.REDDIT_CLIENT_3_ID && {
         clientId: process.env.REDDIT_CLIENT_3_ID,
         clientSecret: process.env.REDDIT_CLIENT_3_SECRET,
         userAgent: process.env.REDDIT_USER_AGENT_3,
         requestCount: 0,
         lastReset: Date.now()
     }
-];
+].filter(Boolean); // Remove undefined entries
 
 let currentClientIndex = 0;
 
@@ -260,6 +259,9 @@ app.use((req, res, next) => {
     next();
 });
 
+const STRIPE_ENABLED = process.env.STRIPE_ENABLED === 'true';
+
+if (STRIPE_ENABLED) {
 // Stripe webhook
 app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
@@ -377,11 +379,11 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
     }
     res.json({ received: true });
 });
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const JWT_SECRET = process.env.JWT_SECRET;
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const headers = {
@@ -2592,6 +2594,9 @@ if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 // Serve combined videos
 app.use('/temp', express.static(tempDir));
 app.get('/api/reddit-video/:videoId', async (req, res) => {
+    //console.log('🔍 ENDPOINT HIT - videoId:', req.params.videoId);
+    //console.log('🔍 Query params:', req.query);
+    //console.log('🔍 Request from:', req.ip);
     try {
         const { videoId } = req.params;
         // Get URLs from query parameters if provided by frontend
@@ -2894,7 +2899,7 @@ async function combineWithFfmpeg(videoUrl, audioUrl, outputPath) {
                 '-i', tempVideo,
                 '-i', tempAudio,
                 '-c:v', 'copy',
-                '-c:a', 'aac',
+                '-c:a', 'copy',
                 '-map', '0:v:0',
                 '-map', '1:a:0',
                 '-shortest',
@@ -3445,7 +3450,8 @@ app.post('/api/auth/magic-link', async (req, res) => {
         console.log('Token saved to database');
 
         // Build magic link URL with optional redirect
-        let magicLinkUrl = `${API_BASE}/?token=${token}`;
+        const origin = req.headers.origin || req.headers.referer?.split('?')[0].replace(/\/$/, '') || API_BASE;
+        let magicLinkUrl = `${origin}/?token=${token}`;
         if (redirect) {
             magicLinkUrl += `&redirect=${redirect}`;
         }
@@ -3508,8 +3514,6 @@ app.post('/api/auth/verify/:token', async (req, res) => {
             UPDATE magic_links SET used = TRUE WHERE token = $1
         `, [token]);
 
-        // Create session/JWT
-        const sessionToken = jwt.sign({ email }, JWT_SECRET);
 
         // Generate permanent auth token
         let authToken = null;
@@ -3522,7 +3526,6 @@ app.post('/api/auth/verify/:token', async (req, res) => {
 
         res.json({
             success: true,
-            sessionToken,
             email,
             hasSubscription,
             planType,
@@ -3829,6 +3832,7 @@ app.post('/verify-token', async (req, res) => {
     }
 });
 
+if (STRIPE_ENABLED) {
 app.post('/api/create-checkout', async (req, res) => {
     try {
         const { type, email } = req.body;
@@ -3876,7 +3880,9 @@ app.post('/api/create-checkout', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+}
 
+if (STRIPE_ENABLED) {
 app.post('/api/create-checkout-pro', async (req, res) => {
     try {
         const { type, email } = req.body;
@@ -3924,6 +3930,7 @@ app.post('/api/create-checkout-pro', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+}
 
 const { Pinecone } = require('@pinecone-database/pinecone');
 const pc = new Pinecone({
@@ -4246,7 +4253,7 @@ async function startServer() {
     const token = await getRedditAppToken();
     console.log('✅ Reddit app token fetched:', token.slice(0, 12), '...');
 
-    const server = app.listen(PORT, () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
         const host = process.env.NODE_ENV === 'production'
             ? 'https://karmafinder.site'
             : `http://localhost:${PORT}`;
