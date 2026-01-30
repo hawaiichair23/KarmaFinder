@@ -72,7 +72,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background-color: var(--background-color);
             padding: 0;
             line-height: 1.5;
@@ -198,7 +198,7 @@
             flex-grow: 0.89;
             font-size: 1.1rem;
             font-weight: 400;
-            font-family: Segoe UI;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         }
 
         input[type="email"]:focus {
@@ -382,9 +382,7 @@
     </div>
         <a href="/" class="back-link">← Return to KarmaFinder</a>
     <script>
-      const API_BASE = location.hostname === 'localhost'
-            ? 'http://localhost:3000'
-            : 'https://karmafinder.site';
+      const API_BASE = window.location.origin;
 
         // Animate in container
             document.addEventListener('DOMContentLoaded', function () {
@@ -396,7 +394,9 @@
 
                 // Hide message when user starts typing
                 document.getElementById('email').addEventListener('input', function () {
-                    document.getElementById('successMessage').style.display = 'none';
+                    const successMessage = document.getElementById('successMessage');
+                    successMessage.style.display = 'none';
+                    successMessage.textContent = 'Check your email! You have been sent a magic link that will expire in 20 minutes.';
                 });
             });
 

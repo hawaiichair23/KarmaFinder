@@ -11,6 +11,7 @@
     padding-left: 10px;
     padding-right: 20px;
     width: 124px;
+    min-width: 100px;
     height: 25px;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -41,7 +42,7 @@ body.dark-mode .tab:hover {
 }
 
 .tab.active:hover {
-    background: #0058a0;
+    background: #0060af;
 }
 
 body.forest-theme .tab.active {
@@ -49,7 +50,7 @@ body.forest-theme .tab.active {
 }
 
 body.dark-mode .tab.active:hover {
-    background: #003c6c;
+    background: #00437a;
 }
 
 .tab-emoji {
@@ -73,10 +74,7 @@ body.dark-mode .tab.active:hover {
     justify-content: center;
     align-items: center;
     min-height: 120px;
-    border-style: solid;
-    border-width: 1.5px;
-    border-color: var(--inset-shadow);
-    box-shadow: inset 0 0 1px var(--inset-shadow);
+    border: 1.5px solid var(--border-color);
     transform: translateY(6px);
     opacity: 0;
     transition: all 0.15s ease-in-out;
@@ -118,8 +116,21 @@ body.comfy-mode .bookmark-section-dropdown {
     border-radius: 6px;
 }
 
+.section-option.highlighted {
+    background-color: var(--hover-bg-lite);
+}
+
+body.dark-mode .section-option.highlighted {
+    background-color: var(--hover-bg);
+}
+
 .section-selector:hover {
     background: var(--hover-bg-lite);
+}
+
+.result-card:focus-within .bookmark-section-dropdown,
+.result-card.keyboard-focused .bookmark-section-dropdown {
+    opacity: 1;
 }
 
 .section-selector svg {
@@ -177,7 +188,7 @@ div:where(.swal2-container) textarea:where(.swal2-textarea)::placeholder {
 }
 
 .dark-mode .tab.active {
-    background: #004376;
+    background: #004880;
     color: #f9fafe;
 }
 
@@ -198,7 +209,6 @@ div:where(.swal2-container) textarea:where(.swal2-textarea)::placeholder {
 
 .scroll-container-minimal {
     position: absolute;
-    bottom: 160px;
     left: 50%;
     transform: translateX(-50%);
     width: 60px;
@@ -220,7 +230,6 @@ body.dark-mode .scroll-container-minimal {
     background-color: #202022;
     box-shadow: inset 0 0 1px #35353e;
     border-color: #35353e;
-  
 }
 
 /* Dark mode text color */
@@ -442,8 +451,14 @@ body.dark-mode .add-section-btn:active {
     transition: background-color 0.2s;
 }
 
-.emoji-option:hover {
+body.dark-mode .emoji-option:hover {
     background-color: var(--hover-bg);
+}
+body.forest-theme .emoji-option:hover {
+    background-color: rgb(62, 97, 94);
+}
+body.bluebird-theme .emoji-option:hover {
+    background-color: rgb(181, 225, 255);
 }
 
 div:where(.swal2-container) input:where(.swal2-input)::placeholder,
@@ -451,4 +466,471 @@ div:where(.swal2-container) input:where(.swal2-file)::placeholder,
 div:where(.swal2-container) textarea:where(.swal2-textarea)::placeholder {
     color: var(--text-color);
 
+}
+
+/* Share and ellipse icon garbage slop */
+
+.share-icon {
+    width: 32px;
+    height: 32px;
+    margin-left: 3px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    content: url('/assets/shareicon.png');
+}
+
+.button-group {
+    position: absolute;
+    left: -125px;
+    top: 225px;
+    display: flex;
+    gap: 10px;
+    z-index: 100;
+}
+
+.share-button,
+.import-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    width: 40px;
+    height: 40px;
+    tabindex: 0;
+    font-size: 18px;
+    display: flex;
+    /* Add this */
+    align-items: center;
+    /* Center vertically */
+    justify-content: center;
+    /* Center horizontally */
+}
+.import-menu-item.highlighted {
+    background-color: var(--hover-bg-lite);
+}
+
+body.dark-mode .import-menu-item.highlighted {
+    background-color: var(--hover-bg);
+}
+.import-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    width: 40px;
+    height: 40px;
+    tabindex: 0;
+    margin-top: 3px;
+}
+
+.share-button img {
+    width: 32px;
+    height: 32px;
+}
+
+.share-icon {
+    width: 32px;
+    height: 32px;
+}
+
+body.dark-mode .share-icon {
+    width: 32px;
+    height: 32px;
+    margin-left: 3px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    content: url('/assets/shareicondark.png');
+}
+
+
+body.bluebird-theme .share-icon {
+    width: 32px;
+    height: 32px;
+    margin-left: 3px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    content: url('/assets/shareiconbluebird.png');
+}
+
+body.forest-theme .share-icon {
+    width: 32px;
+    height: 32px;
+    margin-left: 3px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    content: url('/assets/shareiconforest.png');
+}
+
+.share-menu {
+    position: absolute;
+    top: 1px;
+    left: 20px;
+    background: var(--card-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 13px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 2000;
+    width: 268px;
+}
+
+.share-header {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 8px;
+    text-align: center;
+    padding: 0;
+    font-family: 'Segoe UI';
+}
+
+.share-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0px;
+}
+
+.share-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 9px 6px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: background-color 0.2s;
+}
+
+.share-option:hover {
+    background-color: var(--hover-bg-lite);
+}
+body.dark-mode .share-option:hover {
+    background-color: var(--hover-bg);
+}
+body.forest-theme .share-option:hover {
+    background-color: var(--border-color);
+}
+
+.share-icon-wrapper {
+    width: 41px;
+    height: 41px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+    font-size: 22px;
+    color: white;
+}
+
+.share-icon-wrapper {
+    background-color: #d1d5db;
+}
+
+body.dark-mode .share-icon-wrapper {
+    background-color: #686a6d;
+}
+
+body.forest-theme .share-icon-wrapper {
+    background-color: #686a6d;
+}
+
+.whatsapp {
+    background-color: #22c45e !important;
+}
+
+.messenger {
+    background-color: transparent !important;
+    border: 1px solid #d1d5db;
+}
+
+body.dark-mode .messenger {
+    background-color: transparent !important;
+    border: 1px solid #525457;
+}
+
+.facebook {
+    background-color: #1877F2 !important;
+}
+
+.twitter {
+    background-color: #000000 !important;
+}
+
+.share-label {
+    font-size: 10px;
+    font-family: 'Segoe UI';
+    text-align: center;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.share-option[data-action="copy-link"] i {
+    font-size: 17px !important;
+}
+
+.share-option[data-action="facebook"] i {
+    font-size: 29px !important;
+}
+
+.share-option[data-action="messenger"] i {
+    font-size: 23px !important;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.ellipsis {
+    font-size: 22px;
+    font-weight: bold;
+    color: #aeaeb2;
+}
+
+body.dark-mode .ellipsis {
+    font-size: 22px;
+    font-weight: bold;
+    color: #555557;
+}
+
+body.forest-theme .ellipsis {
+    font-size: 22px;
+    font-weight: bold;
+    color: #a6e7e4;
+}
+
+body.bluebird-theme .ellipsis {
+    font-size: 22px;
+    font-weight: bold;
+    color: rgb(108, 169, 197);
+}
+
+.import-menu {
+    position: absolute;
+    background: var(--card-color);
+    border: 1px solid #999;
+    border-radius: 8px;
+    padding: 0;
+    box-shadow: 0 3px 7px rgba(59, 59, 59, 0.15);
+    z-index: 1000;
+    transition: all 0.1s ease;
+    display: none;
+    line-height: 1.6;
+}
+
+body.dark-mode .import-menu {
+    background: #232326;
+    border: 1px solid #8f8f8f;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.import-menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: 'Segoe UI';
+    color: var(--text-color);
+    display: flex;
+    box-shadow: inset 0 0 1px var(--border-color);
+    border-radius: 8px;
+}
+
+.import-menu-item:hover {
+    background-color: var(--hover-bg-lite);
+}
+
+body.dark-mode .import-menu-item:hover {
+    background-color: var(--hover-bg);
+}
+
+.import-menu-item span:first-child {
+    display: flex;
+    align-items: center;
+}
+
+/* Share and ellipse icon garbage slop over */
+
+.dropdown-selected {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--input-radius);
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    cursor: pointer;
+    line-height: 1.2;
+    height: 33px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+}
+
+#sectionSelect {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--input-bg);
+    font-weight: 500;
+    color: var(--text-color);
+    font-size: 1rem;
+    width: 100%;
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--input-radius);
+    transition: all 0.15s ease-in-out;
+    line-height: 1.2;
+    height: 33px;
+    box-sizing: border-box;
+}
+
+.dark-mode #sectionSelect {
+    background-color: var(--form-bg);
+    color: var(--form-text);
+    border: 1px solid var(--form-border);
+}
+
+div:where(.swal2-container) div:where(.swal2-validation-message) {
+    overflow: hidden;
+    background: none !important;
+    color: var(--border-dark) !important;
+    font-family: "Segoe UI" !important;
+    font-size: 1em !important;
+    font-weight: 500 !important;
+    padding: 0 !important;
+}
+
+body.dark-mode div:where(.swal2-container) div:where(.swal2-validation-message)::before {
+    background-color: #ca4545 !important;
+}
+
+div:where(.swal2-container) div:where(.swal2-validation-message)::before {
+    background-color: #f34a4a !important;
+}
+
+.is-shared-page .bookmark-container:hover {
+    cursor: not-allowed;
+}
+
+.is-shared-page .tab {
+    width: auto;
+    min-width: 124px;
+    max-width: 800px;
+    padding-left: 8px;
+    padding-right: 17px;
+    overflow: ellipsis;
+}
+
+#sectionDescription {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--input-bg);
+    font-weight: 500;
+    color: var(--text-color);
+    font-size: 1rem;
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--input-radius);
+    transition: all 0.15s ease-in-out;
+    min-height: 80px;
+    resize: vertical;
+    box-sizing: border-box;
+    margin-top: 10px;
+}
+
+.dark-mode #sectionDescription {
+    background-color: var(--form-bg);
+    color: var(--form-text);
+    border: 1px solid var(--form-border);
+}
+
+#saveDescription {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--card-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--input-radius);
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+}
+
+#saveDescription:hover {
+    background-color: var(--hover-bg-lite);
+}
+
+.dark-mode #saveDescription {
+    background-color: var(--card-color);
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+.dark-mode #saveDescription:hover {
+    background-color: var(--hover-bg);
+}
+
+.description-counter {
+    position: absolute;
+    font-size: 12px;
+    color: var(--text-color);
+    opacity: 0.7;
+    right: 26px;
+    margin-top: -5px;
+}
+
+.description-counter.warning {
+    color: #ff6b6b;
+    opacity: 1;
+    font-weight: 500;
+}
+
+.dark-mode .description-counter {
+    color: var(--text-color);
+}
+
+.dark-mode .description-counter.warning {
+    color: #ff8888;
+}
+
+/* SweetAlert focus states */
+.swal2-actions button:focus-visible {
+    outline: 2px solid #0068bd;
+    outline-offset: 2px;
+}
+
+body.dark-mode .swal2-actions button:focus-visible {
+    outline-color: #4a9eff;
+}
+
+body.dark-mode .swal2-input:focus,
+body.dark-mode .swal2-textarea:focus,
+body.dark-mode .swal2-select:focus {
+    outline-color: #4a9eff !important;
+    border-color: #4a9eff !important;
+}
+
+.context-menu-item.highlighted {
+    background-color: var(--hover-bg-lite);
+}
+
+body.dark-mode .context-menu-item.highlighted {
+    background-color: var(--hover-bg);
+}
+
+.hermes-context-menu-item.highlighted {
+    background-color: var(--hover-bg-lite);
+}
+
+body.dark-mode .hermes-context-menu-item.highlighted {
+    background-color: var(--hover-bg);
+}
+
+/* Fade media in/out when scrolling */
+.result-card img,
+.result-card video,
+.result-card .image-wrapper {
+    transition: opacity 0.2s ease-in-out;
+}
+
+.result-card .media-hidden {
+    opacity: 0;
 }
