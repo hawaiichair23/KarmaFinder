@@ -1074,7 +1074,7 @@ body.dark-mode .shimmer::before {
 }
 
 .comments-scroll {
-    max-height: 120px;
+    max-height: 114px;
     overflow-y: auto;
     padding: 3px;
     transform: translateY(-1px);

@@ -81,5 +81,48 @@ cd karmafinder
 npm install
 node DOGFETCH.js
 ```
+## Configuration
 
+Create a `.env` file in the root directory with the following variables:
+
+### Required
+```
+# Postgres Database
+PGUSER=your_postgres_user
+PGHOST=localhost
+PGDATABASE=karmafinder
+PGPASSWORD=your_postgres_password
+PGPORT=5432
+
+# Email Magic Links
+RESEND_API_KEY=your_resend_api_key
+
+# Reddit API
+REDDIT_CLIENT_1_ID=your_reddit_client_id
+REDDIT_CLIENT_1_SECRET=your_reddit_client_secret
+REDDIT_USER_AGENT_1=KarmaFinder/1.0 by /u/yourusername
+
+# Reddit OAuth (for importing saves)
+REDDIT_WEBAPP_SECRET=your_reddit_webapp_secret
+REDDIT_WEBAPP_CLIENT=your_reddit_webapp_client
+```
+
+### Optional
+```
+# Admin Configuration
+EMERGENCY_MODE=false
+REDDIT_FALLBACK_MODE=oauth
+ADMIN_SECRET=
+
+# Vector Search (Pinecone)
+PINECONE_API_KEY=
+PINECONE_ENVIRONMENT=
+
+# Caching (Redis)
+REDIS_API_KEY=
+REDIS_ENDPOINT=
+
+# Stripe Payment Processing
+STRIPE_ENABLED=false
+```
 Open [http://localhost:3000](http://localhost:3000)
