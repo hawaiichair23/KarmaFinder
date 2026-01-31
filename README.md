@@ -94,7 +94,7 @@ PGDATABASE=karmafinder
 PGPASSWORD=your_postgres_password
 PGPORT=5432
 
-# Email Magic Links
+# Email Magic Links - for login
 RESEND_API_KEY=your_resend_api_key
 
 # Reddit API
