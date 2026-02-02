@@ -81,6 +81,9 @@ cd karmafinder
 npm install
 node DOGFETCH.js
 ```
+
+Open [http://localhost:3000](http://localhost:3000)
+
 ## Configuration
 
 Create a `.env` file in the root directory with the following variables:
@@ -125,4 +128,3 @@ REDIS_ENDPOINT=
 # Stripe Payment Processing
 STRIPE_ENABLED=false
 ```
-Open [http://localhost:3000](http://localhost:3000)

@@ -934,3 +934,97 @@ body.dark-mode .hermes-context-menu-item.highlighted {
 .result-card .media-hidden {
     opacity: 0;
 }
+
+@media (max-width: 768px) {
+
+    .sections-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 5px;
+        padding: 12px;
+        align-items: start;
+    }
+
+    .section-card {
+        border-radius: 15px;
+        overflow: hidden;
+        cursor: pointer;
+    }
+
+    .section-card .img-container {
+        height: 180px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: auto !important;
+        border-radius: 15px;
+        overflow: hidden !important;
+        position: relative !important;
+        margin: 0 !important;
+        display: block !important;
+    }
+
+    .section-card .image-wrapper {
+        height: 180px !important;
+        width: 100% !important;
+        border-radius: 15px;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+
+    .section-card .result-image {
+        position: absolute !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        object-position: center !important;
+        display: block !important;
+        border-radius: 0 !important;
+        min-width: 100% !important;
+        min-height: 100% !important;
+        max-width: none !important;
+    }
+
+    .section-card>div:last-child {
+        padding: 12px;
+        height: 20px;
+        margin-bottom: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+    }
+
+    .news-icon-fallback {
+        width: 100% !important;
+        height: 180px !important;
+        background-size: 112px 112px !important;
+        border-radius: 15px !important;
+        position: relative !important;
+    }
+
+    .section-info {
+        padding: 12px;
+        display: flex !important;
+        align-items: center !important;
+        gap: 5px !important;
+        flex-direction: row !important;
+    }
+
+    .section-emoji {
+        font-size: 1.3rem;
+        line-height: 1;
+        flex-shrink: 0;
+        display: inline-block;
+        margin-top: -3px;
+    }
+
+    .section-name {
+        font-weight: bold;
+        line-height: 1.2;
+        flex: 1;
+        display: inline-block;
+    }
+}

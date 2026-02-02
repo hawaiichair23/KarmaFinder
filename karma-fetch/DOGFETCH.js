@@ -1875,7 +1875,7 @@ app.get('/api/bookmarks', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
+ 
 // 4b. Get bookmarks for a user by section  
 app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
     try {
@@ -1892,7 +1892,7 @@ app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
         }
 
         const stripeCustomerId = userResult.rows[0].user_id;
-        const { offset = 0, limit = 10 } = req.query;
+        const { offset = 0, limit = 10, order = 'asc' } = req.query; // ← CHANGED THIS LINE (added order = 'asc')
 
         console.log('userId:', stripeCustomerId, 'sectionId:', sectionId, 'limit:', limit, 'offset:', offset);
 
@@ -1921,6 +1921,10 @@ app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
         `, [parseInt(sectionId), stripeCustomerId]);
 
         const sectionData = sectionResult.rows[0] || {};
+
+        // ← ADD THIS LINE HERE
+        const orderDirection = order === 'desc' ? 'DESC' : 'ASC';
+
         // Get bookmarks
         const result = await pool.query(`
             SELECT id, reddit_post_id, title, url, permalink, subreddit, score,
@@ -1929,9 +1933,10 @@ app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
                    crosspost_parent_list, content_type, icon_url, locked, stickied, preview
             FROM bookmarks
             WHERE user_id = $1 AND section_id = $2
-            ORDER BY sort_order ASC, created_utc ASC, reddit_post_id
+            ORDER BY sort_order ${orderDirection}, created_utc ${orderDirection}, reddit_post_id
             LIMIT $3 OFFSET $4
         `, [stripeCustomerId, parseInt(sectionId), parseInt(limit), parseInt(offset)]);
+        // ↑ CHANGED: Added ${orderDirection} in two places in the ORDER BY clause
 
         console.log('Returned bookmarks:', result.rows.length);
 

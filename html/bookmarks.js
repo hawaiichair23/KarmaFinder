@@ -53,6 +53,10 @@ if (isBookmarksPage || isSharePage) {
     }
 }
 
+function isMobile() {
+    return window.innerWidth <= 768;
+}
+
 // Create context menu HTML dynamically
 function createContextMenu() {
     // Check if it already exists
@@ -85,14 +89,30 @@ function getAuthToken() {
 }
 
 // Basic initialization function for bookmarks page
-function initBookmarks() {
+async function initBookmarks() {
     preloadBookmarks();
     createContextMenu();
     setupContextMenuHandlers();
     handleBookmarksPI();
-    initializeTabs();
     handleRedditAuthParams();
     setupBookmarksScrollListener();
+
+    // Show bookmarks landing page on mobile, load first section on desktop
+    if (isMobile()) {
+        showSectionsAntepage();
+    } else {
+        initializeTabs();
+        const urlParams = new URLSearchParams(window.location.search);
+        const sectionIdFromUrl = urlParams.get('section');
+        if (sectionIdFromUrl) {
+            loadSectionContent(parseInt(sectionIdFromUrl));
+        } else {
+            const firstTab = document.querySelector('.tab[data-section-id]');
+            if (firstTab) {
+                loadSectionContent(parseInt(firstTab.dataset.sectionId));
+            }
+        }
+    }
 }
 
 function handleRedditAuthParams() {
@@ -368,6 +388,7 @@ async function insertTabsUI(tabsData) {
 }
 
 async function initializeTabs() {
+    if (isMobile()) return;
     try {
         const authToken = getAuthToken();
         const response = await fetch(`${API_BASE}/api/sections`, {
@@ -436,9 +457,6 @@ async function createNewSection() {
         });
 
         if (response.ok) {
-            const data = await response.json();
-            //console.log('New section created:', data.section);
-
             const urlParams = new URLSearchParams(window.location.search);
             const sectionParam = urlParams.get('section');
 
@@ -496,7 +514,6 @@ function setupTabEvents() {
 
             // Handle content switching based on tab position
             const sectionId = parseInt(this.dataset.tabId);
-            //console.log(`🔢 Switching to section ${sortOrder}...`);
             loadSectionContent(sectionId);
         });
 
@@ -1357,7 +1374,6 @@ function setupDropdownEvents() {
             })
                 .then(response => response.json())
                 .then(data => {
-                    //console.log('Bookmark moved:', data);
                     // Checkmark feedback
                     const button = this.closest('.bookmark-section-dropdown').querySelector('.section-selector');
                     const originalHTML = button.innerHTML;
@@ -1709,8 +1725,6 @@ function setupShareMenuEvents() {
                                     labelElement.textContent = 'Copy link';
                                 }, 2000);
                             }
-
-                            console.log('Copied:', data.shareUrl);
                         }
                     }
                 } catch (error) {
@@ -2348,8 +2362,6 @@ async function showSectionInfo() {
                         const activeTab = document.querySelector('.tab.active');
                         const sectionId = activeTab?.dataset.tabId;
 
-                        //console.log('Saving description:', newDescription, 'for section:', sectionId);
-
                         try {
                             const authToken = getAuthToken();
                             const response = await fetch(`${API_BASE}/api/sections/${sectionId}/description`, {
@@ -2606,6 +2618,82 @@ function setupMediaVisibilityOptimization() {
     document.querySelectorAll('.result-card').forEach(card => {
         mediaObserver.observe(card);
     });
+}
+
+async function getSectionPreviews() {
+    const authToken = getAuthToken();
+
+    // First, get all sections
+    const sectionsResponse = await fetch(`${API_BASE}/api/sections`, {
+        headers: { 'Authorization': authToken }
+    });
+    const sectionsData = await sectionsResponse.json();
+
+    // Now loop through each section and get its last bookmark
+    const sectionPreviews = {};
+
+    await Promise.all(sectionsData.sections.map(async (section) => {
+        try {
+            const response = await fetch(
+                `${API_BASE}/api/bookmarks/section/${section.id}?limit=1&order=desc`,
+                { headers: { 'Authorization': authToken } }
+            );
+            const data = await response.json();
+
+            if (data.bookmarks && data.bookmarks.length > 0) {
+                const lastBookmark = data.bookmarks[0];
+                sectionPreviews[section.id] = {
+                    bookmark: lastBookmark,
+                    imageUrl: getThumbnailUrl(lastBookmark)
+                };
+            }
+        } catch (error) {
+            console.error(`Failed to fetch preview for section ${section.id}:`, error);
+        }
+    }));
+
+    return sectionPreviews;
+}
+
+async function showSectionsAntepage() {
+    const authToken = getAuthToken();
+    const sectionsResponse = await fetch(`${API_BASE}/api/sections`, {
+        headers: { 'Authorization': authToken }
+    });
+    const sectionsData = await sectionsResponse.json();
+    const sectionPreviews = await getSectionPreviews();
+
+    const resultsContainer = document.querySelector('.results-container');
+    resultsContainer.innerHTML = '';
+    const grid = document.createElement('div');
+    grid.className = 'sections-grid';
+
+    sectionsData.sections.forEach(section => {
+        const preview = sectionPreviews[section.id];  
+        const card = document.createElement('div');
+        card.className = 'section-card';
+        card.onclick = () => loadSectionContent(section.id);
+
+        if (preview && preview.bookmark) {
+            const post = preview.bookmark;
+            const domain = getDomainFromUrl(post.url);
+            const thumbnailURL = getThumbnailUrl(post);
+            const mediaContainer = createMediaElement(post, thumbnailURL, domain, card, true);
+
+            card.appendChild(mediaContainer);
+        }
+
+        const info = document.createElement('div');
+        info.className = 'section-info';
+        info.innerHTML = `
+            <span class="section-emoji">${section.emoji}</span>
+            <span class="section-name">${section.name}</span>
+        `;
+        card.appendChild(info);
+        grid.appendChild(card);
+    });
+
+    resultsContainer.appendChild(grid);
 }
 
 // Shared content loader

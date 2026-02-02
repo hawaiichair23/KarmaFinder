@@ -793,7 +793,6 @@
                     isLoading = false;
                     const shareCode = window.location.pathname.split('/share/')[1];
                     loadSharedContent(shareCode);
-                    console.log('loadSharedContent attempted', shareCode);
                     return;
                 }
 
@@ -807,7 +806,6 @@
                 const cachedPage = loadPageDataFromSession(currentPageIndex);
 
                 if (cachedPage?.results?.length) {
-                    //console.log('🧭 Restoring page from popstate cache:', currentPageIndex);
 
                     currentAfter = cachedPage.after || null;
                     currentBefore = cachedPage.before || null;
@@ -1589,15 +1587,7 @@
 
             // Check blocklist 
             if (subreddit && bannedSubreddits.includes(subreddit.toLowerCase())) {
-                // Clear tabs, scroll indicator, and share button
-                const tabsSection = document.querySelector('.tabs-section');
-                if (tabsSection) tabsSection.remove();
-                const indicator = document.querySelector('.scroll-container-minimal');
-                if (indicator) {
-                    indicator.style.display = 'none';
-                }
-                const buttonGroup = document.querySelector('.button-group');
-                if (buttonGroup) buttonGroup.remove();
+                hideBookmarksUI();
 
                 showError(`
                 <div style="text-align: center;">
@@ -1866,15 +1856,7 @@
 
                     // **BLOCKLIST CHECK**
                     if (subreddit && bannedSubreddits.includes(subreddit.toLowerCase())) {
-                        // Clear tabs, scroll indicator, and share button
-                        const tabsSection = document.querySelector('.tabs-section');
-                        if (tabsSection) tabsSection.remove();
-                        const indicator = document.querySelector('.scroll-container-minimal');
-                        if (indicator) {
-                            indicator.style.display = 'none';
-                        }
-                        const buttonGroup = document.querySelector('.button-group');
-                        if (buttonGroup) buttonGroup.remove();
+                        hideBookmarksUI();
                         
                         showError(`
                             <div style="text-align: center;">
@@ -2862,8 +2844,6 @@
 
 
         function applyFiltersToUI(filters) {
-            //console.log('📦 Filters loaded:', filters);
-            //console.log('🔍 contentType:', filters?.contentType);
 
             document.querySelector('#search-input').value = filters.query || '';
             document.querySelector('#subreddit-input').value = (filters.subreddit && filters.subreddit !== 'all') ? filters.subreddit : '';
@@ -3240,9 +3220,7 @@
         }
 
         function performEnhancedSearch() {
-            //console.log("Enhanced Search Requested");
-            //console.time('total-search');
-            
+
             currentFilters = getCurrentFiltersFromUI();
             const query = currentFilters.query?.trim() || '';
             const subreddit = currentFilters.subreddit || null;
@@ -3270,13 +3248,8 @@
                 saveRecentSubreddit(subreddit);
             }
 
-            //console.log('🔍 Enhanced Search Request:');
-            //console.log('  Query:', query);
-            //console.log('  Subreddit:', subreddit);
-            //console.log('  Current Filters:', currentFilters);
             document.querySelector('.vector-scroll-loader')?.remove();
             showLoading();
-            //console.time('fetch-request');
 
             // Only do vector search if there is a query
             fetch(`${API_BASE}/api/vector-search`, {
@@ -3292,8 +3265,7 @@
                 })
             })
                 .then(response => {
-                    //console.timeEnd('fetch-request');
-                    //console.time('response-processing');
+
                     return response.json();
                 })
                 .then(vectorData => {
@@ -3367,14 +3339,8 @@
                     // Position the indicator
                     positionVectorScrollIndicator();
                     setupVectorScrollListener();
-                    //console.timeEnd('response-processing');
-                    //console.timeEnd('total-search');
                 })
                 .catch(error => {
-                    //console.timeEnd('fetch-request');
-                    //console.timeEnd('response-processing');
-                    //console.timeEnd('total-search');
-                    //console.error('Vector search failed:', error);
                     showError("Vector search failed");
                 });
         }
@@ -3528,7 +3494,6 @@
             
             const urlParams = new URLSearchParams(window.location.search);
             const urlPageIndex = parseInt(urlParams.get('page')) || 0;
-            console.log('🔵 urlPageIndex:', urlPageIndex, 'from URL:', urlParams.get('page'));
 
             // Reset shared content flag and clean up URL when doing normal searches
             if (window.location.pathname.includes('/share/')) {
@@ -3583,14 +3548,12 @@
         }
 
         async function performProgressiveSearch(after = null, before = null, navigateBack = false, isInitialLoad = false) {
-            //console.log("🚀 Progressive search initiated...");
 
             showLoading();
 
             if (navigateBack || isPopstateEvent) {
                 const cachedPage = loadPageDataFromSession(currentPageIndex);
                 if (cachedPage?.results?.length) {
-                    //console.log("🧭 Using cached page from session (back/forward)");
 
                     currentAfter = cachedPage.after || null;
                     currentBefore = cachedPage.before || null;                    
@@ -3621,11 +3584,8 @@
             let allFilteredPosts = [];
             let currentAfterToken = after || currentAfter;
 
-            //console.log(`➡️ Starting search from page ${currentPageIndex}, after token: ${currentAfterToken}`);
-
             async function fetchBatch() {
                 const finalUrl = buildRedditUrl(query, subreddit, sort, time, limit, currentAfterToken);
-                //console.log(`🌐 Fetching from Reddit URL: ${finalUrl}`);
                 const response = await fetch(`${API_BASE}/reddit?url=${encodeURIComponent(finalUrl)}`);
                 const data = await response.json();
                 return data;
@@ -3633,13 +3593,11 @@
 
             while (allFilteredPosts.length < 10 && fetchCount < MAX_FETCHES) {
                 fetchCount++;
-                //console.log(`🔄 Fetch attempt ${fetchCount}/${MAX_FETCHES}`);
 
                 try {
                     const batchData = await fetchBatch();
 
                     if (!batchData.data.children?.length) {
-                        //console.log('🛑 No posts returned, ending fetch loop.');
                         break;
                     }
 
@@ -3648,23 +3606,18 @@
                     filteredBatch = filterPostsByContent(filteredBatch, contentType);
 
                     if (fetchCount === 1 && filteredBatch.length === 0) {
-                        //console.log('🛑 First fetch had no relevant results, stopping early.');
                         break;
                     }
 
                     if (trimmedData.length && filteredBatch.length === 0 && time !== 'all') {
-                        //console.log('🛑 Got posts but none matched time filter, stopping.');
                         break;
                     }
 
                     allFilteredPosts.push(...filteredBatch);
-                    //console.log(`🎯 Filtered posts collected: ${allFilteredPosts.length}`);
 
                     currentAfterToken = batchData.data.after;
-                    //console.log(`⬅️ Received new after token: ${currentAfterToken}`);
 
                     if (!currentAfterToken) {
-                        //console.log('🛑 No more pages, end of feed.');
                         break;
                     }
 
@@ -3676,9 +3629,6 @@
 
             const finalResults = allFilteredPosts.slice(0, 10);
             const paginationToken = finalResults.length === 10 ? `t3_${finalResults[9].id}` : null;
-
-            //console.log(`🧭 Final paginationToken: ${paginationToken}`);
-            //console.log(`💾 Saving page ${currentPageIndex} with ${finalResults.length} results.`);
 
             currentFilters = filters;
             currentBefore = null;
@@ -3709,8 +3659,6 @@
 
 
     function performSearch(after = null, before = null, navigateBack = false, isInitialLoad = false) {
-        console.log('🟢 performSearch() called with:', { after, before, navigateBack, isInitialLoad });
-        console.log('🔍 Current Index:', currentPageIndex);
 
         // Handle back navigation with saved page state
         if (navigateBack || isPopstateEvent) {
@@ -3745,7 +3693,6 @@
                 ((!cachedPage.subreddit || cachedPage.subreddit === "") &&
                 (!currentFilters.subreddit || currentFilters.subreddit === "all")))
             ) {
-                console.log("🧭 Using cached page from session (back/forward)");
 
                 currentAfter = cachedPage.after || null;
                 currentBefore = cachedPage.before || null;
@@ -3753,8 +3700,7 @@
                 const tokenForThisPage = buildCacheKey(
                     currentPageIndex === 0 ? 'page_1' : currentAfter,
                     currentFilters
-                );
-                console.log('🏷️ Token for this page (cached):', tokenForThisPage);                
+                );            
                 displayResults(cachedPage.results);
                 
                 // Only preload bookmarks if there are results
@@ -3785,12 +3731,9 @@
 
         // Generate a consistent cache key for DB + Redis
         const tokenForThisPage = buildCacheKey(currentPageIndex === 0 ? 'page_1' : currentAfter, currentFilters);
-        //console.log('🏷️ Token for this page:', tokenForThisPage);
 
         // Build Reddit URL
         const finalUrl = buildRedditUrl(query, subreddit, sort, time, limit, currentAfter, currentBefore);
-        //console.log('🔍 Filters applied:', currentFilters);
-        //console.log('🔗 Final Reddit URL:', finalUrl);
 
         // Build backend query
         const params = new URLSearchParams();
@@ -3808,16 +3751,13 @@
             .then(res => res.json())
             .then(dbResult => {
                 if (!dbResult || !dbResult.data || !Array.isArray(dbResult.data.children) || dbResult.data.children.length === 0) {
-                    //console.log('No DB results. Falling back to Reddit API.');
                 } else {
-                    //console.log(`🗃️ Loaded ${dbResult.data.children.length} posts from DB`);
                     currentAfter = dbResult.data.after || null;
                     currentBefore = dbResult.data.before || null;
                     const trimmedData = dbResult.data.children.map(trimRedditPostData);
                     const filtered = filterPostsByTime(trimmedData, currentFilters.time);
    
                     saveAfterToken(currentFilters, currentPageIndex, currentAfter);
-                    //console.log('saved after token', currentAfter);
                     savePaginationState(filtered);                    
                     displayResults(filtered);
                     
@@ -3970,8 +3910,6 @@
             const preloadedImages = {};
             imgWrapper.preloadedImages = preloadedImages;
             let navigationSequence = 0;
-            let isTransitioning = false; 
-            imgWrapper.isTransitioning = false;
 
             // Add gallery navigation elements
             if (!imgWrapper.querySelector('.gallery-nav')) {
@@ -3986,69 +3924,69 @@
                 const leftArrow = document.createElement('button');
                 leftArrow.className = 'gallery-arrow gallery-arrow-left';
                 leftArrow.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none">
-            <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-    `;
+    <svg viewBox="0 0 24 24" fill="none">
+        <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+`;
                 leftArrow.style.cssText = `
-        position: absolute;
-        left: 2px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: rgba(0, 0, 0, 0.5);
-        color: white;
-        border: none;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        cursor: pointer;
-        z-index: 10;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    `;
+    position: absolute;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+`;
 
                 // Right arrow
                 const rightArrow = document.createElement('button');
                 rightArrow.className = 'gallery-arrow gallery-arrow-right';
                 rightArrow.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none">
-            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-    `;
+    <svg viewBox="0 0 24 24" fill="none">
+        <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+`;
                 rightArrow.style.cssText = `
-        position: absolute;
-        right: 2px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: rgba(0, 0, 0, 0.5);
-        color: white;
-        border: none;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        cursor: pointer;
-        z-index: 10;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    `;
+    position: absolute;
+    right: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+`;
 
                 // Counter
                 const counter = document.createElement('div');
                 counter.className = 'gallery-counter';
                 counter.style.cssText = `
-                position: absolute;
-                top: 3px;
-                right: 3px;
-                background: rgba(0, 0, 0, 0.5);
-                color: white;
-                padding: 3px 7px;
-                border-radius: 10px;
-                font-size: 10px;
-                font-weight: bold;
-                z-index: 10;
-            `;
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 3px 7px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+            z-index: 10;
+        `;
 
                 // Update counter function
                 const updateCounter = () => {
@@ -4060,16 +3998,13 @@
                         const item = galleryData[index];
                         const mediaId = item.media_id;
                         const media = mediaMetadata[mediaId];
-                        const isAnimated = media?.e === 'AnimatedImage';
-                        const original = isAnimated
-                            ? (media?.s?.gif || media?.s?.mp4)?.replace(/&amp;/g, '&')
-                            : media?.s?.u?.replace(/&amp;/g, '&');
+                        const original = media?.s?.u?.replace(/&amp;/g, '&');
                         const resolutionFallback = media?.p?.[media.p.length - 1]?.u?.replace(/&amp;/g, '&');
                         const imageUrl = original || resolutionFallback;
 
                         if (imageUrl) {
                             const img = new Image();
-                            const proxyUrl = getImageUrl(imageUrl)
+                            const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
                             img.onload = () => {
                                 preloadedImages[index] = img;
                             };
@@ -4088,16 +4023,13 @@
                             const item = galleryData[index];
                             const mediaId = item.media_id;
                             const media = mediaMetadata[mediaId];
-                            const isAnimated = media?.e === 'AnimatedImage';
-                            const original = isAnimated
-                                ? (media?.s?.gif || media?.s?.mp4)?.replace(/&amp;/g, '&')
-                                : media?.s?.u?.replace(/&amp;/g, '&');
+                            const original = media?.s?.u?.replace(/&amp;/g, '&');
                             const resolutionFallback = media?.p?.[media.p.length - 1]?.u?.replace(/&amp;/g, '&');
                             const imageUrl = original || resolutionFallback;
 
                             if (imageUrl) {
                                 const img = new Image();
-                                const proxyUrl = getImageUrl(imageUrl)
+                                const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
 
                                 img.onerror = () => {
 
@@ -4144,20 +4076,13 @@
                         return;
                     }
 
-                    // Set transition flags AFTER imgWrapper is defined
-                    isTransitioning = true;
-                    imgWrapper.isTransitioning = true;
-
                     const targetIndex = direction === 'prev'
                         ? (currentIndex > 0 ? currentIndex - 1 : totalImages - 1)
                         : (currentIndex < totalImages - 1 ? currentIndex + 1 : 0);
 
                     const mediaId = galleryData[targetIndex].media_id;
                     const media = mediaMetadata[mediaId];
-                    const isAnimated = media?.e === 'AnimatedImage';
-                    const original = isAnimated
-                        ? (media?.s?.gif || media?.s?.mp4)?.replace(/&amp;/g, '&')
-                        : media?.s?.u?.replace(/&amp;/g, '&');
+                    const original = media?.s?.u?.replace(/&amp;/g, '&');
                     const resolutionFallback = media?.p?.[media.p.length - 1]?.u?.replace(/&amp;/g, '&');
                     const imageUrl = original || resolutionFallback;
 
@@ -4173,35 +4098,33 @@
 
                     if (useSameSize && isComfyMode && imgWrapper.comfyFirstWidth && imgWrapper.comfyFirstHeight) {
                         newImg.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: ${imgWrapper.comfyFirstWidth}px !important;
-            height: ${imgWrapper.comfyFirstHeight}px !important;
-            object-fit: cover;
-            transform: ${direction === 'prev' ? 'translateX(-100%)' : 'translateX(100%)'};
-            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease-in-out;
-            opacity: 0;
-        `;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: ${imgWrapper.comfyFirstWidth}px !important;
+        height: ${imgWrapper.comfyFirstHeight}px !important;
+        object-fit: cover;
+        transform: ${direction === 'prev' ? 'translateX(-100%)' : 'translateX(100%)'};
+        transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease-in-out;
+        opacity: 0;
+    `;
                     } else {
                         newImg.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: ${direction === 'prev' ? 'translateX(-100%)' : 'translateX(100%)'};
-            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease-in-out;
-            opacity: 0;
-        `;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: ${direction === 'prev' ? 'translateX(-100%)' : 'translateX(100%)'};
+        transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease-in-out;
+        opacity: 0;
+    `;
                     }
 
-                    // Clean up ALL stale images before starting new transition
-                    const allImages = Array.from(imgWrapper.querySelectorAll('.result-image'));
-                    allImages.forEach(img => {
-                        if (img !== resultImg) {
-                            img.remove();
+                    Array.from(imgWrapper.children).forEach(child => {
+                        if (child.classList.contains('result-image') && child !== resultImg) {
+                            child.remove();
                         }
                     });
 
@@ -4232,8 +4155,6 @@
                             if (thisNavigationId === navigationSequence && resultImg && resultImg.parentNode) {
                                 resultImg.remove();
                             }
-                            isTransitioning = false;
-                            imgWrapper.isTransitioning = false;
                         }, 450);
 
                         setTimeout(() => {
@@ -4258,13 +4179,13 @@
                             finalizeImageTransition();
                         }).catch(() => {
                             // Fallback if decode fails
-                            const proxyUrl = getImageUrl(imageUrl)
+                            const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
                             newImg.onload = () => finalizeImageTransition();
                             newImg.src = proxyUrl;
                         });
                     } else {
                         // Fallback to loading on-demand
-                        const proxyUrl = getImageUrl(imageUrl)
+                        const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
 
                         newImg.onload = () => {
                             if (thisNavigationId !== navigationSequence) {
@@ -4372,13 +4293,11 @@
             }
 
             // Gather best available image sources
-            const isAnimated = media?.e === 'AnimatedImage';
-            const original = isAnimated
-                ? (media?.s?.gif || media?.s?.mp4)?.replace(/&amp;/g, '&')
-                : media?.s?.u?.replace(/&amp;/g, '&');
+            const original = media?.s?.u?.replace(/&amp;/g, '&');
             const resolutionFallback = media?.p?.[media.p.length - 1]?.u?.replace(/&amp;/g, '&');
             const fallbacks = [original, resolutionFallback].filter(Boolean);
 
+            // Your existing patchImage logic...
             const patchImage = (img) => {
                 const trySrc = (index = 0) => {
                     if (index >= fallbacks.length) {
@@ -4386,7 +4305,7 @@
                         showNewsIcon(imgWrapper, shimmer);
                         return;
                     }
-                    const fallbackURL = getImageUrl(fallbacks[index])
+                    const fallbackURL = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(fallbacks[index])}&t=${Date.now()}`;
                     img.onerror = () => {
                         trySrc(index + 1);
                     };
@@ -4553,9 +4472,6 @@
                     const redditPostId = post.reddit_post_id || (post.name?.startsWith('t3_') ? post.name.slice(3) : undefined);
 
                     let postContentType;
-
-                    // Display domain in url
-                    //console.log(post)
 
                     // Extract selftext preview image if available
                     const selftextPreview = extractPreviewFromSelftext(post.selftext);
@@ -5275,7 +5191,7 @@
         }
 
         // Media handling
-        function createMediaElement(post, thumbnailURL, domain, resultCard) {
+        function createMediaElement(post, thumbnailURL, domain, resultCard, skipModal = false) {
             const imgContainer = document.createElement('div');
             const imageWrapper = document.createElement('div');
 
@@ -5332,8 +5248,9 @@
 
             setupMediaErrorHandling(mediaElement, mediaInfo);
             setupMediaLoadHandling(mediaElement, imagePlaceholder);
-            setupImageModal(imageWrapper);
-
+            if (!skipModal) {
+                setupImageModal(imageWrapper);
+            }
             imageWrapper.appendChild(imagePlaceholder);
             imageWrapper.appendChild(mediaElement);
             imageWrapper.style.cursor = 'pointer';
@@ -5629,7 +5546,6 @@
 
         async function getCombinedRedditVideo(videoId, fallbackUrl, dashUrl, hlsUrl) {
                 try {
-                    console.log('📤 Sending to backend:', { videoId, fallbackUrl, dashUrl, hlsUrl });
 
                     // Build query params
                     const params = new URLSearchParams();
@@ -7316,8 +7232,6 @@
                 prevButton.classList.add('prev-button');
                 prevButton.addEventListener('click', () => {
                     const prevPageData = loadPageDataFromSession(currentPageIndex - 1);
-                    console.log('Page  cached data:', prevPageData);
-                    console.log('Page  after token should be:', prevPageData?.after);
                     if (prevPageData) {
                         currentPageIndex--;
                         currentAfter = prevPageData.after || null;
@@ -7770,14 +7684,11 @@
         }
 
         async function verifyMagicLink(token) {
-                console.log('🔵 verifyMagicLink called with token:', token);
                 try {
                     const response = await fetch(`${API_BASE}/api/auth/verify/${token}`, {
                         method: 'POST'
                     });
-                    console.log('🔵 Response status:', response.status);
                     const data = await response.json();
-                    console.log('🔵 Response data:', data);
 
                     if (response.ok) {
                         isLoggedIn = true;
@@ -7791,19 +7702,15 @@
 
                         // Check if server returned a redirect URL
                         const redirect = data.redirect;
-                        console.log('🔵 Redirect from backend:', redirect);
-
+  
                         if (data.redirect) {
-                            console.log('🔵 Redirecting to:', data.redirect);
                             if (data.redirect === 'bookmarks') {
                                 window.location.href = '/?page=bookmarks';
                             } else {
-                                console.log('🔵 About to redirect to decoded URL:', decodeURIComponent(data.redirect));
                                 window.location.href = decodeURIComponent(data.redirect);
                             }
                             return;
                         } else {
-                            console.log('🔵 No redirect, calling initPage()');
                             initPage();
                         }
                         const url = new URL(window.location);
@@ -8261,30 +8168,8 @@
         }
 
         function initBookmarksFromURL() {
-            const authToken = window.authToken;
-            const urlParams = new URLSearchParams(window.location.search);
-            const sectionParam = urlParams.get('section');
-            const urlSectionId = sectionParam ? parseInt(sectionParam) : null;
-
-            initializeTabs().then(() => {
-                return fetch(`${API_BASE}/api/sections`, {
-                    headers: {
-                        'Authorization': authToken
-                    }
-                });
-            })
-                .then(response => response.json())
-                .then(data => {
-                    let targetSectionId;
-                    if (urlSectionId && data.sections.find(section => section.id === urlSectionId)) {
-                        targetSectionId = urlSectionId;
-                    } else {
-                        targetSectionId = data.sections[0]?.id;
-                    }
-                    loadSectionContent(targetSectionId, false, true);
-                });
+            initBookmarks();
         }
-
 
         function initPage() {
             // Initialize authentication state
@@ -8347,7 +8232,6 @@
 
             // Reset pagination for homepage
             if (isHomepage) {
-                console.log("🛎️ Loading r/all...");
                 currentPageIndex = 0;
                 currentAfter = null;
                 currentBefore = null;
@@ -8420,7 +8304,6 @@
         function savePostsToDatabase(posts, pageGroupParam) {
             // Only save if there are 10 or more posts
             if (posts.length < 10) {
-                //console.log(`⛔ Skipping save — only ${posts.length} posts`);
                 return;
             }
 
@@ -8663,7 +8546,7 @@
                 // Handle Reddit native GIFs
                 const gifId = redditGifMatch[1];
                 const img = document.createElement('img');
-                img.src = `https://www.redditstatic.com/desktop2x/img/gold/badges/award-silver-large.png`; // You'll need the actual Reddit gif URL format
+                img.src = `https://www.redditstatic.com/desktop2x/img/gold/badges/award-silver-large.png` 
                 img.alt = 'Reddit GIF from comment';
                 img.style.maxWidth = '100%';
                 img.style.borderRadius = '8px';
@@ -8705,6 +8588,17 @@
                 });
             }
             return wrapper;
+        }
+
+        function hideBookmarksUI() {
+            const tabsSection = document.querySelector('.tabs-section');
+            if (tabsSection) tabsSection.remove();
+
+            const indicator = document.querySelector('.scroll-container-minimal');
+            if (indicator) indicator.style.display = 'none';
+
+            const buttonGroup = document.querySelector('.button-group');
+            if (buttonGroup) buttonGroup.remove();
         }
 
 
