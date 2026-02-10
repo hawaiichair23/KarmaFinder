@@ -437,7 +437,7 @@ async function getOGImage(url) {
     }
 }
 
-async function getRedditAppToken() {
+async function getRedditAppToken(retryCount = 0, maxRetries = 3) {
     if (emergencyMode) {
         console.log('⚠️ Emergency mode active, skipping OAuth');
         return null;
@@ -452,6 +452,9 @@ async function getRedditAppToken() {
     const basicAuth = Buffer.from(`${client.clientId}:${client.clientSecret}`).toString('base64');
 
     try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         const res = await fetch('https://www.reddit.com/api/v1/access_token', {
             method: 'POST',
             headers: {
@@ -459,8 +462,15 @@ async function getRedditAppToken() {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'User-Agent': client.userAgent
             },
-            body: 'grant_type=client_credentials'
+            body: 'grant_type=client_credentials',
+            signal: controller.signal
         });
+
+        clearTimeout(timeout);
+
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
 
         const data = await res.json();
 
@@ -473,26 +483,21 @@ async function getRedditAppToken() {
             console.error("❌ Failed to get Reddit app token:", data);
             return null;
         }
-    } catch (error) {
-        // Log EVERYTHING about the error
-        console.error('🔥 REDDIT TOKEN FETCH ERROR:');
-        console.error('   Error Type:', error.name);
-        console.error('   Error Code:', error.code);
-        console.error('   Message:', error.message);
-        console.error('   Stack:', error.stack);
 
-        // Specific error handling
-        if (error.code === 'ETIMEDOUT') {
-            console.error('   ⏰ TIMEOUT: Reddit took too long to respond');
-        } else if (error.code === 'ECONNREFUSED') {
-            console.error('   🚫 CONNECTION REFUSED: Reddit rejected the connection');
-        } else if (error.code === 'ENOTFOUND') {
-            console.error('   🌐 DNS ERROR: Could not resolve reddit.com');
-        } else if (error.code === 'ECONNRESET') {
-            console.error('   💔 CONNECTION RESET: Reddit dropped the connection');
+    } catch (error) {
+        console.error(`🔥 REDDIT TOKEN FETCH ERROR (attempt ${retryCount + 1}/${maxRetries + 1}):`);
+        console.error('   Error:', error.message);
+
+        // RETRY on connection errors
+        if ((error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.name === 'AbortError') && retryCount < maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, retryCount), 5000); // Exponential backoff, max 5s
+            console.log(`   ⏳ Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return getRedditAppToken(retryCount + 1, maxRetries);
         }
 
-        return null; // App keeps running
+        console.error('   ❌ All retries failed, returning null');
+        return null;
     }
 }
 
@@ -1715,12 +1720,16 @@ app.post('/api/bookmarks', async (req, res) => {
             preview
         } = req.body;
 
-        const defaultSectionResult = await pool.query(
-            'SELECT id FROM sections WHERE user_id = $1 ORDER BY sort_order ASC LIMIT 1',
-            [stripeCustomerId]
-        );
+        // Use sectionId from request body, or fall back to default section
+        let sectionId = req.body.sectionId;
 
-        const sectionId = defaultSectionResult.rows[0]?.id;
+        if (!sectionId) {
+            const defaultSectionResult = await pool.query(
+                'SELECT id FROM sections WHERE user_id = $1 ORDER BY sort_order ASC LIMIT 1',
+                [stripeCustomerId]
+            );
+            sectionId = defaultSectionResult.rows[0]?.id;
+        }
 
         if (!sectionId) {
             return res.status(400).json({ success: false, error: 'Default section not found' });
@@ -1836,7 +1845,66 @@ app.delete('/api/bookmarks/:reddit_post_id', async (req, res) => {
     }
 });
 
-// 4. Get all bookmarks for a user
+// 4c. Get all bookmarks for a user
+app.get('/api/sections/with-previews', async (req, res) => {
+    try {
+        const authToken = req.headers.authorization;
+
+        if (!authToken) {
+            return res.status(401).json({ error: 'No auth token provided' });
+        }
+
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid auth token' });
+        }
+
+        const stripeCustomerId = userResult.rows[0].user_id;
+
+        const result = await pool.query(`
+            SELECT DISTINCT ON (s.sort_order, s.id)
+                s.id as section_id,
+                s.name as section_name,
+                s.emoji as section_emoji,
+                s.description as section_description,
+                s.created_at as section_created_at,
+                b.reddit_post_id,
+                b.title,
+                b.url,
+                b.permalink,
+                b.subreddit,
+                b.score,
+                b.is_video,
+                b.domain,
+                b.author,
+                b.created_utc,
+                b.num_comments,
+                b.over_18,
+                b.preview,
+                b.selftext,
+                b.body,
+                b.is_gallery,
+                b.gallery_data,
+                b.media_metadata,
+                b.crosspost_parent_list,
+                b.content_type,
+                b.icon_url,
+                b.locked,
+                b.stickied
+            FROM sections s
+            LEFT JOIN bookmarks b ON b.section_id = s.id AND b.user_id = s.user_id
+            WHERE s.user_id = $1
+            ORDER BY s.sort_order ASC, s.id, b.sort_order DESC, b.created_utc DESC
+        `, [stripeCustomerId]);
+
+        res.json({ sections: result.rows });
+    } catch (error) {
+        console.error('GET sections with previews error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 4d. Get all bookmarks for a user
 app.get('/api/bookmarks', async (req, res) => {
     try {
         const authToken = req.headers.authorization;
@@ -1892,7 +1960,7 @@ app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
         }
 
         const stripeCustomerId = userResult.rows[0].user_id;
-        const { offset = 0, limit = 10, order = 'asc' } = req.query; // ← CHANGED THIS LINE (added order = 'asc')
+        const { offset = 0, limit = 10, order = 'asc' } = req.query; 
 
         console.log('userId:', stripeCustomerId, 'sectionId:', sectionId, 'limit:', limit, 'offset:', offset);
 
@@ -1922,7 +1990,6 @@ app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
 
         const sectionData = sectionResult.rows[0] || {};
 
-        // ← ADD THIS LINE HERE
         const orderDirection = order === 'desc' ? 'DESC' : 'ASC';
 
         // Get bookmarks
@@ -1936,7 +2003,6 @@ app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
             ORDER BY sort_order ${orderDirection}, created_utc ${orderDirection}, reddit_post_id
             LIMIT $3 OFFSET $4
         `, [stripeCustomerId, parseInt(sectionId), parseInt(limit), parseInt(offset)]);
-        // ↑ CHANGED: Added ${orderDirection} in two places in the ORDER BY clause
 
         console.log('Returned bookmarks:', result.rows.length);
 
@@ -1956,6 +2022,49 @@ app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
             ['error', '/api/bookmarks/section/:sectionId', `${now} - ${error.message}`]);
 
         console.error('GET bookmarks by section error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 4c. Get all sections with preview bookmarks in one query
+app.get('/api/sections/with-previews', async (req, res) => {
+    try {
+        const authToken = req.headers.authorization;
+
+        if (!authToken) {
+            return res.status(401).json({ error: 'No auth token provided' });
+        }
+
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid auth token' });
+        }
+
+        const stripeCustomerId = userResult.rows[0].user_id;
+
+        // Get all sections with their first bookmark in ONE query
+        const result = await pool.query(`
+            SELECT DISTINCT ON (s.id)
+                s.id as section_id,
+                s.name as section_name,
+                s.emoji as section_emoji,
+                s.description as section_description,
+                s.created_at as section_created_at,
+                b.url as bookmark_url,
+                b.preview as bookmark_preview,
+                b.content_type as bookmark_content_type,
+                b.is_video as bookmark_is_video,
+                b.domain as bookmark_domain,
+                b.title as bookmark_title
+            FROM sections s
+            LEFT JOIN bookmarks b ON b.section_id = s.id AND b.user_id = s.user_id
+            WHERE s.user_id = $1
+            ORDER BY s.id, b.sort_order ASC, b.created_utc ASC
+        `, [stripeCustomerId]);
+
+        res.json({ sections: result.rows });
+    } catch (error) {
+        console.error('GET sections with previews error:', error);
         res.status(500).json({ error: error.message });
     }
 });
