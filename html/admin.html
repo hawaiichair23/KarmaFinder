@@ -98,14 +98,6 @@
     </button>
 
     <script>
-        // Get the key from URL instead of prompting
-            const urlParams = new URLSearchParams(window.location.search);
-            const adminKey = urlParams.get('key');
-
-            // If no key in URL, redirect or show error
-            if (!adminKey) {
-                document.body.innerHTML = '<h2>Access Denied</h2>';
-            }
 
         async function checkStatus() {
             try {

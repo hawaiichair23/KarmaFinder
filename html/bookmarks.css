@@ -935,7 +935,20 @@ body.dark-mode .hermes-context-menu-item.highlighted {
     opacity: 0;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
+    .result-card:hover .bookmark-section-dropdown {
+            opacity: 0;
+        }
+
+    .section-selector:hover {
+        background: none;
+    }
+
+    .results-error {
+        padding: 13px;
+        margin: 0 8px;
+        text-align: center;
+        }
 
     .sections-grid {
         display: grid;
@@ -1001,7 +1014,7 @@ body.dark-mode .hermes-context-menu-item.highlighted {
         width: 100% !important;
         height: 180px !important;
         background-size: 112px 112px !important;
-        border-radius: 15px !important;
+        border-radius: 0px !important;
         position: relative !important;
     }
 
@@ -1026,5 +1039,13 @@ body.dark-mode .hermes-context-menu-item.highlighted {
         line-height: 1.2;
         flex: 1;
         display: inline-block;
+    }
+    .section-card-hidden {
+        opacity: 0;
+    }
+
+    .section-card-visible {
+        opacity: 1;
+        transition: opacity 0.3s ease-out, transform 0.3s ease-out;
     }
 }

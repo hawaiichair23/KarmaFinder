@@ -2,21 +2,25 @@ const fs = require('fs');
 const tmp = require('tmp-promise');
 const { Resend } = require('resend');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 const path = require('path');
 const os = require('os');
+const cookieParser = require('cookie-parser');
 const app = express();
 
 const API_BASE = 'http://localhost:3000';
 
 app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    origin: '*',
-    credentials: false,
-    allowedHeaders: ['Content-Type', 'Authorization']
+    origin: true,
+    credentials: true,
+    allowedHeaders: ['Content-Type']
 }));
+
+app.use(cookieParser());
 
 // Serve static frontend files from html folder 
 app.use(express.static(path.join(__dirname, '../')));
@@ -229,9 +233,16 @@ function getNextClient() {
 let emergencyMode = process.env.EMERGENCY_MODE === 'true';
 let fallbackMode = process.env.REDDIT_FALLBACK_MODE || 'oauth';
 
-function requireAdmin(req, res, next) {
-    const adminKey = req.headers['x-admin-key'] || req.query.admin;
-    if (adminKey !== process.env.ADMIN_SECRET) {
+async function requireAdminCookie(req, res, next) {
+    const authToken = req.cookies.authToken;
+    if (!authToken) return res.status(401).json({ error: 'Unauthorized' });
+
+    const result = await pool.query(
+        'SELECT email FROM subscriptions WHERE auth_token = $1',
+        [authToken]
+    );
+
+    if (result.rows.length === 0 || result.rows[0].email !== process.env.ADMIN_EMAIL) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
     next();
@@ -1680,7 +1691,7 @@ app.post('/api/save-comments', async (req, res) => {
 app.post('/api/bookmarks', async (req, res) => {
     try {
         // Get auth token from headers
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
 
         if (!authToken) {
             return res.status(401).json({ success: false, error: 'No auth token provided' });
@@ -1793,7 +1804,7 @@ app.post('/api/bookmarks', async (req, res) => {
 // 2. Remove a bookmark
 app.delete('/api/bookmarks/:reddit_post_id', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
         const { reddit_post_id } = req.params;
 
         if (!authToken) {
@@ -1848,7 +1859,7 @@ app.delete('/api/bookmarks/:reddit_post_id', async (req, res) => {
 // 4c. Get all bookmarks for a user
 app.get('/api/sections/with-previews', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
 
         if (!authToken) {
             return res.status(401).json({ error: 'No auth token provided' });
@@ -1907,7 +1918,7 @@ app.get('/api/sections/with-previews', async (req, res) => {
 // 4d. Get all bookmarks for a user
 app.get('/api/bookmarks', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
         const { offset = 0, limit = 10 } = req.query;
 
         if (!authToken) {
@@ -1947,7 +1958,7 @@ app.get('/api/bookmarks', async (req, res) => {
 // 4b. Get bookmarks for a user by section  
 app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
         const { sectionId } = req.params;
 
         if (!authToken) {
@@ -2029,7 +2040,7 @@ app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
 // 4c. Get all sections with preview bookmarks in one query
 app.get('/api/sections/with-previews', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
 
         if (!authToken) {
             return res.status(401).json({ error: 'No auth token provided' });
@@ -2072,7 +2083,7 @@ app.get('/api/sections/with-previews', async (req, res) => {
 // 5. Reorder bookmarks
 app.post('/api/bookmarks/reorder', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
         const { orderedIds, sectionId } = req.body;
 
         if (!authToken) {
@@ -2114,7 +2125,7 @@ app.post('/api/bookmarks/reorder', async (req, res) => {
 // 6. Get all sections for a user
 app.get('/api/bookmarks/sections', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
 
         if (!authToken) {
             return res.status(401).json({ error: 'No auth token provided' });
@@ -2149,7 +2160,7 @@ app.get('/api/bookmarks/sections', async (req, res) => {
 // 7. Move bookmark to different section
 app.put('/api/bookmarks/:bookmarkId/section', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
         const { bookmarkId } = req.params;
         const { sectionId } = req.body;
 
@@ -2202,7 +2213,7 @@ app.put('/api/bookmarks/:bookmarkId/section', async (req, res) => {
 // Update bookmark score
 app.put('/api/bookmarks/:reddit_post_id/score', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
         const { reddit_post_id } = req.params;
         const { score } = req.body;
 
@@ -2223,7 +2234,7 @@ app.put('/api/bookmarks/:reddit_post_id/score', async (req, res) => {
 // Copy bookmark from shared content
 app.post('/api/bookmarks/copy', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
         const { redditPostId, sectionId } = req.body;
 
         const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
@@ -2287,7 +2298,7 @@ app.post('/api/bookmarks/copy', async (req, res) => {
 // Get all sections for a user
 app.get('/api/sections', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
 
         if (!authToken) {
             return res.status(401).json({ error: 'No auth token provided' });
@@ -2321,7 +2332,7 @@ app.get('/api/sections', async (req, res) => {
 // Create new section
 app.post('/api/sections', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
         const { name = 'New Section' } = req.body;
 
         if (!authToken) {
@@ -2363,7 +2374,7 @@ app.post('/api/sections', async (req, res) => {
 });
 
 app.delete('/api/sections/:sectionId', async (req, res) => {
-    const authToken = req.headers.authorization;
+    const authToken = req.cookies.authToken;
     const { sectionId } = req.params;
 
     if (!authToken) {
@@ -2429,7 +2440,7 @@ app.delete('/api/sections/:sectionId', async (req, res) => {
 // Share sections endpoint
 app.post('/api/sections/:sectionId/share', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
         const userId = await validateAuthToken(authToken);
         const { sectionId } = req.params;
 
@@ -2454,15 +2465,11 @@ app.post('/api/sections/:sectionId/share', async (req, res) => {
             // Reuse existing share code
             shareCode = existingShare.rows[0].share_code;
         } else {
-            // Generate new share code (existing logic)
-            const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            // Generate new share code
             let attempts = 0;
 
             do {
-                shareCode = '';
-                for (let i = 0; i < 9; i++) {
-                    shareCode += chars[Math.floor(Math.random() * chars.length)];
-                }
+                shareCode = crypto.randomBytes(7).toString('base64url').slice(0, 9);
 
                 const existing = await pool.query('SELECT id FROM share_links WHERE share_code = $1', [shareCode]);
                 if (existing.rows.length === 0) break;
@@ -2548,7 +2555,7 @@ app.get('/api/share/:shareCode', async (req, res) => {
 // Section description endpoint
 app.put('/api/sections/:sectionId/description', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
         const userId = await validateAuthToken(authToken);
         const { sectionId } = req.params;
         const { description } = req.body;
@@ -2652,7 +2659,7 @@ app.get('/share/:shareCode', async (req, res) => {
 });
 
 app.put('/api/sections/:sectionId', async (req, res) => {
-    const authToken = req.headers.authorization;
+    const authToken = req.cookies.authToken;
     const { sectionId } = req.params;
     const { name, emoji } = req.body;
 
@@ -3183,7 +3190,7 @@ async function validateAuthToken(authToken) {
  */
 app.get('/auth/reddit/start', async (req, res) => {
     try {
-        const authToken = req.query.auth_token;
+        const authToken = req.cookies.authToken;
         const userId = await validateAuthToken(authToken);
         const state = crypto.randomBytes(32).toString('hex');
         oauthStates.set(state, {
@@ -3282,7 +3289,7 @@ module.exports = {
 
 app.post('/api/reddit/import', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
         if (!authToken) {
             return res.status(401).json({ error: 'No auth token provided' });
         }
@@ -3462,7 +3469,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $
 
 app.get('/api/reddit/saved-count', async (req, res) => {
     try {
-        const authToken = req.headers.authorization?.replace('Bearer ', '');
+        const authToken = req.cookies.authToken;
         const userId = await validateAuthToken(authToken);
 
         // Get Reddit token
@@ -3527,7 +3534,7 @@ app.get('/api/reddit/saved-count', async (req, res) => {
 
 app.delete('/api/reddit/disconnect', async (req, res) => {
     try {
-        const authToken = req.headers.authorization;
+        const authToken = req.cookies.authToken;
         const userId = await validateAuthToken(authToken);
 
         await pool.query(
@@ -3636,10 +3643,20 @@ app.post('/api/auth/verify/:token', async (req, res) => {
         // Generate permanent auth token
         let authToken = null;
         if (hasSubscription && userId) {
-            authToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            authToken = crypto.randomBytes(32).toString('hex');
 
-            // Save token to database
-            await pool.query('UPDATE subscriptions SET auth_token = $1 WHERE user_id = $2', [authToken, userId]);
+        // Save token to database
+        await pool.query('UPDATE subscriptions SET auth_token = $1 WHERE user_id = $2', [authToken, userId]);
+        }
+
+        // Set HttpOnly cookie
+        if (authToken) {
+            res.cookie('authToken', authToken, {
+                httpOnly: true,
+                secure: false,
+                sameSite: 'strict',
+                maxAge: 90 * 24 * 60 * 60 * 1000
+            });
         }
 
         res.json({
@@ -3647,7 +3664,6 @@ app.post('/api/auth/verify/:token', async (req, res) => {
             email,
             hasSubscription,
             planType,
-            authToken,
             redirect: redirectUrl 
         });
     } catch (error) {
@@ -3840,7 +3856,7 @@ app.post('/api/auto-login-after-payment', async (req, res) => {
         let authToken = dbSubscription.auth_token;
 
         if (!authToken) {
-            authToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            authToken = crypto.randomBytes(32).toString('hex');
 
             try {
                 await connection.query(`
@@ -3879,7 +3895,7 @@ app.post('/api/auto-login-after-payment', async (req, res) => {
                     html: `
        <h2>${greeting}</h2>
        <p>Thanks for supporting KarmaFinder! You now have access to Enhanced Search, unlimited bookmarks, and themes.</p>
-       <p><a href="${req.headers.origin}/">Start searching</a></p>
+       <p><a href="${API_BASE}/">Start searching</a></p>
    `
                 });
 
@@ -3899,18 +3915,22 @@ app.post('/api/auto-login-after-payment', async (req, res) => {
         // Send welcome email asynchronously
         sendWelcomeEmail();
 
-        // Return success response
-        const response = {
+        // Set HttpOnly cookie
+        res.cookie('authToken', authToken, {
+            httpOnly: true,
+            secure: false,
+            sameSite: 'strict',
+            maxAge: 90 * 24 * 60 * 60 * 1000
+        });
+
+        console.log(`✅ Auto-login successful for ${email} (${dbSubscription.plan_type})`);
+        res.json({
             success: true,
             email: email,
             hasSubscription: true,
             planType: dbSubscription.plan_type,
-            authToken: authToken,
             message: 'Login successful! Welcome to KarmaFinder.'
-        };
-
-        console.log(`✅ Auto-login successful for ${email} (${dbSubscription.plan_type})`);
-        res.json(response);
+        });
 
     } catch (error) {
         // Log error for monitoring
@@ -3933,8 +3953,18 @@ app.post('/api/auto-login-after-payment', async (req, res) => {
     }
 });
 
-app.post('/verify-token', async (req, res) => {
-    const { token } = req.body;
+const verifyTokenLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // 10 attempts per 15 minutes
+    message: { valid: false, error: 'Too many attempts, try again later' }
+});
+
+app.post('/verify-token', verifyTokenLimiter, async (req, res) => {
+    const token = req.cookies.authToken;
+
+    if (!token) {
+        return res.json({ valid: false });
+    }
 
     try {
         const result = await pool.query('SELECT auth_token FROM subscriptions WHERE auth_token = $1', [token]);
@@ -3969,7 +3999,7 @@ app.post('/api/create-checkout', async (req, res) => {
                 if (customer.data.length > 0) {
                     const session = await stripe.billingPortal.sessions.create({
                         customer: customer.data[0].id,
-                        return_url: `${req.headers.origin}/`,
+                        return_url: `${API_BASE}/`,
                     });
 
                     return res.json({ url: session.url, isPortal: true });
@@ -3984,8 +4014,8 @@ app.post('/api/create-checkout', async (req, res) => {
                 quantity: 1,
             }],
             mode: 'subscription',
-            success_url: `${req.headers.origin}/?success=true&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${req.headers.origin}/`,
+            success_url: `${API_BASE}/?success=true&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${API_BASE}/`,
         };
         const session = await stripe.checkout.sessions.create(sessionData);
         res.json({ url: session.url });
@@ -4019,7 +4049,7 @@ app.post('/api/create-checkout-pro', async (req, res) => {
                 if (customer.data.length > 0) {
                     const session = await stripe.billingPortal.sessions.create({
                         customer: customer.data[0].id,
-                        return_url: `${req.headers.origin}/`,
+                        return_url: `${API_BASE}/`,
                     });
 
                     return res.json({ url: session.url, isPortal: true });
@@ -4034,8 +4064,8 @@ app.post('/api/create-checkout-pro', async (req, res) => {
                 quantity: 1,
             }],
             mode: 'subscription',
-            success_url: `${req.headers.origin}/?success=true&session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${req.headers.origin}/`,
+            success_url: `${API_BASE}/?success=true&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${API_BASE}/`,
         };
         const session = await stripe.checkout.sessions.create(sessionData);
         res.json({ url: session.url });
@@ -4307,9 +4337,16 @@ app.post('/api/vector-search', async (req, res) => {
     }
 });
 
-app.get('/admin', (req, res) => {
-    const urlKey = req.query.key;
-    if (urlKey !== process.env.ADMIN_SECRET) {
+app.get('/admin', async (req, res) => {
+    const authToken = req.cookies.authToken;
+    if (!authToken) return res.status(404).send('Page not found');
+
+    const result = await pool.query(
+        'SELECT email FROM subscriptions WHERE auth_token = $1',
+        [authToken]
+    );
+
+    if (result.rows.length === 0 || result.rows[0].email !== process.env.ADMIN_EMAIL) {
         return res.status(404).send('Page not found');
     }
 
@@ -4317,11 +4354,11 @@ app.get('/admin', (req, res) => {
     res.sendFile(filePath);
 });
 
-app.get('/api/admin/emergency/status', requireAdmin, (req, res) => {
+app.get('/api/admin/emergency/status', requireAdminCookie, (req, res) => {
     res.json({ emergencyMode, fallbackMode });
 });
 
-app.post('/api/admin/emergency/:mode', requireAdmin, (req, res) => {
+app.post('/api/admin/emergency/:mode', requireAdminCookie, (req, res) => {
     const { mode } = req.params;
     if (!['json', 'rss', 'oauth'].includes(mode)) {
         return res.status(400).json({ error: 'Invalid mode' });

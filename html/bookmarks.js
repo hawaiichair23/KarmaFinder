@@ -11,7 +11,7 @@ let sectionBookmarks = {
 };
 // Ask for 11 to confirm if there are any more after current group of 10
 const BOOKMARKS_PER_PAGE = 11;
-window.authToken = localStorage.getItem('authToken');
+// Auth is handled via HttpOnly cookie
 // Use a separate offset for each section so scrolling works for both tabs
 const sectionOffsets = {};
 
@@ -45,16 +45,77 @@ if (isBookmarksPage || isSharePage) {
     // Kick you out if auth token is cleared
     if (!isSharePage) {
         setInterval(() => {
-            const authToken = localStorage.getItem('authToken');
-            if (!authToken) {
+            if (!getAuthStatus()) {
                 window.location.href = 'index.html';
             }
         }, 1000);
     }
 }
 
+// Initialize IndexedDB
+function openImageCache() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('RedditBookmarksDB', 1);
+
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains('sectionImages')) {
+                db.createObjectStore('sectionImages', { keyPath: 'permalink' });
+            }
+        };
+    });
+}
+
+// Store image in cache
+async function cacheSectionImage(permalink, imageUrl) {
+    try {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+
+        const db = await openImageCache();
+        const transaction = db.transaction(['sectionImages'], 'readwrite');
+        const store = transaction.objectStore('sectionImages');
+
+        await store.put({
+            permalink: permalink,
+            imageBlob: blob,
+            timestamp: Date.now()
+        });
+    } catch (error) {
+        console.error('Failed to cache image:', error);
+    }
+}
+
+// Get image from cache
+async function getCachedSectionImage(permalink) {
+    try {
+        const db = await openImageCache();
+        const transaction = db.transaction(['sectionImages'], 'readonly');
+        const store = transaction.objectStore('sectionImages');
+
+        return new Promise((resolve, reject) => {
+            const request = store.get(permalink);
+            request.onsuccess = () => {
+                if (request.result) {
+                    const objectURL = URL.createObjectURL(request.result.imageBlob);
+                    resolve(objectURL);
+                } else {
+                    resolve(null);
+                }
+            };
+            request.onerror = () => reject(request.error);
+        });
+    } catch (error) {
+        console.error('Failed to get cached image:', error);
+        return null;
+    }
+}
+
 function isMobile() {
-    return window.innerWidth <= 768;
+    return window.innerWidth <= 1024;
 }
 
 // Create context menu HTML dynamically
@@ -84,10 +145,6 @@ function createContextMenu() {
     document.body.appendChild(contextMenu);
 }
 
-function getAuthToken() {
-    return window.authToken || localStorage.getItem('authToken');
-}
-
 // Basic initialization function for bookmarks page
 async function initBookmarks() {
     preloadBookmarks();
@@ -99,7 +156,17 @@ async function initBookmarks() {
 
     // Show bookmarks landing page on mobile, load first section on desktop
     if (isMobile()) {
-        showSectionsAntepage();
+        const urlParams = new URLSearchParams(window.location.search);
+        const sectionIdFromUrl = urlParams.get('section');
+
+        if (sectionIdFromUrl) {
+            // Load the specific section if URL has it
+            initializeTabs();
+            loadSectionContent(parseInt(sectionIdFromUrl));
+        } else {
+            // Otherwise show landing page
+            showSectionsAntepage();
+        }
     } else {
         initializeTabs();
         const urlParams = new URLSearchParams(window.location.search);
@@ -139,14 +206,20 @@ function handleRedditAuthParams() {
                 title: 'Connection Cancelled',
                 text: 'Reddit login was declined.',
                 icon: 'info',
-                confirmButtonText: 'OK'
+                confirmButtonText: 'OK',
+                didOpen: () => {
+                    document.activeElement.blur();
+                }
             });
         } else {
             Swal.fire({
                 title: 'Connection Failed',
                 text: 'Reddit connection failed.',
                 icon: 'error',
-                confirmButtonText: 'OK'
+                confirmButtonText: 'OK',
+                didOpen: () => {
+                    document.activeElement.blur();
+                }
             });
         }
 
@@ -173,7 +246,6 @@ function handleBookmarksPI(bookmarkCount) {
         "It's a rainy Tuesday.",
         "Keeping tabs, I see.",
         "Books Marked."
-        //"We could have called it the Dog Ears. Instead, it's called Bookmarks. That wasn't political or anything."
     ];
 
     if (bookmarkCount < 20) {
@@ -390,11 +462,8 @@ async function insertTabsUI(tabsData) {
 async function initializeTabs() {
     if (isMobile()) return;
     try {
-        const authToken = getAuthToken();
         const response = await fetch(`${API_BASE}/api/sections`, {
-            headers: {
-                'Authorization': authToken
-            }
+            credentials: 'include'
         });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -405,27 +474,22 @@ async function initializeTabs() {
             return;
         }
 
-        // If user has no sections, create a default "Bookmarks" section
         if (data.sections.length === 0) {
             await fetch(`${API_BASE}/api/sections`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': authToken
+                    'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify({ name: 'Bookmarks' })
             });
-            // Fetch sections again to get the newly created one
             const newResponse = await fetch(`${API_BASE}/api/sections`, {
-                headers: {
-                    'Authorization': authToken
-                }
+                credentials: 'include'
             });
             const newData = await newResponse.json();
-            data.sections = newData.sections; 
+            data.sections = newData.sections;
         }
 
-        // Check if URL has section parameter, if not add the first section
         const urlParams = new URLSearchParams(window.location.search);
         if (!urlParams.get('section')) {
             const url = new URL(window.location);
@@ -444,13 +508,12 @@ async function initializeTabs() {
 // Create New Section button
 async function createNewSection() {
     try {
-        const authToken = getAuthToken();
         const response = await fetch(`${API_BASE}/api/sections`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': authToken
             },
+            credentials: 'include',
             body: JSON.stringify({
                 name: 'New Section'
             })
@@ -632,15 +695,14 @@ function setupContextMenuHandlers() {
                 if (newName && newName.trim() !== '') {
                     const sectionId = contextMenu.dataset.currentSectionId;
                     const tabIndex = parseInt(contextMenu.dataset.currentTabIndex);
-                    const authToken = getAuthToken();
 
                     try {
                         const response = await fetch(`${API_BASE}/api/sections/${sectionId}`, {
                             method: 'PUT',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'Authorization': authToken
                             },
+                            credentials: 'include',
                             body: JSON.stringify({ name: newName })
                         });
 
@@ -674,11 +736,24 @@ function setupContextMenuHandlers() {
                                 });
                             }
                         } else {
-                            Swal.fire('Error', 'Failed to rename section: ' + (data.error || 'Unknown error'));
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'Failed to rename section: ' + (data.error || 'Unknown error'),
+                                icon: 'error',
+                                didOpen: () => {
+                                    document.activeElement.blur();
+                                }
+                            });
                         }
                     } catch (error) {
                         console.error('Error renaming section:', error);
-                        Swal.fire('Error', 'Failed to rename section');
+                        Swal.fire({
+                        title: 'Error', 
+                        text: 'Failed to rename section',
+                        didOpen: () => {
+                                document.activeElement.blur();
+                            }
+                        });
                     }
                 }
             } else if (action === 'delete') {
@@ -689,26 +764,26 @@ function setupContextMenuHandlers() {
                     showCancelButton: true,
                     confirmButtonText: 'Delete',
                     cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#ef4444'
+                    confirmButtonColor: '#ef4444',
+                    didOpen: () => {
+                        if (!document.body.classList.contains('user-is-tabbing')) {
+                            document.activeElement.blur();
+                        }
+                    }
                 });
 
                 if (result.isConfirmed) {
                     const sectionId = contextMenu.dataset.currentSectionId;
-                    const authToken = getAuthToken();
 
-                    fetch(`${API_BASE}/api/sections/${sectionId}`, {
+                                        fetch(`${API_BASE}/api/sections/${sectionId}`, {
                         method: 'DELETE',
-                        headers: {
-                            'Authorization': authToken
-                        }
+                        credentials: 'include'
                     })
                         .then(res => res.json())
                         .then(data => {
                             initializeTabs().then(() => {
                                 fetch(`${API_BASE}/api/sections`, {
-                                    headers: {
-                                        'Authorization': authToken
-                                    }
+                                    credentials: 'include'
                                 })
                                     .then(response => response.json())
                                     .then(data => {
@@ -817,19 +892,26 @@ function updateContextMenuHighlight(items, index) {
 // Add scroll listener for bookmarks page only
 function setupBookmarksScrollListener() {
     function handleScroll() {
+        
         const urlParams = new URLSearchParams(window.location.search);
         const isSharedPage = window.location.pathname.includes('/share/');
         
         // Handle regular bookmarks page
         if (urlParams.get('page') === 'bookmarks') {
-            const activeTab = document.querySelector('.tab.active');
-            if (!activeTab) return;
-            const allTabs = document.querySelectorAll('.tab');
-            const activeTabIndex = Array.from(allTabs).indexOf(activeTab);
-            const tabs = document.querySelectorAll('.tab');
-            const sectionId = tabs[activeTabIndex]?.dataset.tabId;
+            let sectionId;
 
-            if (!hasMoreBookmarks[sectionId] || isLoading) return;
+            if (isMobile()) {
+                sectionId = urlParams.get('section');
+            } else {
+                const activeTab = document.querySelector('.tab.active');
+                if (!activeTab) return;
+                const allTabs = document.querySelectorAll('.tab');
+                const activeTabIndex = Array.from(allTabs).indexOf(activeTab);
+                const tabs = document.querySelectorAll('.tab');
+                sectionId = tabs[activeTabIndex]?.dataset.tabId;
+            }
+
+            if (!sectionId || !hasMoreBookmarks[sectionId] || isLoading) return;
 
             const distanceFromBottom = document.body.offsetHeight - (window.scrollY + window.innerHeight);
             if (distanceFromBottom <= 100) {
@@ -859,9 +941,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const page = urlParams.get('page');
     
 
-    if (page === 'bookmarks') {
-        initBookmarks();
-    } else if (window.location.pathname.includes('/share/')) {
+    if (window.location.pathname.includes('/share/')) {
         const shareCode = window.location.pathname.split('/share/')[1];
         loadSharedContent(shareCode);
         setupBookmarksScrollListener();
@@ -928,14 +1008,19 @@ function positionScrollIndicator() {
 
     // Show indicator for regular bookmarks pages
     if (urlParams.get('page') === 'bookmarks') {
-        const activeTab = document.querySelector('.tab.active');
-        if (!activeTab) {
-            indicator.style.display = 'none';
-            indicator.style.opacity = '0';
-            return;
-        }
-        const sectionId = activeTab.dataset.tabId;
+        let sectionId;
 
+        if (isMobile()){
+            sectionId = urlParams.get('section');
+        } else {
+            const activeTab = document.querySelector('.tab.active');
+            if (!activeTab) {
+                indicator.style.display = 'none';
+                indicator.style.opacity = '0';
+                return;
+            }
+            sectionId = activeTab.dataset.tabId;
+        }
         if (hasMoreBookmarks[sectionId]) {
             setTimeout(() => {
                 indicator.style.display = 'flex';
@@ -958,57 +1043,6 @@ function positionScrollIndicator() {
         indicator.style.display = 'none';
         indicator.style.opacity = '0';
     }
-}
-
-function preloadBookmarks(callback) {
-    const authToken = getAuthToken();
-
-    if (!authToken) {
-        sessionStorage.removeItem('bookmarks');
-        document.querySelectorAll('.bookmark-icon').forEach(icon => {
-            icon.classList.remove('saved');
-        });
-        if (callback) callback();
-        return;
-    }
-
-    fetch(`${API_BASE}/api/bookmarks?limit=1000`, {
-        headers: {
-            'Authorization': authToken
-        }
-    })
-        .then(res => res.json())
-        .then(data => {
-            const bookmarks = {};
-            data.bookmarks.forEach(post => {
-                bookmarks[post.reddit_post_id] = true;
-            });
-
-            sessionStorage.setItem('bookmarks', JSON.stringify(bookmarks));
-
-            // Apply bookmarks to any currently rendered icons
-            document.querySelectorAll('.bookmark-icon').forEach(icon => {
-                const postId = icon.dataset.postId;
-                if (bookmarks[postId]) {
-                    icon.classList.add('saved');
-                } else {
-                    icon.classList.remove('saved');
-                }
-            });
-
-            // PI responds based on bookmark count & bookmark url params
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('page') === 'bookmarks') {
-                const bookmarkCount = data.bookmarks.length;
-                handleBookmarksPI(bookmarkCount);
-            }
-
-            if (callback) callback();
-        })
-        .catch(err => {
-            console.error('❌ Failed to preload bookmarks:', err);
-            if (callback) callback();
-        });
 }
 
 function makeBookmarksDraggable(sectionId) {
@@ -1082,15 +1116,14 @@ function getDragAfterElement(y) {
 
 // Function to update bookmark order in backend
 function updateBookmarkOrder(sectionId) {
-    const authToken = getAuthToken();
     const orderedIds = sectionBookmarks[sectionId].map(bookmark => bookmark.reddit_post_id);
 
-    fetch(`${API_BASE}/api/bookmarks/reorder`, {
+        fetch(`${API_BASE}/api/bookmarks/reorder`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'Authorization': authToken
+            'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
             orderedIds,
             sectionId: sectionId
@@ -1103,17 +1136,16 @@ function updateBookmarkOrder(sectionId) {
 }
 
 async function addSectionDropdowns(excludeSectionId = null) {
-    const authToken = getAuthToken();
+    if (isMobile()) return;
+    
     const isSharedPage = window.location.pathname.includes('/share/');
     let userSections = [];
 
     // Only fetch sections if authenticated
-    if (authToken) {
+        if (getAuthStatus()) {
         try {
             const response = await fetch(`${API_BASE}/api/sections`, {
-                headers: {
-                    'Authorization': authToken
-                }
+                credentials: 'include'
             });
             const data = await response.json();
             userSections = data.sections || [];
@@ -1127,7 +1159,9 @@ async function addSectionDropdowns(excludeSectionId = null) {
     let currentSectionId = excludeSectionId;
     if (!currentSectionId) {
         const activeTab = document.querySelector('.tab.active');
-        currentSectionId = activeTab ? activeTab.dataset.tabId : null;
+        currentSectionId = activeTab
+            ? activeTab.dataset.tabId
+            : new URLSearchParams(window.location.search).get('section');
     }
 
     const bookmarkCards = document.querySelectorAll('.result-card');
@@ -1149,7 +1183,7 @@ async function addSectionDropdowns(excludeSectionId = null) {
             ).join('');
 
         let dropdownContent;
-        if (!authToken && isSharedPage) {
+        if (!getAuthStatus() && isSharedPage) {
             dropdownContent = `
         <button class="section-selector">
             Bookmarks <svg width="20" height="20" viewBox="0 0 25 25" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -1332,8 +1366,8 @@ function setupDropdownEvents() {
         item.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
-            const authToken = getAuthToken();
-            if (!authToken) {
+
+            if (!getAuthStatus()) {
                 const currentSharedUrl = window.location.href;
                 window.location.href = `/html/login.html?redirect=${encodeURIComponent(currentSharedUrl)}`;
                 return;
@@ -1354,9 +1388,10 @@ function setupDropdownEvents() {
 
             // Get current tab to see if we're moving TO a different section
             const activeTab = document.querySelector('.tab.active');
-            const currentSectionId = activeTab.dataset.tabId;
+            const currentSectionId = activeTab
+                ? activeTab.dataset.tabId
+                : new URLSearchParams(window.location.search).get('section');
             const isMovingToADifferentSection = currentSectionId !== sectionId;
-
             const isSharedPage = window.location.pathname.includes('/share/');
             const endpoint = isSharedPage ? '/api/bookmarks/copy' : `/api/bookmarks/${bookmarkId}/section`;
             const method = isSharedPage ? 'POST' : 'PUT';
@@ -1364,12 +1399,12 @@ function setupDropdownEvents() {
                 JSON.stringify({ redditPostId: bookmarkId, sectionId: sectionId }) :
                 JSON.stringify({ sectionId: sectionId });
 
-            fetch(`${API_BASE}${endpoint}`, {
+                        fetch(`${API_BASE}${endpoint}`, {
                 method: method,
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': authToken
+                    'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: body
             })
                 .then(response => response.json())
@@ -1391,10 +1426,8 @@ function setupDropdownEvents() {
                     if (isMovingToADifferentSection) {
                         // Reorder
                         setTimeout(() => {
-                            fetch(`${API_BASE}/api/bookmarks/section/${sectionId}?offset=0&limit=100`, {
-                                headers: {
-                                    'Authorization': authToken
-                                }
+                                                        fetch(`${API_BASE}/api/bookmarks/section/${sectionId}?offset=0&limit=100`, {
+                                credentials: 'include'
                             })
                                 .then(response => response.json())
                                 .then(sectionData => {
@@ -1403,11 +1436,11 @@ function setupDropdownEvents() {
                                     const orderedIds = [bookmarkId, ...filteredIds];
 
                                     return fetch(`${API_BASE}/api/bookmarks/reorder`, {
-                                        method: 'POST',
+                                                                                method: 'POST',
                                         headers: {
-                                            'Content-Type': 'application/json',
-                                            'Authorization': authToken
+                                            'Content-Type': 'application/json'
                                         },
+                                        credentials: 'include',
                                         body: JSON.stringify({
                                             orderedIds,
                                             sectionId: sectionId
@@ -1533,28 +1566,25 @@ function createEmojiPicker() {
     // Add event listeners
     setupEmojiPickerEvents();
 }
+
 function setupEmojiPickerEvents() {
     const picker = document.getElementById('emojiPicker');
-    document.querySelectorAll('.emoji-option').forEach(option => {
-        option.addEventListener('click', async (e) => {
+    picker.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('emoji-option')) {
             const selectedEmoji = e.target.dataset.emoji;
-            if (currentEmojiTarget) {
-                // Update UI immediately
-                currentEmojiTarget.textContent = selectedEmoji;
 
                 // Get the section ID from the parent tab
                 const tab = currentEmojiTarget.closest('.tab');
-                const sectionId = tab.dataset.tabId;
-                const authToken = getAuthToken();
-
+                                const sectionId = tab.dataset.tabId;
+                
                 // Save to backend
                 try {
                     const response = await fetch(`${API_BASE}/api/sections/${sectionId}`, {
                         method: 'PUT',
                         headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': authToken
+                            'Content-Type': 'application/json'
                         },
+                        credentials: 'include',
                         body: JSON.stringify({ emoji: selectedEmoji })
                     });
 
@@ -1571,7 +1601,6 @@ function setupEmojiPickerEvents() {
             }
             picker.style.display = 'none';
         });
-    });
 
     // Hide picker when clicking outside
     document.addEventListener('click', (e) => {
@@ -1679,9 +1708,10 @@ function createShareMenu() {
 
 function setupShareMenuEvents() {
     const menu = document.getElementById('shareMenu');
-    document.querySelectorAll('.share-option').forEach(option => {
-        option.addEventListener('click', async (e) => {
-            const action = e.currentTarget.dataset.action;
+    menu.addEventListener('click', async (e) => {
+        const option = e.target.closest('.share-option');
+        if (option) {
+            const action = option.dataset.action;
             if (action === 'copy-link' && currentShareTarget) {
                 const copyOption = e.currentTarget; // Store reference before async
                 try {
@@ -1701,17 +1731,14 @@ function setupShareMenuEvents() {
                         }
                     } else {
                         // Original logic for owned sections
-                        const urlParams = new URLSearchParams(window.location.search);
+                                                const urlParams = new URLSearchParams(window.location.search);
                         const sectionId = urlParams.get('section');
-                        const authToken = getAuthToken();
-
+                        
                         const response = await fetch(`${API_BASE}/api/sections/${sectionId}/share`, {
                             method: 'POST',
-                            headers: {
-                                'Authorization': authToken
-                            }
+                            credentials: 'include'
                         });
-
+                        
                         if (response.ok) {
                             const data = await response.json();
                             await navigator.clipboard.writeText(data.shareUrl);
@@ -1737,17 +1764,14 @@ function setupShareMenuEvents() {
                     const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`;
                     window.open(facebookUrl, 'facebook-share', 'width=626,height=436,toolbar=no,menubar=no,scrollbars=no,resizable=yes');
                 } else {
-                    const urlParams = new URLSearchParams(window.location.search);
+                                        const urlParams = new URLSearchParams(window.location.search);
                     const sectionId = urlParams.get('section');
-                    const authToken = getAuthToken();
-
+                    
                     const response = await fetch(`${API_BASE}/api/sections/${sectionId}/share`, {
                         method: 'POST',
-                        headers: {
-                            'Authorization': authToken
-                        }
+                        credentials: 'include'
                     });
-
+                    
                     if (response.ok) {
                         const data = await response.json();
                         const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(data.shareUrl)}`;
@@ -1763,17 +1787,14 @@ function setupShareMenuEvents() {
                     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(twitterText)}&url=${encodeURIComponent(window.location.href)}`;
                     window.open(twitterUrl, 'twitter-share', 'width=550,height=420,toolbar=no,menubar=no,scrollbars=no,resizable=yes');
                 } else {
-                    const urlParams = new URLSearchParams(window.location.search);
+                                        const urlParams = new URLSearchParams(window.location.search);
                     const sectionId = urlParams.get('section');
-                    const authToken = getAuthToken();
-
+                    
                     const response = await fetch(`${API_BASE}/api/sections/${sectionId}/share`, {
                         method: 'POST',
-                        headers: {
-                            'Authorization': authToken
-                        }
+                        credentials: 'include'
                     });
-
+                    
                     if (response.ok) {
                         const data = await response.json();
                         const twitterText = 'Check out this curated Reddit collection on KarmaFinder!';
@@ -1790,17 +1811,14 @@ function setupShareMenuEvents() {
                     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`;
                     window.open(whatsappUrl, '_blank');
                 } else {
-                    const urlParams = new URLSearchParams(window.location.search);
+                                        const urlParams = new URLSearchParams(window.location.search);
                     const sectionId = urlParams.get('section');
-                    const authToken = getAuthToken();
-
+                    
                     const response = await fetch(`${API_BASE}/api/sections/${sectionId}/share`, {
                         method: 'POST',
-                        headers: {
-                            'Authorization': authToken
-                        }
+                        credentials: 'include'
                     });
-
+                    
                     if (response.ok) {
                         const data = await response.json();
                         const whatsappText = `Check out this curated Reddit collection on KarmaFinder! ${data.shareUrl}`;
@@ -1816,17 +1834,14 @@ function setupShareMenuEvents() {
                     const messengerUrl = `https://www.messenger.com/new?message=${encodeURIComponent('Check out this curated Reddit collection on KarmaFinder! ' + window.location.href)}`;
                     window.open(messengerUrl, 'messenger-share', 'width=626,height=436,toolbar=no,menubar=no,scrollbars=no,resizable=yes');
                 } else {
-                    const urlParams = new URLSearchParams(window.location.search);
+                                        const urlParams = new URLSearchParams(window.location.search);
                     const sectionId = urlParams.get('section');
-                    const authToken = getAuthToken();
-
+                    
                     const response = await fetch(`${API_BASE}/api/sections/${sectionId}/share`, {
                         method: 'POST',
-                        headers: {
-                            'Authorization': authToken
-                        }
+                        credentials: 'include'
                     });
-
+                    
                     if (response.ok) {
                         const data = await response.json();
                         const messengerUrl = `https://www.messenger.com/new?message=${encodeURIComponent('Check out this curated Reddit collection on KarmaFinder! ' + data.shareUrl)}`;
@@ -1835,9 +1850,9 @@ function setupShareMenuEvents() {
                 }
                 menu.style.display = 'none';
             }
-            
-        });
+        }
     });
+
     // Hide menu when clicking outside
     document.addEventListener('click', (e) => {
         if (!menu.contains(e.target) && !e.target.closest('.share-button')) {
@@ -1921,12 +1936,11 @@ function formatRelativeTime(timestamp) {
 
 async function showRedditImportDialog(username, uniqueCount) {
     // Fetch real sections first
-    const authToken = getAuthToken();
     let userSections = [];
 
     try {
         const response = await fetch(`${API_BASE}/api/sections`, {
-            headers: { 'Authorization': authToken }
+            credentials: 'include'
         });
         const data = await response.json();
         userSections = data.sections || [];
@@ -1971,8 +1985,8 @@ async function showRedditImportDialog(username, uniqueCount) {
                 document.getElementById('count-info').appendChild(countSpinner);
 
                 // Fetch the data and replace spinners
-                fetch('/api/reddit/saved-count', {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
+                                fetch('/api/reddit/saved-count', {
+                    credentials: 'include'
                 })
                     .then(response => {
                         if (response.status === 404) {
@@ -2024,7 +2038,6 @@ async function showRedditImportDialog(username, uniqueCount) {
 }
 
 async function importRedditBookmarks(sectionId) {
-    const authToken = getAuthToken();
 
     try {
         // Show loading state
@@ -2040,9 +2053,9 @@ async function importRedditBookmarks(sectionId) {
         const response = await fetch('/api/reddit/import', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': authToken
+                'Content-Type': 'application/json'
             },
+            credentials: 'include',
             body: JSON.stringify({ sectionId: parseInt(sectionId) })
         });
 
@@ -2088,7 +2101,10 @@ async function importRedditBookmarks(sectionId) {
                 title: 'Import Failed',
                 text: data.error || 'Server error. Failed to import bookmarks. Please try again later.',
                 icon: 'error',
-                confirmButtonText: 'OK'
+                confirmButtonText: 'OK',
+                didOpen: () => {
+                    document.activeElement.blur();
+                }
             });
         }
     } catch (error) {
@@ -2097,7 +2113,10 @@ async function importRedditBookmarks(sectionId) {
             title: 'Import Failed',
             text: 'Network error occurred during import',
             icon: 'error',
-            confirmButtonText: 'OK'
+            confirmButtonText: 'OK',
+            didOpen: () => {
+                document.activeElement.blur();
+            }
         });
     }
 }
@@ -2218,13 +2237,12 @@ function setupImportMenuEvents() {
             const action = this.dataset.action;
             if (action === 'reddit-import') {
                 showRedditImportDialog();
-            } else if (action === 'switch-reddit') {
-                const authToken = getAuthToken();
-
+                        } else if (action === 'switch-reddit') {
+            
                 try {
                     const response = await fetch('/api/reddit/disconnect', {
                         method: 'DELETE',
-                        headers: { 'Authorization': authToken }
+                        credentials: 'include'
                     });
 
                     const data = await response.json();
@@ -2236,7 +2254,10 @@ function setupImportMenuEvents() {
                         title: 'Connection Error',
                         text: 'Failed to disconnect Reddit account.',
                         icon: 'error',
-                        confirmButtonText: 'OK'
+                        confirmButtonText: 'OK',
+                        didOpen: () => {
+                            document.activeElement.blur();
+                        }
                     });
                 }
             } else if (action === 'section-info') {
@@ -2289,10 +2310,9 @@ async function showSectionInfo() {
         const activeTab = document.querySelector('.tab.active');
         const sectionId = activeTab?.dataset.tabId;
 
-        try {
-            const authToken = getAuthToken();
+                try {
             const response = await fetch(`${API_BASE}/api/bookmarks/section/${sectionId}?offset=0&limit=1`, {
-                headers: { 'Authorization': authToken }
+                credentials: 'include'
             });
             const data = await response.json();
             sectionName = (data.emoji ? `${data.emoji} ` : '') + (data.section_name || data.name || 'Unknown');
@@ -2362,14 +2382,13 @@ async function showSectionInfo() {
                         const activeTab = document.querySelector('.tab.active');
                         const sectionId = activeTab?.dataset.tabId;
 
-                        try {
-                            const authToken = getAuthToken();
+                                                try {
                             const response = await fetch(`${API_BASE}/api/sections/${sectionId}/description`, {
                                 method: 'PUT',
                                 headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': authToken
+                                    'Content-Type': 'application/json'
                                 },
+                                credentials: 'include',
                                 body: JSON.stringify({ description: newDescription })
                             });
 
@@ -2396,13 +2415,7 @@ async function showSectionInfo() {
 }
 
 function initiateRedditLogin() {
-    const authToken = getAuthToken();
-    if (!authToken) {
-        console.error('No auth token found');
-        return;
-    }
-
-    window.location.href = `/auth/reddit/start?auth_token=${encodeURIComponent(authToken)}`;
+    window.location.href = `/auth/reddit/start`;
 }
 
 function showShareMenu(targetElement) {
@@ -2578,6 +2591,7 @@ function applyStaggeredAnimation(selector, classToAdd, delayBetween = 10) {
 let mediaObserver = null;
 
 function setupMediaVisibilityOptimization() {
+    if (isMobile()) return;
     // Clean up existing observer if it exists
     if (mediaObserver) {
         mediaObserver.disconnect();
@@ -2610,7 +2624,7 @@ function setupMediaVisibilityOptimization() {
             }
         });
     }, {
-        rootMargin: '800px', // Start loading 800px before visible
+        rootMargin: '800px', 
         threshold: 0
     });
 
@@ -2620,80 +2634,124 @@ function setupMediaVisibilityOptimization() {
     });
 }
 
-async function getSectionPreviews() {
-    const authToken = getAuthToken();
+async function showSectionsAntepage(skipHistoryPush = false) {
+    showLoading();
 
-    // First, get all sections
-    const sectionsResponse = await fetch(`${API_BASE}/api/sections`, {
-        headers: { 'Authorization': authToken }
+    if (!skipHistoryPush) {
+        const url = new URL(window.location);
+        url.searchParams.delete('section');
+        window.history.pushState({}, '', url);
+    }
+
+        const sectionsResponse = await fetch(`${API_BASE}/api/sections/with-previews`, {
+        credentials: 'include'
     });
     const sectionsData = await sectionsResponse.json();
 
-    // Now loop through each section and get its last bookmark
-    const sectionPreviews = {};
-
-    await Promise.all(sectionsData.sections.map(async (section) => {
-        try {
-            const response = await fetch(
-                `${API_BASE}/api/bookmarks/section/${section.id}?limit=1&order=desc`,
-                { headers: { 'Authorization': authToken } }
-            );
-            const data = await response.json();
-
-            if (data.bookmarks && data.bookmarks.length > 0) {
-                const lastBookmark = data.bookmarks[0];
-                sectionPreviews[section.id] = {
-                    bookmark: lastBookmark,
-                    imageUrl: getThumbnailUrl(lastBookmark)
-                };
-            }
-        } catch (error) {
-            console.error(`Failed to fetch preview for section ${section.id}:`, error);
-        }
-    }));
-
-    return sectionPreviews;
-}
-
-async function showSectionsAntepage() {
-    const authToken = getAuthToken();
-    const sectionsResponse = await fetch(`${API_BASE}/api/sections`, {
-        headers: { 'Authorization': authToken }
-    });
-    const sectionsData = await sectionsResponse.json();
-    const sectionPreviews = await getSectionPreviews();
-
-    const resultsContainer = document.querySelector('.results-container');
-    resultsContainer.innerHTML = '';
+    // Build the grid first
     const grid = document.createElement('div');
     grid.className = 'sections-grid';
 
-    sectionsData.sections.forEach(section => {
-        const preview = sectionPreviews[section.id];  
+    for (const section of sectionsData.sections) {
         const card = document.createElement('div');
-        card.className = 'section-card';
-        card.onclick = () => loadSectionContent(section.id);
+        card.className = 'section-card section-card-hidden';
+        card.onclick = () => loadSectionContent(section.section_id);
+        card.setAttribute('data-permalink', section.permalink);
 
-        if (preview && preview.bookmark) {
-            const post = preview.bookmark;
+        if (section.url) {
+            const post = {
+                reddit_post_id: section.reddit_post_id,
+                title: section.title,
+                url: section.url,
+                permalink: section.permalink,
+                subreddit: section.subreddit,
+                score: section.score,
+                is_video: section.is_video,
+                domain: section.domain,
+                author: section.author,
+                created_utc: section.created_utc,
+                num_comments: section.num_comments,
+                over_18: section.over_18,
+                preview: section.preview,
+                selftext: section.selftext,
+                body: section.body,
+                is_gallery: section.is_gallery,
+                gallery_data: section.gallery_data,
+                media_metadata: section.media_metadata,
+                crosspost_parent_list: section.crosspost_parent_list,
+                content_type: section.content_type,
+                icon_url: section.icon_url,
+                locked: section.locked,
+                stickied: section.stickied
+            };
             const domain = getDomainFromUrl(post.url);
             const thumbnailURL = getThumbnailUrl(post);
-            const mediaContainer = createMediaElement(post, thumbnailURL, domain, card, true);
 
+            // Check IndexedDB cache first
+            const cachedUrl = await getCachedSectionImage(section.permalink);
+            const urlToUse = cachedUrl || thumbnailURL;
+            const mediaContainer = createMediaElement(post, urlToUse, domain, card, true);
             card.appendChild(mediaContainer);
+
+            // If not cached, cache it now for next time
+            if (!cachedUrl && thumbnailURL) {
+                cacheSectionImage(section.permalink, thumbnailURL);
+            }
+        } else {
+            // Empty section - show news icon fallback
+            const imgWrapper = document.createElement('div');
+            imgWrapper.className = 'image-wrapper';
+
+            const newsIcon = document.createElement('div');
+            newsIcon.className = 'news-icon-fallback';
+            newsIcon.setAttribute('aria-label', 'Empty section');
+            newsIcon.style.opacity = '0';
+            newsIcon.style.transition = 'opacity 0.3s ease-in-out';
+
+            imgWrapper.appendChild(newsIcon);
+            card.appendChild(imgWrapper);
+
+            // Fade in news icon
+            setTimeout(() => {
+                newsIcon.style.opacity = '1';
+            }, 10);
         }
 
         const info = document.createElement('div');
         info.className = 'section-info';
         info.innerHTML = `
-            <span class="section-emoji">${section.emoji}</span>
-            <span class="section-name">${section.name}</span>
+            <span class="section-emoji">${section.section_emoji}</span>
+            <span class="section-name">${section.section_name}</span>
         `;
         card.appendChild(info);
         grid.appendChild(card);
+    }
+
+    // Replace loading animation with content
+    const resultsContainer = document.querySelector('.results-container');
+    resultsContainer.innerHTML = '';
+    resultsContainer.appendChild(grid);
+
+    // Set loading to false so interactions work
+    isLoading = false;
+
+    // Patch gallery previews
+    sectionsData.sections.forEach(section => {
+        if (section.is_gallery && section.gallery_data && section.media_metadata) {
+            const card = grid.querySelector(`[data-permalink="${section.permalink}"]`);
+            if (card) {
+                const fullPost = {
+                    is_gallery: section.is_gallery,
+                    gallery_data: section.gallery_data,
+                    media_metadata: section.media_metadata
+                };
+                tryGalleryPatch(fullPost, section.permalink, card, 1, true);
+            }
+        }
     });
 
-    resultsContainer.appendChild(grid);
+    // Apply staggered slide-down animation
+    applyStaggeredAnimation('.section-card', 'section-card-visible', 50);
 }
 
 // Shared content loader
@@ -2803,10 +2861,8 @@ function loadSharedContent(shareCode, isLoadMore = false) {
 
 // Unified loading function for all sections
 function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false, numToLoad = 10) {
-    
     if (isLoading) return;
     const resultsContainer = document.querySelector('.results-container');
-    const authToken = getAuthToken();
 
     // If not loading more, reset the offset for this section
     if (!isLoadMore) {
@@ -2820,10 +2876,8 @@ function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false,
     isLoading = true;
 
     // Fetch bookmarks with pagination using the correct offset for this section
-    fetch(`${API_BASE}/api/bookmarks/section/${sectionId}?offset=${sectionOffsets[sectionId]}&limit=${BOOKMARKS_PER_PAGE}`, {
-        headers: {
-            'Authorization': authToken
-        }
+        fetch(`${API_BASE}/api/bookmarks/section/${sectionId}?offset=${sectionOffsets[sectionId]}&limit=${BOOKMARKS_PER_PAGE}`, {
+        credentials: 'include'
     })
         .then(response => response.text())
         .then(rawText => {

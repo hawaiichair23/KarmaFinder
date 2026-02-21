@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta property="og:title" content="KarmaFinder - Reddit Search Engine">
     <meta name="description"
         content="Search Reddit like Google. Find exactly what you're looking for across any subreddit.">
@@ -298,8 +298,6 @@
             document.body.classList.add('is-loaded');
         });
 
-        window.authToken = localStorage.getItem('authToken');
-
     </script>
 
     <a href="https://ko-fi.com/hawaiichair23" target="_blank" class="donate-btn floating-button">
@@ -333,11 +331,28 @@
     </div>
             
     <div class="container">
+    <div class="mobile-top-bar">
+        <div class="mobile-search-row">
+            <button class="mobile-hamburger" id="mobileHamburger" aria-label="Menu">
+                <img width="384" height="384" src="https://img.icons8.com/material-rounded/384/menu--v1.png" alt="menu--v1" />
+            </button>
+    
+            <div class="mobile-logo-row">
+                <a href="/" class="logo">KarmaFinder</a>
+                <a href="/" class="hat-link">
+                    <img src="/assets/hat.png" alt="hat">
+                </a>
+            </div>
+    
+            <button id="mobileLoginBtn" class="login-link" type="button">
+                <span class="login-icon login-icon-image"></span>
+            </button>
+        </div>
+    </div>
         <header>
             <div style="text-align: center;">
                 <a href="/" class="link-container">
                     <div class="logo">KarmaFinder</div>
-
                 </a>
                 <div style="text-align: center;">
                     <div class="tagline" tabindex="0">Find exactly what you're looking for on Reddit 🔎</div>
@@ -348,54 +363,54 @@
                     <div class="speech-tail speech-tail-inner"></div>
                     <div class="speech-text"></div>
                 </div>
-
-
             </div>
         </header>
-        <!-- Mobile Hamburger Menu -->
-        <button class="mobile-hamburger" id="mobileHamburger" aria-label="Menu">
-            <img width="24" height="24" src="https://img.icons8.com/material-rounded/24/menu--v1.png" alt="menu">
-        </button>
         
         <!-- Mobile Sidebar -->
         <div class="mobile-sidebar" id="mobileSidebar">
             <div class="sidebar-header">
                 <h3>Menu</h3>
-                <button class="sidebar-close" id="sidebarClose">×</button>
+                <button class="sidebar-close" id="sidebarClose">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m9 18 6-6-6-6" />
+                    </svg>
+                </button>
             </div>
         
             <div class="sidebar-content">
+            
                 <!-- Dark/Light Mode Toggle -->
                 <div class="sidebar-item">
                     <button id="mobileDarkToggle" class="sidebar-btn">
-                        <img id="mobileDarkIcon" alt="Toggle theme" style="width: 20px; height: 20px;">
-                        <span>Dark Mode</span>
+                        <span>Dark</span>
                     </button>
                 </div>
-        
+            
                 <!-- Color Palette - only shows when logged in -->
                 <div class="sidebar-item mobile-palette-item" style="display: none;">
                     <button class="sidebar-btn" id="mobilePaletteBtn">
-                        🎨 Color Palette
+                        Themes
                     </button>
                 </div>
-        
+            
                 <!-- Current Plan - only shows when logged in -->
                 <div class="sidebar-item mobile-plan-item" style="display: none;">
-                    <div class="sidebar-plan-display" id="mobilePlanDisplay">Pro</div>
-                </div>
-
-                <!-- Get Premium - only shows on mobile -->
-                <div class="sidebar-item">
-                    <button class="sidebar-btn" id="mobileGetPremiumBtn" onclick="window.location.href='/premium'">
-                        ⭐ Get Premium
+                    <button class="sidebar-btn" id="mobilePlanDisplay">
+                        Plan
                     </button>
                 </div>
-        
+            
+                <!-- Get Premium - only shows on mobile -->
+                <div class="sidebar-item" style="display: none;">
+                    <button class="sidebar-btn" id="mobileGetPremiumBtn" onclick="window.location.href='/premium'">
+                        Get Premium
+                    </button>
+                </div>
+            
                 <!-- Support Site -->
                 <div class="sidebar-item">
-                    <a href="https://ko-fi.com/hawaiichair23" target="_blank" class="sidebar-donate">
-                        <img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi" style="height: 20px; width: 20px;">
+                    <a href="https://ko-fi.com/hawaiichair23" target="_blank" class="donate">
                         Support the Site
                     </a>
                 </div>
@@ -411,6 +426,22 @@
                     <polyline points="9 22 9 12 15 12 15 22" />
                 </svg>
                 <span>Home</span>
+            </a>
+            <a href="layout change!!" class="bottom-bar-item">
+                <svg width="22" height="22" viewBox="0 0 100 100" fill="currentColor">
+                    <rect x="5" y="5" width="40" height="40" rx="10" ry="10" />
+                    <rect x="52" y="5" width="40" height="40" rx="10" ry="10" />
+                    <rect x="5" y="52" width="40" height="40" rx="10" ry="10" />
+                    <rect x="52" y="52" width="40" height="40" rx="10" ry="10" />
+                </svg>
+                <span>Layout</span>
+            </a>
+            <a href="?page=search" class="bottom-bar-item">
+                <svg class="search-icon-bottom" width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2" fill="none" />
+                    <path d="m15.8 15.8 4.2 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Search</span>
             </a>
             <a href="?page=bookmarks" class="bottom-bar-item">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -549,15 +580,11 @@
                 </svg>
                 Github</a>
             <br>
-            <br>
             <p class="footie" tabindex="0">Made by hawaiichair23</p>
         </footer>
     </div>
 
     <script>
-
-        // SEVEN MINUTES. SEVEN MINUTES IS ALL I CAN SPARE TO PLAY WITH YOU.
-        const CACHE_DURATION_MS = 7 * 60 * 1000;
 
         const IMAGE_PROXY_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.startsWith('10.'))
                 ? `http://${location.hostname}:3000`
@@ -569,21 +596,20 @@
         let searchTimeout = null;
 
         function preloadBookmarks(callback) {
-            const authToken = getAuthToken();
-
-            if (!authToken) {
+            const authStatus = getAuthStatus();
+            if (!authStatus) {
                 sessionStorage.removeItem('bookmarks');
                 document.querySelectorAll('.bookmark-icon').forEach(icon => {
+                    icon.classList.remove('saved');
+                });
+                document.querySelectorAll('.bookmark-icon-mobile').forEach(icon => {
                     icon.classList.remove('saved');
                 });
                 if (callback) callback();
                 return;
             }
-
             fetch(`${API_BASE}/api/bookmarks?limit=1000`, {
-                headers: {
-                    'Authorization': authToken
-                }
+                credentials: 'include'
             })
                 .then(res => res.json())
                 .then(data => {
@@ -591,10 +617,9 @@
                     data.bookmarks.forEach(post => {
                         bookmarks[post.reddit_post_id] = true;
                     });
-
                     sessionStorage.setItem('bookmarks', JSON.stringify(bookmarks));
 
-                    // Apply bookmarks to any currently rendered icons
+                    // Apply bookmarks to desktop icons
                     document.querySelectorAll('.bookmark-icon').forEach(icon => {
                         const postId = icon.dataset.postId;
                         if (bookmarks[postId]) {
@@ -603,6 +628,23 @@
                             icon.classList.remove('saved');
                         }
                     });
+
+                    // Apply bookmarks to mobile icons
+                    document.querySelectorAll('.bookmark-icon-mobile').forEach(icon => {
+                        const postId = icon.dataset.postId;
+                        if (bookmarks[postId]) {
+                            icon.classList.add('saved');
+                        } else {
+                            icon.classList.remove('saved');
+                        }
+                    });
+
+                    // PI responds based on bookmark count & bookmark url params
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (urlParams.get('page') === 'bookmarks') {
+                        const bookmarkCount = data.bookmarks.length;
+                        handleBookmarksPI(bookmarkCount);
+                    }
 
                     if (callback) callback();
                 })
@@ -731,16 +773,20 @@
         function restoreToggleStates() {
             const toggle1 = document.getElementById('toggle1');
             const toggle2 = document.getElementById('toggle2');
+
+            if (!toggle1 || !toggle2) return; 
+
             const savedToggle1 = sessionStorage.getItem('toggle1State');
             const savedToggle2 = sessionStorage.getItem('toggle2State');
-
             if (savedToggle1 !== null) toggle1.checked = savedToggle1 === 'true';
             if (savedToggle2 !== null) toggle2.checked = savedToggle2 === 'true';
 
             // Re-run logic to reflect the change visually
-            const toggleManager = new ToggleManager();
-            toggleManager.validateState();
-            toggleManager.updateSortDropdown();
+            if (document.getElementById('sort-select')) {
+                const toggleManager = new ToggleManager();
+                toggleManager.validateState();
+                toggleManager.updateSortDropdown();
+            }
         }
 
         function saveSafeSearchState() {
@@ -779,6 +825,13 @@
 
                 if (isBookmarksPage) {
                     const sectionId = parseInt(urlParams.get('section'));
+
+                        if (isNaN(sectionId)) {
+                        if (isMobile()) {
+                            showSectionsAntepage(true);
+                        }
+                        return;
+                    }
                     isLoading = false;
                     loadSectionContent(sectionId, false, true);
                     initializeTabs();
@@ -834,7 +887,9 @@
                     updatePagination();
                     setTimeout(() => window.scrollTo(0, 0), 0);
                 } else {
-                    handleSearchRequest(null, null, true, true);
+                    const after = urlParams.get('after') || null;
+                    const before = urlParams.get('before') || null;
+                    handleSearchRequest(after, before, true, true);
                 }
 
                 isPopstateEvent = false;
@@ -866,15 +921,14 @@
         // Random automatic blinking
         function randomBlink() {
             if (!animationsEnabled || isSleeping) return;
-
             const img = document.querySelector('.hermes-cat');
+            if (!img) return; // ADD THIS LINE
 
             // First blink
             img.src = '/assets/hermes-blink.png';
             setTimeout(() => {
                 if (!isSleeping) img.src = '/assets/hermes.png';
             }, 150);
-
             // Random delay between double blinks (500–2000ms)
             const delayBetween = Math.random() * 1500 + 500;
             blinkTimer1 = setTimeout(() => {
@@ -885,14 +939,14 @@
                     }, 150);
                 }
             }, delayBetween);
-
             // Random delay until next double blink (5–13 seconds)
             const nextBlink = Math.random() * 8000 + 5000;
             blinkTimer2 = setTimeout(randomBlink, nextBlink);
         }
-
         // Start automatic blinking when page loads
-        randomBlink();
+        if (document.querySelector('.hermes-cat')) {
+            randomBlink();
+        }
 
         // Mouseover triggers a single blink
         document.querySelector('.hermes-cat').addEventListener('mouseover', singleBlink);
@@ -949,53 +1003,60 @@
         }
 
 
-        // Sleep animation (head bobbing loop)
-        function sleepAnimation() {
+       function sleepAnimation() {
             if (!animationsEnabled || !isSleeping) return;
-
             const img = document.querySelector('.hermes-cat');
+            if (!img) return;
 
-            // Step 1: start from normal closed eyes
             img.src = '/assets/hermes-blink.png';
 
-            // Falling down part (accelerating)
             setTimeout(() => {
+                const img = document.querySelector('.hermes-cat');
+                if (!img) return;
                 img.src = '/assets/hermes-sleep2.png';
-            }, 400); // quick
+            }, 400);
 
             setTimeout(() => {
+                const img = document.querySelector('.hermes-cat');
+                if (!img) return;
                 img.src = '/assets/hermes-sleep3.png';
-            }, 800); // still quick
+            }, 800);
 
             setTimeout(() => {
+                const img = document.querySelector('.hermes-cat');
+                if (!img) return;
                 img.src = '/assets/hermes-sleep4.png';
-            }, 1300); // a bit slower
+            }, 1300);
 
-            // Rising up part (decelerating)
             setTimeout(() => {
+                const img = document.querySelector('.hermes-cat');
+                if (!img) return;
                 img.src = '/assets/hermes-sleep3.png';
-            }, 1900); // slower
+            }, 1900);
 
             setTimeout(() => {
+                const img = document.querySelector('.hermes-cat');
+                if (!img) return;
                 img.src = '/assets/hermes-sleep2.png';
-            }, 2500); // even slower
+            }, 2500);
 
             setTimeout(() => {
+                const img = document.querySelector('.hermes-cat');
+                if (!img) return;
                 img.src = '/assets/hermes-blink.png';
-                // Loop again if still sleeping
                 if (isSleeping) {
-                    setTimeout(sleepAnimation, 800); // pause before repeating
+                    setTimeout(sleepAnimation, 800);
                 }
-            }, 3200); // final slow return to top
+            }, 3200);
         }
 
-        // Activity resets sleep timer
         ['mousemove', 'keypress', 'click', 'scroll'].forEach(event =>
             document.addEventListener(event, resetSleepTimer)
         );
 
-        // Start sleep timer on page load
-        resetSleepTimer();
+        if (document.querySelector('.hermes-cat')) {
+            resetSleepTimer();
+        }
 
         let currentTypewriterTimeout;
 
@@ -1023,41 +1084,36 @@
         }
 
         function showSpeechBubble(messages) {
+            if (!hermesEnabled) return;
+
             const bubble = document.getElementById('hermes-speech');
+            if (!bubble) return;
+
             const textElement = bubble.querySelector('.speech-text');
             const message = Array.isArray(messages) ?
                 messages[Math.floor(Math.random() * messages.length)] : messages;
 
-            // Early return for mute toggle
-            if (!hermesEnabled) return;
-
             if (message.length > 27) {
                 let cutPoint = 27;
-                // Find the last space before the limit
                 while (cutPoint > 0 && message[cutPoint] !== ' ') {
                     cutPoint--;
                 }
-                // If no space found, fall back to character limit
                 if (cutPoint === 0) cutPoint = 27;
-
                 const firstPart = message.substring(0, cutPoint);
                 const remainingPart = message.substring(cutPoint + 1);
 
-                // Show first part
                 bubble.classList.remove('hidden');
                 startTalking();
                 typewriterEffect(textElement, firstPart, 50);
 
-                // After first part finishes, call showSpeechBubble again for remaining part, splitting again
                 setTimeout(() => {
                     stopTalking();
                     hideSpeechBubble();
-                    showSpeechBubble(remainingPart); // This will re-check the 27 char limit
+                    showSpeechBubble(remainingPart);
                 }, firstPart.length * 50 + 700);
                 return;
             }
 
-            // Normal case
             bubble.classList.remove('hidden');
             startTalking();
             typewriterEffect(textElement, message, 50);
@@ -1065,32 +1121,24 @@
         }
 
         function startTalking() {
-
             isTalking = true;
             mouthMovement();
         }
 
         function mouthMovement() {
             if (!isTalking || !animationsEnabled) return;
-
             const img = document.querySelector('.hermes-cat');
+            if (!img) return;
 
-            // Open mouth
             img.src = '/assets/hermes-mouthopen.png';
-
-            // Mouth open duration
             const openDuration = Math.random() * 90 + 150;
 
             setTimeout(() => {
-                if (!isTalking) return;
+                const img = document.querySelector('.hermes-cat');
+                if (!img || !isTalking) return;
 
-                // Close mouth
                 img.src = '/assets/hermes.png';
-
-                // Mouth closed duration
                 const closedDuration = Math.random() * 50 + 60;
-
-                // Continue the cycle
                 mouthTimeout = setTimeout(mouthMovement, closedDuration);
             }, openDuration);
         }
@@ -1098,14 +1146,15 @@
         function stopTalking() {
             isTalking = false;
             clearTimeout(mouthTimeout);
-
             // Make sure mouth is closed
             const img = document.querySelector('.hermes-cat');
+            if (!img) return;
             img.src = '/assets/hermes.png';
         }
 
         function hideSpeechBubble() {
             const bubble = document.getElementById('hermes-speech');
+            if (!bubble) return;
             bubble.classList.add('hidden');
         }
 
@@ -1141,10 +1190,11 @@
         }
 
         async function showRareLines() {
+            if (!document.querySelector('.hermes-cat')) return; 
+
             try {
                 const response = await fetch(`${API_BASE}/api/rare-line`);
                 const data = await response.json();
-
                 if (data.line && data.line !== 'undefined') {
                     clearTimeout(currentTypewriterTimeout);
                     showSpeechBubble(data.line);
@@ -1344,17 +1394,24 @@
         }
 
 
-        // ANIMATIONS TOGGLE WITH LOCALSTORAGE
+        // Animations toggle with localStorage
         document.addEventListener('DOMContentLoaded', function () {
             // Initialize toggle system
-            const toggleManager = new ToggleManager();
+            if (document.getElementById('sort-select')) {
+                const toggleManager = new ToggleManager();
+            }
             restoreSafeSearchState();
             const muteBtn = document.getElementById('muteHermes');
             const animBtn = document.getElementById('toggleAnimations');
 
             // Load saved settings or use defaults
-            hermesEnabled = localStorage.getItem('hermesEnabled') !== 'false'; // default true
-            animationsEnabled = localStorage.getItem('animationsEnabled') !== 'false'; // default true
+            hermesEnabled = localStorage.getItem('hermesEnabled') !== 'false'; 
+            animationsEnabled = localStorage.getItem('animationsEnabled') !== 'false'; 
+            
+            // Auto-mute Hermes on mobile
+            if (window.innerWidth <= 1024) {
+                hermesEnabled = false;
+            }
 
             function playGreeting() {
                 if (!hermesEnabled) return;
@@ -1491,7 +1548,7 @@
                     'history': ["You know, everyone thinks the Berlin Wall was Reagan... I was there. It was a bureaucratic screwup.", "Uh, do you ever listen to Hardcore History. There was a cult in Germany in that town that's named after cheese. Yeah it was a cult."],
                     'thesopranos': ["How about that prick's face when he saw the gat?", "Gandolfini based Tony on a guy he knew in Jersey. Real guy."],
                     'thesopranos_memes': ["How about that prick's face when he saw the gat?"],
-                    'buyitforlife': ["One word. Air. Fryer. That's two words. I never use my oven now.", "Get you a good blender. It'll make you soups, too."],
+                    'buyitforlife': ["One word. Air. Fryer. That's two words. I never use my oven now."],
                     'lego': ["My kids love those. My wallet, not so much."],
                     'educationalgifs': ["Look up the Chernobyl, uh, reactor containment.", "Don't look up MRI of person speaking. That is disgusting."],
                     'marvelrivals': ["I don't do those team fighter games. Besides CS Go."],
@@ -1559,7 +1616,7 @@
                     return reactions[input.toLowerCase()];
                 }
             }
-            const nsfwPattern = /\b(tits|titties|rape|raped|tiddies|massivecock|nudes|onlyfans|hentai|boobs|cum|cock|cocks|cunt|gape|gooning|gooner|goon|pussy|porn)\b/i;
+            const nsfwPattern = /\b(tits|titties|tiddies|massivecock|nudes|onlyfans|hentai|boobs|cum|cock|cocks|cunt|gape|gooning|gooner|goon|pussy|porn)\b/i;
             if (nsfwPattern.test(input)) {
                 return ["Really?", "Okay.", "Interesting.", "Bud...", "The usual suspects.", "For research purposes?"];
             }
@@ -2277,7 +2334,7 @@
 
         timeSelect.addEventListener('change', () => {
             currentFilters.time = timeSelect.value;
-
+    
             // Reset pagination state
             currentIndex = 0;
             handleSearchRequest();
@@ -2525,7 +2582,14 @@
                         })
                         .catch(error => {
                             console.error('Error:', error);
-                            Swal.fire('Error', 'Could not open billing portal.');
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'Could not open billing portal.',
+                                icon: 'error',
+                                didOpen: () => {
+                                    document.activeElement.blur();
+                                }
+                            });
                             // Restore original content on error
                             planDisplayElement.innerHTML = originalContent;
                             planDisplayElement.classList.remove('loading');
@@ -2844,37 +2908,50 @@
 
 
         function applyFiltersToUI(filters) {
+            const searchInput = document.querySelector('#search-input');
+            const subredditInput = document.querySelector('#subreddit-input');
+            const sortSelect = document.querySelector('#sort-select');
+            const timeSelect = document.querySelector('#time-select');
+            const contentSelect = document.querySelector('#content-select');
 
-            document.querySelector('#search-input').value = filters.query || '';
-            document.querySelector('#subreddit-input').value = (filters.subreddit && filters.subreddit !== 'all') ? filters.subreddit : '';
-            document.querySelector('#sort-select').value = filters.sort || 'relevance';
-            document.querySelector('#time-select').value = filters.time || 'all';
-            document.querySelector('#content-select').value = filters.contentType || 'all';
+            if (searchInput) searchInput.value = filters.query || '';
+            if (subredditInput) subredditInput.value = (filters.subreddit && filters.subreddit !== 'all') ? filters.subreddit : '';
+            if (sortSelect) sortSelect.value = filters.sort || 'relevance';
+            if (timeSelect) timeSelect.value = filters.time || 'all';
+            if (contentSelect) contentSelect.value = filters.contentType || 'all';
 
             // Manage chip UI
-            const chipTextEl = subredditChipContainer.querySelector('.chip-text');
-            if (!filters.subreddit || filters.subreddit === 'all') {
-                subredditChipContainer.style.display = 'none';
-                if (chipTextEl) chipTextEl.textContent = '';
-            } else {
-                subredditChipContainer.style.display = 'flex';
-                if (chipTextEl) chipTextEl.textContent = `r/${filters.subreddit}`;
+            if (subredditChipContainer) {
+                const chipTextEl = subredditChipContainer.querySelector('.chip-text');
+                if (!filters.subreddit || filters.subreddit === 'all') {
+                    subredditChipContainer.style.display = 'none';
+                    if (chipTextEl) chipTextEl.textContent = '';
+                } else {
+                    subredditChipContainer.style.display = 'flex';
+                    if (chipTextEl) chipTextEl.textContent = `r/${filters.subreddit}`;
+                }
             }
         }
 
-
         function getCurrentFiltersFromUI() {
-            const query = searchInput.value.trim();
-            const subredditTyped = document.getElementById('subreddit-input').value.trim();
-            const chipVisible = subredditChipContainer.style.display === 'flex';
+            // Recheck current search input in case it's the mobile one
+            const searchInputElement = document.querySelector('#search-input');
+
+            const query = searchInputElement ? searchInputElement.value.trim() : ''; 
+            const subredditInput = document.getElementById('subreddit-input');
+            const subredditTyped = subredditInput ? subredditInput.value.trim() : '';
+            const chipVisible = subredditChipContainer && subredditChipContainer.style.display === 'flex';
             const subreddit = chipVisible
                 ? subredditChipContainer.querySelector('.chip-text').textContent.replace('r/', '')
                 : subredditTyped;
+            const timeSelect = document.getElementById('time-select');
+            const sortSelect = document.getElementById('sort-select');
+            const contentSelect = document.getElementById('content-select');
             return {
                 query,
-                time: document.getElementById('time-select').value,
-                sort: document.getElementById('sort-select').value,
-                contentType: document.getElementById('content-select').value,
+                time: timeSelect ? timeSelect.value : 'all',
+                sort: sortSelect ? sortSelect.value : 'relevance',
+                contentType: contentSelect ? contentSelect.value : 'all',
                 subreddit
             };
         }
@@ -2889,23 +2966,18 @@
                 const query = e.target.value;
                 clearTimeout(timeout);
 
-                input.addEventListener('click', function (e) {
-                    const query = e.target.value.trim();
-                    if (query) {
-                        getSmartSuggestions(query, suggestionsDiv, dictionary);
-                    }
-                });
-
                 timeout = setTimeout(() => {
                     getSmartSuggestions(query, suggestionsDiv, dictionary);
                 }, 170);
             });
 
-            // On click listener
-            document.querySelector('#search-input').addEventListener('click', function () {
-                const suggestionsDiv = document.querySelector('#suggestions');
-                getSmartSuggestions(this.value, suggestionsDiv, dictionary);
+            input.addEventListener('click', function (e) {
+                const query = e.target.value.trim();
+                if (query) {
+                    getSmartSuggestions(query, suggestionsDiv, dictionary);
+                }
             });
+
         }
 
         async function getSmartSuggestions(query, suggestionsDiv, dictionary) {
@@ -3448,46 +3520,48 @@
         }
 
         function determineSearchType() {
-            const filters = getCurrentFiltersFromUI();
-            const isEnhancedOn = document.getElementById('toggle1').checked;
-            const hasQuery = filters.query && filters.query.trim() !== '';
-            const hasSubreddit = filters.subreddit && filters.subreddit.trim() !== '';
+                const filters = getCurrentFiltersFromUI();
+                const toggle1 = document.getElementById('toggle1');
+                const isEnhancedOn = toggle1 ? toggle1.checked : false;
+                const hasQuery = filters.query && filters.query.trim() !== '';
+                const hasSubreddit = filters.subreddit && filters.subreddit.trim() !== '';
 
-            // First, housekeeping before search
-            hideSpeechBubble();
-            showRareLines();
-            cleanupUI();
+                // First, housekeeping before search
+                if (document.getElementById('hermes-speech')) hideSpeechBubble();
+                if (document.querySelector('.hermes-cat')) showRareLines();
+                cleanupUI();
 
-            // Reset title and meta tags 
-            document.title = "KarmaFinder";
-            document.querySelector('meta[name="description"]').content = "Find exactly what you're looking for on Reddit";
-            document.querySelector('meta[property="og:title"]').content = "KarmaFinder";
+                // Reset title and meta tags 
+                document.title = "KarmaFinder";
+                const descMeta = document.querySelector('meta[name="description"]');
+                const ogMeta = document.querySelector('meta[property="og:title"]');
+                if (descMeta) descMeta.content = "Find exactly what you're looking for on Reddit";
+                if (ogMeta) ogMeta.content = "KarmaFinder";
 
-            // Enhanced search with query = vector search
-            if (isEnhancedOn && hasQuery) {
-                return 'vector';
-            }
+                // Enhanced search with query = vector search
+                if (isEnhancedOn && hasQuery) {
+                    return 'vector';
+                }
 
-            // Enhanced search with only subreddit = regular search  
-            if (isEnhancedOn && hasSubreddit && !hasQuery) {
+                // Enhanced search with only subreddit = regular search  
+                if (isEnhancedOn && hasSubreddit && !hasQuery) {
+                    return 'regular';
+                }
+
+                // Progressive search conditions (ONLY when enhanced is OFF)
+                if (!isEnhancedOn) {
+                    const hasTimeFilter = filters.time !== 'all';
+                    const hasContentFilter = filters.contentType !== 'all';
+                    const isHotOrNew = filters.sort === 'new' || filters.sort === 'hot';
+                    const needsProgressive = (isHotOrNew && hasTimeFilter) || hasContentFilter;
+                    if (needsProgressive) {
+                        return 'progressive';
+                    }
+                }
+
+                // Default to regular search
                 return 'regular';
             }
-
-            // Progressive search conditions (ONLY when enhanced is OFF)
-            if (!isEnhancedOn) {
-                const hasTimeFilter = filters.time !== 'all';
-                const hasContentFilter = filters.contentType !== 'all';
-                const isHotOrNew = filters.sort === 'new' || filters.sort === 'hot';
-                const needsProgressive = (isHotOrNew && hasTimeFilter) || hasContentFilter;
-
-                if (needsProgressive) {
-                    return 'progressive';
-                }
-            }
-
-            // Default to regular search
-            return 'regular';
-        }
 
         function handleSearchRequest(after = null, before = null, navigateBack = false, isInitialLoad = false) {
             if (isPopstateEvent) navigateBack = true;
@@ -3659,7 +3733,7 @@
 
 
     function performSearch(after = null, before = null, navigateBack = false, isInitialLoad = false) {
-
+    console.log("PERFORMSEARCH:", after, before)
         // Handle back navigation with saved page state
         if (navigateBack || isPopstateEvent) {
             currentFilters = getFiltersFromURL();
@@ -3804,6 +3878,7 @@
                     });
             })
             .catch(err => {
+                console.error("Search error:", err);
                 showError("Something went wrong. Please try again.");
             });
     }
@@ -3814,71 +3889,7 @@
 
 
 
-        function loadAfterToken(filters, index) {
-                const key = `kf_after_${index}`;
-                const raw = sessionStorage.getItem(key);
-                if (!raw) return null;
-
-                const data = JSON.parse(raw);
-                if (
-                    data.query === filters.query &&
-                    data.subreddit === filters.subreddit &&
-                    data.sort === filters.sort &&
-                    data.time === filters.time &&
-                    data.contentType === filters.contentType
-                ) {
-                    return data.after || null;
-                }
-
-                return null;
-            }
-
-        function saveAfterToken(filters, index, afterToken) {
-            if (!afterToken) return;
-
-            const key = `kf_after_${index}`;
-            const data = {
-                query: filters.query,
-                subreddit: filters.subreddit,
-                sort: filters.sort,
-                time: filters.time,
-                contentType: filters.contentType,
-                after: afterToken
-            };
-
-            sessionStorage.setItem(key, JSON.stringify(data));
-        }
-
-
-        function trimRedditPostData(post) {
-            return {
-                id: post.data.id,
-                title: post.data.title,
-                url: post.data.url,
-                permalink: post.data.permalink,
-                subreddit: post.data.subreddit,
-                score: post.data.score,
-                is_video: post.data.is_video,
-                domain: post.data.domain,
-                author: post.data.author,
-                created_utc: post.data.created_utc,
-                num_comments: post.data.num_comments,
-                over_18: post.data.over_18,
-                preview: post.data.preview,
-                selftext: post.data.selftext,
-                body: post.data.body,
-                is_gallery: post.data.is_gallery,
-                gallery_data: post.data.gallery_data,
-                media_metadata: post.data.media_metadata,
-                crosspost_parent_list: post.data.crosspost_parent_list || [],
-                content_type: post.data.content_type || '',
-                icon_url: null,
-                locked: post.data.locked,
-                stickied: post.data.stickied
-            };
-        }
-
-        function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1) {
+        function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavigation = false) {
             const galleryData = fullPost.gallery_data?.items;
             const mediaMetadata = fullPost.media_metadata;
 
@@ -3912,7 +3923,7 @@
             let navigationSequence = 0;
 
             // Add gallery navigation elements
-            if (!imgWrapper.querySelector('.gallery-nav')) {
+            if (!skipNavigation && !imgWrapper.querySelector('.gallery-nav')) {
                 // Make image-wrapper relative for absolute positioning
                 imgWrapper.style.position = 'relative';
 
@@ -3922,6 +3933,9 @@
 
                 // Left arrow
                 const leftArrow = document.createElement('button');
+                const isMobile = window.innerWidth <= 1024;
+                const size = isMobile ? '46px' : '24px';
+
                 leftArrow.className = 'gallery-arrow gallery-arrow-left';
                 leftArrow.innerHTML = `
     <svg viewBox="0 0 24 24" fill="none">
@@ -3936,14 +3950,15 @@
     background: rgba(0, 0, 0, 0.5);
     color: white;
     border: none;
-    width: 24px;
-    height: 24px;
+    width: ${size};
+    height: ${size};
     border-radius: 50%;
     cursor: pointer;
     z-index: 10;
     display: flex;
     align-items: center;
     justify-content: center;
+    
 `;
 
                 // Right arrow
@@ -3962,8 +3977,8 @@
     background: rgba(0, 0, 0, 0.5);
     color: white;
     border: none;
-    width: 24px;
-    height: 24px;
+    width: ${size};
+    height: ${size};
     border-radius: 50%;
     cursor: pointer;
     z-index: 10;
@@ -3998,7 +4013,10 @@
                         const item = galleryData[index];
                         const mediaId = item.media_id;
                         const media = mediaMetadata[mediaId];
-                        const original = media?.s?.u?.replace(/&amp;/g, '&');
+                        const isAnimated = media?.e === 'AnimatedImage';
+                        const original = isAnimated
+                            ? (media?.s?.gif || media?.s?.mp4)?.replace(/&amp;/g, '&')
+                            : media?.s?.u?.replace(/&amp;/g, '&');
                         const resolutionFallback = media?.p?.[media.p.length - 1]?.u?.replace(/&amp;/g, '&');
                         const imageUrl = original || resolutionFallback;
 
@@ -4023,7 +4041,10 @@
                             const item = galleryData[index];
                             const mediaId = item.media_id;
                             const media = mediaMetadata[mediaId];
-                            const original = media?.s?.u?.replace(/&amp;/g, '&');
+                            const isAnimated = media?.e === 'AnimatedImage';
+                            const original = isAnimated
+                                ? (media?.s?.gif || media?.s?.mp4)?.replace(/&amp;/g, '&')
+                                : media?.s?.u?.replace(/&amp;/g, '&');
                             const resolutionFallback = media?.p?.[media.p.length - 1]?.u?.replace(/&amp;/g, '&');
                             const imageUrl = original || resolutionFallback;
 
@@ -4082,7 +4103,10 @@
 
                     const mediaId = galleryData[targetIndex].media_id;
                     const media = mediaMetadata[mediaId];
-                    const original = media?.s?.u?.replace(/&amp;/g, '&');
+                    const isAnimated = media?.e === 'AnimatedImage';
+                    const original = isAnimated
+                        ? (media?.s?.gif || media?.s?.mp4)?.replace(/&amp;/g, '&')
+                        : media?.s?.u?.replace(/&amp;/g, '&');
                     const resolutionFallback = media?.p?.[media.p.length - 1]?.u?.replace(/&amp;/g, '&');
                     const imageUrl = original || resolutionFallback;
 
@@ -4257,6 +4281,70 @@
                     }
                 });
 
+                let touchStartX = 0;
+                let touchStartY = 0;
+                let touchStartTime = 0;
+                let currentTranslate = 0;
+                let prevTranslate = 0;
+                let isDragging = false;
+                let animationID = 0;
+                const SWIPE_THRESHOLD = 50;
+
+                imgWrapper.addEventListener('touchstart', (e) => {
+                    touchStartX = e.touches[0].clientX;
+                    touchStartTime = Date.now();
+                    isDragging = true;
+                    animationID = requestAnimationFrame(animation);
+                    imgWrapper.style.cursor = 'grabbing';
+                });
+
+                imgWrapper.addEventListener('touchmove', (e) => {
+                    if (isDragging) {
+                        const currentX = e.touches[0].clientX;
+                        const currentY = e.touches[0].clientY;
+                        const diffX = Math.abs(currentX - touchStartX);
+                        const diffY = Math.abs(currentY - touchStartY);
+
+                        // Only prevent scroll if swiping more horizontally than vertically
+                        if (diffX > diffY) {
+                            currentTranslate = prevTranslate + currentX - touchStartX;
+                            e.preventDefault();
+                        } else {
+                            // Vertical scroll - cancel drag
+                            isDragging = false;
+                            cancelAnimationFrame(animationID);
+                        }
+                    }
+                }, { passive: false });
+
+                imgWrapper.addEventListener('touchend', (e) => {
+                    const touchEndX = e.changedTouches[0].clientX;
+                    const swipeDistance = touchEndX - touchStartX;
+
+                    cancelAnimationFrame(animationID);
+                    isDragging = false;
+
+                    if (Math.abs(swipeDistance) > SWIPE_THRESHOLD) {
+                        if (swipeDistance > 0) {
+                            navigateGallery('prev');
+                        } else {
+                            navigateGallery('next');
+                        }
+                    }
+
+                    prevTranslate = currentTranslate = 0;
+                    imgWrapper.style.cursor = 'grab';
+                });
+
+                function animation() {
+                    setSliderPosition();
+                    if (isDragging) requestAnimationFrame(animation);
+                }
+
+                function setSliderPosition() {
+                    imgWrapper.style.transform = `translateX(${currentTranslate}px)`;
+                }
+
                 // Hide arrows if only one image
                 if (totalImages <= 1) {
                     leftArrow.style.display = 'none';
@@ -4293,11 +4381,13 @@
             }
 
             // Gather best available image sources
-            const original = media?.s?.u?.replace(/&amp;/g, '&');
+            const isAnimated = media?.e === 'AnimatedImage';
+            const original = isAnimated
+                ? (media?.s?.gif || media?.s?.mp4)?.replace(/&amp;/g, '&')
+                : media?.s?.u?.replace(/&amp;/g, '&');
             const resolutionFallback = media?.p?.[media.p.length - 1]?.u?.replace(/&amp;/g, '&');
             const fallbacks = [original, resolutionFallback].filter(Boolean);
 
-            // Your existing patchImage logic...
             const patchImage = (img) => {
                 const trySrc = (index = 0) => {
                     if (index >= fallbacks.length) {
@@ -4375,72 +4465,6 @@
             ]);
         }
 
-        function showNewsIcon(imgWrapper, shimmer) {
-            // Hide shimmer if it exists
-            if (shimmer) {
-                shimmer.style.display = 'none';
-            }
-
-            // Also try to find shimmer directly if not passed
-            if (!shimmer) {
-                const foundShimmer = imgWrapper.querySelector('.image-placeholder');
-                if (foundShimmer) {
-                    foundShimmer.style.display = 'none';
-                }
-            }
-
-            // Find and remove the existing result-image
-            const existingImg = imgWrapper.querySelector('.result-image');
-            if (existingImg) {
-                existingImg.remove();
-            }
-
-            // Create and show news icon
-            const newsIcon = document.createElement('div');
-            newsIcon.className = 'news-icon-fallback';
-            newsIcon.setAttribute('aria-label', 'Article thumbnail');
-            newsIcon.style.opacity = '0';
-            newsIcon.style.transition = 'opacity 0.3s ease-in-out';
-            imgWrapper.appendChild(newsIcon);
-
-            // Fade in news icon
-            setTimeout(() => {
-                newsIcon.style.opacity = '1';
-            }, 10);
-        }
-
-        function filterPostsByContent(posts, contentType) {
-            if (contentType === 'all') {
-                return posts;
-            }
-
-            return posts.filter(post => {
-                const postContentType = classifyContentType(post);
-                return postContentType === contentType;
-            });
-        }
-
-        function filterPostsByTime(posts, timeFilter) {
-            if (timeFilter === 'all') {
-                return posts;
-            }
-
-            const now = Math.floor(Date.now() / 1000);
-            let timeCutoff = 0;
-
-            switch (timeFilter) {
-                case "hour": timeCutoff = now - 7140; break;     // 119 minutes
-                case "day": timeCutoff = now - 169200; break;    // 47 hours  
-                case "week": timeCutoff = now - 604800; break;   // 7 days
-                case "month": timeCutoff = now - 2592000; break; // 30 days
-                case "year": timeCutoff = now - 31536000; break; // 365 days
-                default: timeCutoff = 0;
-            }
-
-            return posts.filter(post => post.created_utc >= timeCutoff);
-        }
-
-
         async function displayResults(data, isAppend = false) {
             // For append mode in bookmarks
             if (!isAppend) {
@@ -4448,7 +4472,8 @@
                 resultsContainer.innerHTML = '';
             }
 
-            const selectedFilter = document.getElementById('content-select').value;
+            const contentSelect = document.getElementById('content-select');
+            const selectedFilter = contentSelect ? contentSelect.value : 'all';
             const isFromCache = Array.isArray(data);
             const posts = isFromCache
                 ? data
@@ -4459,14 +4484,8 @@
                 currentBefore = data.data?.before || null;
             }
 
-            // Process posts in batches of 3
-            const BATCH_SIZE = 3;
+            await processBatchedPosts(posts, 3, async (post) => {
 
-            for (let i = 0; i < posts.length; i += BATCH_SIZE) {
-                const batch = posts.slice(i, i + BATCH_SIZE);
-
-                // Display results
-                for (const post of batch) {
                     const postId = post.id || (post.permalink?.split("/")[4] ?? "unknown_id");
                     const bookmarkId = post.id || post.reddit_post_id;
                     const redditPostId = post.reddit_post_id || (post.name?.startsWith('t3_') ? post.name.slice(3) : undefined);
@@ -4507,7 +4526,7 @@
                     // Append scrollable div inside the outer container
                     commentsSection.appendChild(commentsScroll);
 
-                    // Fetch comments INTO the inner scrollable div
+                    // Fetch comments into the inner scrollable div
                     fetchComments(post.permalink, commentsScroll);
 
                     // Vote section
@@ -4523,49 +4542,59 @@
 
                     const permalinkUrl = `https://www.reddit.com${post.permalink}`;
 
-                    const upvoteBtn = document.createElement('a');
-                    upvoteBtn.href = permalinkUrl;
-                    upvoteBtn.target = '_blank';
-                    upvoteBtn.className = 'vote-button-red';
-                    upvoteBtn.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="18 15 12 9 6 15"></polyline>
-        </svg>`;
-
-                    const voteCount = document.createElement('div');
-                    voteCount.className = 'vote-count';
-                    voteCount.textContent = formatNumber(post.score);
-
-                    const downvoteBtn = document.createElement('a');
-                    downvoteBtn.href = permalinkUrl;
-                    downvoteBtn.target = '_blank';
-                    downvoteBtn.className = 'vote-button';
-                    downvoteBtn.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>`;
-
+                    const { upvoteBtn, voteCount, downvoteBtn } = createVoteButtons(post, permalinkUrl);
                     voteSection.appendChild(upvoteBtn);
                     voteSection.appendChild(voteCount);
                     voteSection.appendChild(downvoteBtn);
 
-                    const commentIcon = document.createElement('a');
-                    commentIcon.href = permalinkUrl;
-                    commentIcon.target = '_blank';
-                    commentIcon.className = 'mobile-vote-item comment-count-mobile';
-                    commentIcon.innerHTML = `
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                        </svg>
-                        <span>${formatNumber(post.num_comments || 0)}</span>
-                    `;
-
+                    const commentIcon = createCommentIcon(post, permalinkUrl)              
                     const saveIconMobile = document.createElement('div');
                     saveIconMobile.className = 'mobile-vote-item bookmark-icon-mobile';
                     saveIconMobile.dataset.postId = bookmarkId;
 
+                    // Check if this post is already bookmarked
+                    const bookmarksCache = JSON.parse(sessionStorage.getItem('bookmarks') || '{}');
+                    if (bookmarksCache[bookmarkId]) {
+                        saveIconMobile.classList.add('saved');
+                    }
+
                     voteSection.appendChild(commentIcon);
                     voteSection.appendChild(saveIconMobile);
+
+                    // Click handler for mobile bookmark icon
+                    const isMobile = window.innerWidth <= 1024;
+
+                    if (!window.isViewingSharedContent && isMobile) {
+                        saveIconMobile.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+
+                            const authStatus = requireAuth();
+                            if (!authStatus) return;
+
+                            const bookmarkId = saveIconMobile.dataset.postId;
+                            const isSaved = saveIconMobile.classList.contains('saved');
+
+                            try {
+                                if (isSaved) {
+                                    await deleteBookmark(bookmarkId);
+                                    updateBookmarkUI(saveIconMobile, bookmarkId, false);
+                                } else {
+                                    const selectedSectionId = await showSectionPickerMenu(post);
+                                    if (!selectedSectionId) return;
+
+                                    await saveBookmarkWithSection(post, bookmarkId, selectedSectionId);
+                                    updateBookmarkUI(saveIconMobile, bookmarkId, true);
+                                    await reorderBookmarkToTop(bookmarkId, selectedSectionId);
+                                }
+                            } catch (err) {
+                                console.error('Failed to toggle bookmark:', err);
+                            }
+                        });
+                    } else if (window.isViewingSharedContent && isMobile) {
+                        // For shared content: make it permanently yellow and non-clickable
+                        saveIconMobile.classList.add('saved');
+                        saveIconMobile.style.pointerEvents = 'none';
+                    }
 
                     // Content section
                     const contentSection = document.createElement('div');
@@ -4643,9 +4672,9 @@
                         fetch(`${API_BASE}/api/bookmarks/${bookmarkId}/score`, {
                             method: 'PUT',
                             headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': getAuthToken()
+                                'Content-Type': 'application/json'
                             },
+                            credentials: 'include',
                             body: JSON.stringify({ score: post.score })
                         }).catch(err => console.error('Score update failed:', err));
                     }
@@ -4788,82 +4817,35 @@
                         resultContent.innerHTML = parseMarkdown(snippet);
                     }
 
-                    // After creating your snippet, clean up incomplete links
+                    // Clean up incomplete links
                     if (snippet.match(/\[[^\]]+\]\([^)]*$/)) {
-                        // Remove the incomplete link syntax at the end
                         snippet = snippet.replace(/\[[^\]]+\]\([^)]*$/, '...');
                     }
-
+                
                     // Result actions (comments, save, share)
                     const resultActions = document.createElement('div');
                     resultActions.className = 'result-actions';
 
-                    const commentsAction = document.createElement('div');
-                    commentsAction.className = 'result-action';
-                    commentsAction.tabIndex = 0;
+                    const redditUrl = `https://www.reddit.com${post.permalink}`;
+
+                    const commentsAction = createActionButton(
+                        `${post.num_comments || 0} Comments`,
+                        '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>',
+                        redditUrl
+                    );
                     commentsAction.setAttribute('aria-label', 'Comments');
-                    commentsAction.innerHTML = `
-        <svg class="action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-        ${post.num_comments || 0} Comments`;
 
-                    commentsAction.style.cursor = 'pointer';
+                    const saveAction = createActionButton(
+                        'Save',
+                        '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>',
+                        redditUrl
+                    );
 
-                    commentsAction.addEventListener('click', () => {
-                        const url = 'https://www.reddit.com' + post.permalink;
-                        window.open(url, '_blank');
-                    });
-                    commentsAction.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            const url = 'https://www.reddit.com' + post.permalink;
-                            window.open(url, '_blank');
-                        }
-                    });
-
-                    const saveAction = document.createElement('div');
-                    saveAction.className = 'result-action';
-                    saveAction.tabIndex = 0;
-                    saveAction.setAttribute('aria-label', 'Reddit Save');
-                    saveAction.innerHTML = `
-        <svg class="action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-        </svg>
-        Save`;
-                    saveAction.addEventListener('click', () => {
-                        const url = 'https://www.reddit.com' + post.permalink;
-                        window.open(url, '_blank');
-                    });
-                    saveAction.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            const url = 'https://www.reddit.com' + post.permalink;
-                            window.open(url, '_blank');
-                        }
-                    });
-
-                    const shareAction = document.createElement('div');
-                    shareAction.className = 'result-action';
-                    shareAction.tabIndex = 0;
-                    shareAction.setAttribute('aria-label', 'Share');
-                    shareAction.innerHTML = `
-        <svg class="action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="18" cy="5" r="3"></circle>
-            <circle cx="6" cy="12" r="3"></circle>
-            <circle cx="18" cy="19" r="3"></circle>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-        </svg>
-        Share`;
-                    shareAction.addEventListener('click', () => {
-                        const url = 'https://www.reddit.com' + post.permalink;
-                        window.open(url, '_blank');
-                    });
-                    shareAction.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            const url = 'https://www.reddit.com' + post.permalink;
-                            window.open(url, '_blank');
-                        }
-                    });
+                    const shareAction = createActionButton(
+                        'Share',
+                        '<circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>',
+                        redditUrl
+                    );
 
                     resultActions.appendChild(commentsAction);
                     resultActions.appendChild(saveAction);
@@ -4879,91 +4861,8 @@
 
                     contentSection.appendChild(resultActions);
 
-                    // Domain and thumbnail checks
-                    const knownNewsDomains = new Set([
-                        "nytimes.com", "apnews.com", "reuters.com", "cnn.com", "bbc.com",
-                        "cnbc.com", "abcnews.go.com", "aljazeera.com", "nbcnews.com", "independent.co.uk",
-                        "kstp.com", "nbcnews.to", "nzherald.co.nz", "cnet.com", "latimes.com", "cbsnews.com",
-                        "spin.com", "xxlmag.com", "newschannel9.com", "kutv.com", "deadline.com",
-                        "wbez.org", "rawstory.com", "abc15.com", "npr.org", "foxnews.com",
-                        "washingtonpost.com", "theguardian.com", "wired.com", "bloomberg.com", "politico.com"
-                    ]);
-
-                    const badThumbs = new Set(['self', 'default', 'nsfw', 'spoiler', 'image', '']);
-                    const normalizedThumb = (post.thumbnail || '').toLowerCase();
-                    const isGarbageThumb = badThumbs.has(normalizedThumb);
-
-                    // Determine whether to analyze the media type for if it's moving
-                    let mediaUrlForAnalysis = null;
-
-                    const url = post.url?.toLowerCase() || '';
-                    const allowedExts = ['.mp4', '.webm', '.mov', '.mkv', '.avi', '.flv', '.wmv', '.gif'];
-
-                    const hasValidExtension = allowedExts.some(ext => url.endsWith(ext));
-
-                    if (hasValidExtension) {
-                        mediaUrlForAnalysis = post.url;
-                    } else if (post.preview?.images?.[0]?.variants?.gif?.source?.url?.toLowerCase().endsWith('.gif')) {
-                        mediaUrlForAnalysis = post.preview.images[0].variants.gif.source.url;
-                    }
-
-                    // End of analyzing media type
-
-                    const knownMediaDomains = [
-                        "i.redd.it", "v.redd.it", "streamable.com", "imgur.com", "preview.redd.it", "reddit.com", "wikipedia.com",
-                        "gfycat.com", "redgifs.com", "tenor.com", "youtube.com", "youtu.be"
-                    ];
-
-                    const isKnownMediaDomain = knownMediaDomains.includes(domain);
-                    const isSelfPost = post.is_self || (post.domain || '').startsWith('self.');
-                    const isLinkPost = !isSelfPost;
-                    const isBareLink = post.selftext === "";
-                    const isRedditMedia =
-                        post.url?.includes('v.redd.it') ||
-                        post.url?.includes('i.redd.it') ||
-                        post.url?.includes('gfycat.com') ||
-                        post.url?.includes('imgur.com') ||
-                        post.url?.includes('redgifs.com') ||
-                        post.url?.endsWith('.gif') ||
-                        post.url?.endsWith('.mp4') ||
-                        post.url?.endsWith('.webm');
-
-                    const shouldSaveToBackend = (
-                        isLinkPost &&
-                        isBareLink &&
-                        isGarbageThumb &&
-                        !isRedditMedia && // ✅ filters out gif/video stuff
-                        (!isKnownMediaDomain || domain === 'youtube.com')
-                    );
-
-                    let thumbnailURL = getThumbnailUrl(post);
-
-                    // YOUTUBE THUMBNAIL LOGIC 
-                    if ((domain === 'youtube.com' || domain === 'youtu.be')) {
-                        const youtubeThumb = getYouTubeThumbnail(post.url);
-                        if (youtubeThumb) {
-                            thumbnailURL = youtubeThumb;
-                        }
-                    }
-
-                    // Special handling for Reddit videos without preview
-                    if (!thumbnailURL && post.url && post.url.includes('v.redd.it')) {
-                        const videoId = post.url.split('/').pop();
-                        const dashUrl = `https://v.redd.it/${videoId}/DASH_480.mp4`;
-                        thumbnailURL = dashUrl; // Set the variable instead of returning
-                    }
-
-                    const hasPreviewImage = post.preview?.images?.[0]?.source?.url;
-                    const isVideo = post.is_video ||
-                        (post.domain && post.domain.includes('youtu')) ||
-                        (post.url && post.url.includes('v.redd.it')) ||
-                        (post.domain && post.domain.includes('streamable')) ||
-                        (post.url && post.url.endsWith('.gifv'));
-                    const isGalleryWithData = post.is_gallery && post.gallery_data && post.media_metadata;
-
-                    const isGarbage = !thumbnailURL || ['self', 'default', 'nsfw', 'spoiler', 'image'].includes(thumbnailURL.toLowerCase());
-                    const hasVisualMedia = (!isGarbage || isGalleryWithData || isVideo || shouldSaveToBackend ||
-                        hasPreviewImage || !post.is_self || !domain.startsWith('self.'));
+                    // Classify media for this post
+                    const { thumbnailURL, hasVisualMedia } = classifyPostMedia(post, domain);
 
                     const imgContainer = document.createElement('div');
                     imgContainer.className = 'img-container';
@@ -4991,11 +4890,11 @@
                     if (selectedFilter !== 'all') {
                         postContentType = classifyContentType(post);
                         if (postContentType !== selectedFilter) {
-                            continue;
+                            return;
                         }
                     }
 
-                    setTimeout(() => PATCHES(post, resultCard), 0);
+                    setTimeout(() => mediaGalleryFirstAid(post, resultCard), 0);
 
                     // Add resultCard to the main results container
                     resultsContainer.appendChild(resultCard);
@@ -5003,154 +4902,49 @@
                     // Bookmark click handler
                     if (!window.isViewingSharedContent) {
                         bookmarkIcon.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        const bookmarkId = bookmarkIcon.dataset.postId;
-                        const isSaved = bookmarkIcon.classList.contains('saved');
-                        const authToken = getAuthToken();
+                            e.stopPropagation();
 
-                        try {
-                            // Get current bookmarks from sessionStorage
-                            const savedBookmarks = JSON.parse(sessionStorage.getItem('bookmarks') || '{}');
+                            const authStatus = requireAuth();
+                            if (!authStatus) return;
 
-                            if (isSaved) {
-                                // Remove from database
-                                await fetch(`${API_BASE}/api/bookmarks/${bookmarkId}`, {
-                                    method: 'DELETE',
-                                    headers: {
-                                        'Authorization': authToken
-                                    }
-                                });
+                            const bookmarkId = bookmarkIcon.dataset.postId;
+                            const isSaved = bookmarkIcon.classList.contains('saved');
 
-                                // Update UI
-                                bookmarkIcon.classList.remove('saved');
-
-                                // Update sessionStorage
-                                delete savedBookmarks[bookmarkId];
-                                sessionStorage.setItem('bookmarks', JSON.stringify(savedBookmarks));
-                            } else {
-                                // Add to database
-                                await fetch(`${API_BASE}/api/bookmarks`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Authorization': authToken
-                                    },
-                                    body: JSON.stringify({
-                                        postId: bookmarkId,
-                                        title: post.title || '',
-                                        url: post.url || '',
-                                        permalink: post.permalink || '',
-                                        subreddit: post.subreddit || '',
-                                        score: post.score || 0,
-                                        is_video: Boolean(post.is_video),
-                                        domain: post.domain || '',
-                                        author: post.author || '',
-                                        created_utc: post.created_utc || 0,
-                                        num_comments: post.num_comments || 0,
-                                        over_18: Boolean(post.over_18),
-                                        selftext: post.selftext || '',
-                                        body: post.body || '',
-                                        is_gallery: Boolean(post.is_gallery),
-                                        gallery_data: post.gallery_data || null,
-                                        media_metadata: post.media_metadata || null,
-                                        crosspost_parent_list: post.crosspost_parent_list || [],
-                                        content_type: post.content_type || '',
-                                        icon_url: post.icon_url || null,
-                                        locked: Boolean(post.locked),
-                                        stickied: Boolean(post.stickied),
-                                        preview: post.preview || null
-                                    }),
-                                });
-
-                                // Update UI
-                                bookmarkIcon.classList.add('saved');
-
-                                // Update sessionStorage
-                                savedBookmarks[bookmarkId] = true;
-                                sessionStorage.setItem('bookmarks', JSON.stringify(savedBookmarks));
-
-                                // Reorder to put new bookmark at top of user's section ID 
-                                const sectionsResponse = await fetch(`${API_BASE}/api/sections`, {
-                                    headers: {
-                                        'Authorization': authToken
-                                    }
-                                });
-                                const sectionsData = await sectionsResponse.json();
-                                const firstSectionId = sectionsData.sections[0]?.id;
-
-                                if (firstSectionId) {
-                                    const sectionResponse = await fetch(`${API_BASE}/api/bookmarks/section/${firstSectionId}?offset=0&limit=100`, {
-                                        headers: {
-                                            'Authorization': authToken
-                                        }
+                            try {
+                                if (isSaved) {
+                                    await deleteBookmark(bookmarkId);
+                                    updateBookmarkUI(bookmarkIcon, bookmarkId, false);
+                                } else {
+                                    // Desktop uses first section by default (no picker)
+                                    const sectionsResponse = await fetch(`${API_BASE}/api/sections`, {
+                                        credentials: 'include'
                                     });
-                                    const sectionData = await sectionResponse.json();
-                                    const existingIds = sectionData.bookmarks.map(b => b.reddit_post_id).filter(id => id !== bookmarkId);
-                                    const orderedIds = [bookmarkId, ...existingIds];
+                                    const sectionsData = await sectionsResponse.json();
+                                    const firstSectionId = sectionsData.sections[0]?.id;
 
-                                    await fetch(`${API_BASE}/api/bookmarks/reorder`, {
-                                        method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                            'Authorization': authToken
-                                        },
-                                        body: JSON.stringify({
-                                            orderedIds,
-                                            sectionId: firstSectionId
-                                        })
-                                    });
+                                    if (firstSectionId) {
+                                        await saveBookmarkWithSection(post, bookmarkId, firstSectionId);
+                                        updateBookmarkUI(bookmarkIcon, bookmarkId, true);
+                                        await reorderBookmarkToTop(bookmarkId, firstSectionId);
+                                    }
                                 }
+                            } catch (err) {
+                                console.error('Failed to toggle bookmark:', err);
                             }
-                        } catch (err) {
-                            console.error('Failed to toggle bookmark:', err);
-                        }
-                    });
+                        });
                     } else {
                         // For shared content: make it permanently yellow and non-clickable
                         bookmarkIcon.classList.add('saved');
                         bookmarkIcon.style.pointerEvents = 'none';
                     }
+                }); // End of processBatchedPosts
 
-                    // Filter NSFW
-                    const safeSearchSelect = document.getElementById('safesearch-select');
-                    if (safeSearchSelect?.value === 'on') {
-                        document.body.classList.add('safe-search-enabled');
-                    } else {
-                        document.body.classList.remove('safe-search-enabled');
-                    }
-                }
-
-                // Yield to event loop between batches
-                await new Promise(resolve => setTimeout(resolve, 0));
-            }
-            // Initialize Plyr for all video players
-            const players = document.querySelectorAll('.js-player');
-            players.forEach(player => {
-                if (!player.plyr) {
-                    const plyrInstance = new Plyr(player, {
-                        controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
-                        volume: 1, // Full volume
-                        muted: false, // Not muted
-                        clickToPlay: true,
-                        hideControls: false,
-                        seekTime: 10,
-                        displayDuration: true,
-                        invertTime: false,
-                        toggleInvert: true
-                    });
-
-                    // Force unmute after initialization
-                    plyrInstance.muted = false;
-                    plyrInstance.volume = 1;
-                }
-            });
-
-            // Visibility code 
+            applySafeSearchFilter();  
+            initializeVideoPlayers();
             applyStaggeredAnimation('.result-card', 'visible', 40);
             resultsContainer.style.opacity = 1;
             updatePagination();
 
-            // After the loop, add these logs:
             const allCards = document.querySelectorAll('.result-card');
             const visibleCards = Array.from(allCards).filter(card =>
                 window.getComputedStyle(card).display !== 'none'
@@ -5174,8 +4968,9 @@
 
 
 
+     // ============ MEDIA PIPELINE ============
 
-        function PATCHES(post, resultCard) {
+        function mediaGalleryFirstAid(post, resultCard) {
             // Patch media on timeout
             tryMediaPatch(post, resultCard);
             setTimeout(() => {
@@ -5188,6 +4983,74 @@
                     tryGalleryPatch(post, post.permalink, resultCard);
                 }, 0);
             }
+        }
+
+        function getThumbnailUrl(post) {
+
+            // Handle RedGifs - fetch thumbnail from backend
+            if (post.url?.includes('redgifs.com')) {
+                const match = post.url.match(/redgifs\.com\/watch\/([a-zA-Z0-9-]+)/);
+                if (match) {
+                    const videoId = match[1];
+                    // Fetch thumbnail from backend
+                    fetch(`${API_BASE}/api/redgifs/${videoId}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.thumbnail) {
+                                // Find the img element for this post and update it
+                                const imgs = document.querySelectorAll('.result-image');
+                                imgs.forEach(img => {
+                                    if (img.closest('.result-card')?.querySelector('a')?.href?.includes(post.id)) {
+                                        img.src = data.thumbnail;
+                                    }
+                                });
+                            }
+                        });
+                }
+            }
+
+            // For Reddit videos without preview, construct DASH thumbnail URL
+            if (post.is_video && post.url && post.url.includes('v.redd.it')) {
+                const cleanUrl = post.url.split('?')[0];
+                const videoId = cleanUrl.split('/').pop();
+                const dashUrl = `https://v.redd.it/${videoId}/DASH_480.mp4`;
+                // DON'T proxy video files - return direct URL
+                return dashUrl;
+            }
+
+            // Check if it's a regular thumbnail
+            if (post.thumbnail && !['self', 'default', 'nsfw', 'spoiler', 'image'].includes(post.thumbnail.toLowerCase())) {
+                return post.thumbnail;
+            }
+
+            // Final fallback: use real_thumbnail if available
+            if (post.real_thumbnail && !['self', 'default', 'nsfw', 'spoiler', 'image'].includes(post.real_thumbnail.toLowerCase())) {
+                return post.real_thumbnail;
+            }
+
+            // Check if the URL is a direct link to media
+            if (post.url) {
+                const mediaExtensions = [
+                    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg',
+                    '.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v'
+                ];
+
+                const mediaHosts = [
+                    'i.redd.it', 'v.redd.it', 'preview.redd.it',
+                    'i.imgur.com', 'media.giphy.com', 'gfycat.com',
+                    'streamable.com'
+                ];
+
+                const urlLower = post.url.toLowerCase();
+                const isDirectMedia = mediaExtensions.some(ext => urlLower.endsWith(ext)) ||
+                    mediaHosts.some(host => urlLower.includes(host));
+
+                if (isDirectMedia) {
+                    return post.url;
+                }
+            }
+
+            return null;
         }
 
         // Media handling
@@ -5370,7 +5233,7 @@
                     }
                 }
 
-                        // Check media first (most common for cross-posts)
+            // Check media first (most common for cross-posts)
             if (originalPost.media?.reddit_video?.fallback_url) {
                 videoInfo.hasVideo = true;
                 videoInfo.videoType = 'reddit_native';
@@ -5431,7 +5294,26 @@
                 }
             }
 
-            // YouTube detection
+            detectYoutube(post, originalPost, videoInfo);
+            detectRedGifs(post, originalPost, videoInfo);
+
+            return videoInfo;
+        }
+
+        function detectRedGifs(post, originalPost, videoInfo) {
+            if (!videoInfo.hasVideo && originalPost.url?.includes('redgifs.com')) {
+                const match = originalPost.url.match(/redgifs\.com\/watch\/([a-zA-Z0-9-]+)/);
+                if (match) {
+                    videoInfo.hasVideo = true;
+                    videoInfo.videoType = 'redgifs';
+                    videoInfo.embedId = match[1];
+                    videoInfo.videoSource = `${API_BASE}/api/redgifs/${match[1]}`;
+                }
+            }
+            return videoInfo;
+        }
+
+        function detectYoutube(post, originalPost, videoInfo) {
             if (!videoInfo.hasVideo && (originalPost.url?.includes('youtube.com') || originalPost.url?.includes('youtu.be'))) {
                 videoInfo.hasVideo = true;
                 videoInfo.videoType = 'youtube';
@@ -5447,18 +5329,6 @@
 
                 videoInfo.embedId = videoId;
             }
-
-            // RedGifs detection
-            if (!videoInfo.hasVideo && originalPost.url?.includes('redgifs.com')) {
-                const match = originalPost.url.match(/redgifs\.com\/watch\/([a-zA-Z0-9-]+)/);
-                if (match) {
-                    videoInfo.hasVideo = true;
-                    videoInfo.videoType = 'redgifs';
-                    videoInfo.embedId = match[1];
-                    videoInfo.videoSource = `${API_BASE}/api/redgifs/${match[1]}`;
-                }
-            }
-
             return videoInfo;
         }
 
@@ -5489,9 +5359,9 @@
             // Set standard attributes
             mediaElement.className = 'result-image';
             mediaElement.alt = 'Post thumbnail';
-            mediaElement.setAttribute('loading', 'eager');
+            mediaElement.setAttribute('loading', 'lazy');
             mediaElement.setAttribute('decoding', 'async');
-            mediaElement.setAttribute('fetchpriority', 'low');
+            mediaElement.setAttribute('fetchpriority', 'auto');
             mediaElement.setAttribute('crossorigin', 'anonymous');
 
             // Store video info for modal detection
@@ -6089,21 +5959,23 @@
 
                 // Create left navigation arrow (positioned outside the content)
                 const leftArrow = document.createElement('div');
+                const isMobile = window.innerWidth <= 1024;
                 leftArrow.className = 'modal-nav-arrow modal-nav-left';
                 leftArrow.tabIndex = 0;
                 leftArrow.setAttribute('role', 'button');
                 leftArrow.setAttribute('aria-label', 'Previous image');
+                const arrowSize = isMobile ? '44' : '29';
                 leftArrow.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="29" height="29" viewBox="0 0 24 24" fill="none" style="transform: translateX(-1px);" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left-icon lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="${arrowSize}" height="${arrowSize}" viewBox="0 0 24 24" fill="none" style="transform: translateX(-1px);" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left-icon lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg>
 `;
 
                 leftArrow.style.cssText = `
             position: absolute;
-            left: 320px;
+            left: ${isMobile ? '0px' : '320px'};
             top: 50%;
             transform: translateY(-50%);
-            width: 60px;
-            height: 60px;
+            width: 55px;
+            height: 55px;
             background: rgba(0, 0, 0, 0.5);
             color: white;
             border-radius: 50%;
@@ -6121,16 +5993,17 @@
                 rightArrow.tabIndex = 0;
                 rightArrow.setAttribute('role', 'button');
                 rightArrow.setAttribute('aria-label', 'Next image');
+
                 rightArrow.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="29" height="29" viewBox="0 0 24 24" fill="none" style="transform: translateX(1px);" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right-icon lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg>
-                `;
+    <svg xmlns="http://www.w3.org/2000/svg" width="${arrowSize}" height="${arrowSize}" viewBox="0 0 24 24" fill="none" style="transform: translateX(1px);" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right-icon lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg>
+`;
                 rightArrow.style.cssText = `
                     position: absolute;
-                    right: 320px;
+                    right: ${isMobile ? '0px' : '320px'};
                     top: 50%;
                     transform: translateY(-50%);
-                    width: 60px;
-                    height: 60px;
+                    width: 55px;
+                    height: 55px;
                     background: rgba(0, 0, 0, 0.5);
                     color: white;
                     border-radius: 50%;
@@ -6811,7 +6684,7 @@
         </div>
     `;
 
-                if (window.innerWidth <= 768) {
+                if (window.innerWidth <= 1024) {
                     // Mobile
                     const mediaContainer = resultCard.querySelector('.img-container');
                     if (mediaContainer) {
@@ -6831,46 +6704,38 @@
             }
         }
 
-        function createAuthorLink(author) {
-            const authorLink = document.createElement('a');
-            authorLink.className = 'author-link';
-            authorLink.href = `https://www.reddit.com/user/${author}`;
-            authorLink.target = '_blank';
-            authorLink.textContent = `${author}`;
-            return authorLink;
-        }
+        function showNewsIcon(imgWrapper, shimmer) {
+            // Hide shimmer if it exists
+            if (shimmer) {
+                shimmer.style.display = 'none';
+            }
 
-        function applyStaggeredAnimation(selector, classToAdd, delayBetween = 30) {
-            const elements = document.querySelectorAll(selector);
-            elements.forEach((element, index) => {
-                setTimeout(() => {
-                    requestAnimationFrame(() => {
-                        element.classList.add(classToAdd);
-                    });
-                }, index * delayBetween);
-            });
-        }
+            // Also try to find shimmer directly if not passed
+            if (!shimmer) {
+                const foundShimmer = imgWrapper.querySelector('.image-placeholder');
+                if (foundShimmer) {
+                    foundShimmer.style.display = 'none';
+                }
+            }
 
-        function showLoading() {
+            // Find and remove the existing result-image
+            const existingImg = imgWrapper.querySelector('.result-image');
+            if (existingImg) {
+                existingImg.remove();
+            }
 
-            isLoading = true;
-            resultsContainer.innerHTML = '';
-            resultsContainer.innerHTML = `
-    <div class='results-error' id='spinner-box' style="opacity: 0; transition: opacity 0.25s ease;"></div>
-`;
-            const spinnerWrapper = createCanvasSpinner();
-            const spinnerBox = document.getElementById('spinner-box');
-            spinnerBox.appendChild(spinnerWrapper);
+            // Create and show news icon
+            const newsIcon = document.createElement('div');
+            newsIcon.className = 'news-icon-fallback';
+            newsIcon.setAttribute('aria-label', 'Article thumbnail');
+            newsIcon.style.opacity = '0';
+            newsIcon.style.transition = 'opacity 0.3s ease-in-out';
+            imgWrapper.appendChild(newsIcon);
 
-            // Trigger the fade-in animation
+            // Fade in news icon
             setTimeout(() => {
-                requestAnimationFrame(() => {
-                    spinnerBox.style.opacity = '1';
-                });
+                newsIcon.style.opacity = '1';
             }, 10);
-
-            paginationContainer.innerHTML = '';
-            resultsContainer.style.opacity = 1;
         }
 
         // Function to fetch and cache comments for a post
@@ -7258,7 +7123,6 @@
             }
         }
 
-
         function getCacheKey(index, filters) {
             return `kf_page_${index}__${buildCacheKey('base', filters)}`;
         }
@@ -7311,8 +7175,6 @@
             sessionStorage.setItem('kf_current_page_index', currentPageIndex.toString());
             sessionStorage.setItem('kf_current_filters', JSON.stringify(currentFilters));
         }
-
-
 
         function getPaginationToken(index) {
             const state = JSON.parse(sessionStorage.getItem('paginationState') || '{}');
@@ -7494,12 +7356,10 @@
                             if (data.success) {
                                 // Set login state
                                 isLoggedIn = true;
-                                window.authToken = data.authToken;
                                 localStorage.setItem('isLoggedIn', 'true');
                                 localStorage.setItem('userEmail', data.email);
                                 localStorage.setItem('hasSubscription', data.hasSubscription);
                                 localStorage.setItem('planType', data.planType);
-                                localStorage.setItem('authToken', data.authToken);
 
                                 // Mark this session as processed
                                 processedSessions.push(sessionId);
@@ -7510,15 +7370,21 @@
                                     Swal.fire({
                                         title: 'Account Created!',
                                         text: 'Your account has been created. Thank you for unlocking Premium!',
-                                        confirmButtonText: 'Great!'
+                                        confirmButtonText: 'Great!',
+                                        didOpen: () => {
+                                            document.activeElement.blur();
+                                        }
                                     });
                                 } else if (data.planType === 'pro') {
                                     Swal.fire({
                                         title: 'Account Created!',
                                         text: 'Your account has been created. Thank you for unlocking Pro!',
-                                        confirmButtonText: 'Great!'
+                                        confirmButtonText: 'Great!',
+                                        didOpen: () => {
+                                            document.activeElement.blur();
+                                        }
                                     });
-                                } 
+                                }
                                 
                                 // FETTI TIME!
                                 moneyShot();
@@ -7538,6 +7404,7 @@
         });
 
         function moneyShot() {
+        // function moneyShit() pragmatic next step 
             // First burst from center
             confetti({
                 particleCount: 200,
@@ -7588,19 +7455,12 @@
             }, 800);
         }
 
-        // Boolean that gets updated
         let isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
 
-        // Kick you out if auth token is cleared
-        const authToken = localStorage.getItem('authToken');
-
-        if (isLoggedIn && authToken) {
+        if (isLoggedIn) {
             fetch('/verify-token', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ token: authToken })
+                credentials: 'include'
             })
                 .then(response => response.json())
                 .then(data => {
@@ -7624,46 +7484,51 @@
 
         function updateLoginButton() {
             const btnText = document.getElementById('loginBtnText');
-            const btn = document.getElementById('loginLogoutBtn');
+            const desktopBtn = document.getElementById('loginLogoutBtn');
+            const mobileBtn = document.getElementById('mobileLoginBtn');
+
             if (isLoggedIn) {
-                btnText.textContent = 'Log Out';
-                btn.onclick = async () => {
+                if (btnText) btnText.textContent = 'Log Out';
+
+                const logoutHandler = async () => {
                     const result = await Swal.fire({
                         title: 'Are you sure you want to log out?',
                         showCancelButton: true,
                         confirmButtonText: 'Yes',
                         cancelButtonText: 'No',
-                        icon: 'question'
+                        icon: 'question',
+                        didOpen: () => {
+                            if (!document.body.classList.contains('user-is-tabbing')) {
+                                document.activeElement.blur();
+                            }
+                        }
                     });
-
                     if (result.isConfirmed) {
                         isLoggedIn = false;
                         localStorage.setItem('isLoggedIn', 'false');
-                        // Clear all user data
                         clearUserDataOnLogout();
-                        // Clear bookmarks
                         sessionStorage.removeItem('bookmarks');
                         document.querySelectorAll('.bookmark-icon').forEach(icon => {
                             icon.classList.remove('saved');
                         });
-                        // Reset theme to default when logging out
                         localStorage.setItem('theme', 'default');
-                        applyTheme('default')
+                        applyTheme('default');
                         updateLoginButton();
-                        // Always redirect to main page on logout
                         window.location.href = '/';
                     }
                 };
+
+                if (desktopBtn) desktopBtn.onclick = logoutHandler;
+                if (mobileBtn) mobileBtn.onclick = logoutHandler;
             } else {
-                btnText.textContent = 'Log In';
-                btn.onclick = () => {
-                    // Capture current page URL to redirect back after login
+                if (btnText) btnText.textContent = 'Log In';
+                const loginHandler = () => {
                     const currentUrl = encodeURIComponent(window.location.href);
                     window.location.href = `html/login.html?redirect=${currentUrl}`;
                 };
+                if (desktopBtn) desktopBtn.onclick = loginHandler;
+                if (mobileBtn) mobileBtn.onclick = loginHandler;
             }
-            updateThemeToggleVisibility();
-            updatePlanDisplay();
         }
 
         function updateThemeToggleVisibility() {
@@ -7677,10 +7542,8 @@
 
         function clearUserDataOnLogout() {
             localStorage.removeItem('userEmail');
-            localStorage.removeItem('authToken');
             localStorage.removeItem('hasSubscription');
             localStorage.removeItem('planType');
-            window.authToken = null;
         }
 
         async function verifyMagicLink(token) {
@@ -7692,13 +7555,24 @@
 
                     if (response.ok) {
                         isLoggedIn = true;
-                        window.authToken = data.authToken;
                         localStorage.setItem('isLoggedIn', 'true');
                         localStorage.setItem('userEmail', data.email);
                         localStorage.setItem('hasSubscription', data.hasSubscription);
                         localStorage.setItem('planType', data.planType);
-                        localStorage.setItem('authToken', data.authToken);
                         updateLoginButton();
+
+                        await Swal.fire({
+                            title: 'Success!',
+                            text: 'Successfully logged in!',
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false,
+                            didOpen: () => {
+                                if (!document.body.classList.contains('user-is-tabbing')) {
+                                    document.activeElement.blur();
+                                }
+                            }
+                        });
 
                         // Check if server returned a redirect URL
                         const redirect = data.redirect;
@@ -7716,15 +7590,26 @@
                         const url = new URL(window.location);
                         url.searchParams.delete('token');
                         window.history.replaceState({}, document.title, url.toString());
-
-                        Swal.fire('Success!', 'Successfully logged in!');
+                        
                     } else {
                         console.log('🔴 Response not ok');
-                        Swal.fire('Error', 'Invalid or expired magic link');
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Invalid or expired login link.',
+                            didOpen: () => {
+                                document.activeElement.blur();
+                            }
+                        });
                     }
                 } catch (error) {
                     console.log('🔴 Error in verifyMagicLink:', error);
-                    Swal.fire('Error', 'Verification failed. Please try again.');
+                    Swal.fire({
+                        title: 'Error', 
+                        text: 'Verification failed. Please try again.',
+                        didOpen: () => {
+                            document.activeElement.blur();
+                        }
+                    });
                 }
             }
 
@@ -7751,7 +7636,11 @@
             }
         };
 
-        const toggleManager = new ToggleManager();
+            let toggleManager = null;
+            
+            if (document.getElementById('sort-select')) {
+                toggleManager = new ToggleManager(); 
+            }
 
             // Add keyboard support for toggle sliders
             document.querySelectorAll('.slider').forEach((slider, index) => {
@@ -7797,7 +7686,9 @@
             document.getElementById('toggle1').checked = false;
             document.getElementById('toggle2').checked = true;
         }
-            toggleManager.updateSortDropdown();
+            if (toggleManager) {
+                toggleManager.updateSortDropdown();
+            }
 
         function updatePlanDisplay() {
             const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
@@ -8080,15 +7971,81 @@
 
             return 'text';
         }
+        
+        function classifyPostMedia(post, domain) {
+            const knownNewsDomains = new Set([
+                "nytimes.com", "apnews.com", "reuters.com", "cnn.com", "bbc.com",
+                "cnbc.com", "abcnews.go.com", "aljazeera.com", "nbcnews.com", "independent.co.uk",
+                "kstp.com", "nbcnews.to", "nzherald.co.nz", "cnet.com", "latimes.com", "cbsnews.com",
+                "spin.com", "xxlmag.com", "newschannel9.com", "kutv.com", "deadline.com",
+                "wbez.org", "rawstory.com", "abc15.com", "npr.org", "foxnews.com",
+                "washingtonpost.com", "theguardian.com", "wired.com", "bloomberg.com", "politico.com"
+            ]);
 
-        function loadCachedPosts() {
-            // Initialize global cache objects if they don't exist
-            if (typeof window !== 'undefined') {
-                if (!window.cachedPostsById) window.cachedPostsById = {};
-                if (!window.cachedMediaByUrl) window.cachedMediaByUrl = {};
+            const badThumbs = new Set(['self', 'default', 'nsfw', 'spoiler', 'image', '']);
+            const normalizedThumb = (post.thumbnail || '').toLowerCase();
+            const isGarbageThumb = badThumbs.has(normalizedThumb);
+
+            const knownMediaDomains = [
+                "i.redd.it", "v.redd.it", "streamable.com", "imgur.com", "preview.redd.it", "reddit.com", "wikipedia.com",
+                "gfycat.com", "redgifs.com", "tenor.com", "youtube.com", "youtu.be"
+            ];
+
+            const isKnownMediaDomain = knownMediaDomains.includes(domain);
+            const isSelfPost = post.is_self || (post.domain || '').startsWith('self.');
+            const isLinkPost = !isSelfPost;
+            const isBareLink = post.selftext === "";
+            const isRedditMedia =
+                post.url?.includes('v.redd.it') ||
+                post.url?.includes('i.redd.it') ||
+                post.url?.includes('gfycat.com') ||
+                post.url?.includes('imgur.com') ||
+                post.url?.includes('redgifs.com') ||
+                post.url?.endsWith('.gif') ||
+                post.url?.endsWith('.mp4') ||
+                post.url?.endsWith('.webm');
+
+            const shouldSaveToBackend = (
+                isLinkPost &&
+                isBareLink &&
+                isGarbageThumb &&
+                !isRedditMedia &&
+                (!isKnownMediaDomain || domain === 'youtube.com')
+            );
+
+            let thumbnailURL = getThumbnailUrl(post);
+
+            // YOUTUBE THUMBNAIL LOGIC 
+            if (domain === 'youtube.com' || domain === 'youtu.be') {
+                const youtubeThumb = getYouTubeThumbnail(post.url);
+                if (youtubeThumb) {
+                    thumbnailURL = youtubeThumb;
+                }
             }
 
-            return Promise.resolve();
+            // Special handling for Reddit videos without preview
+            if (!thumbnailURL && post.url && post.url.includes('v.redd.it')) {
+                const videoId = post.url.split('/').pop();
+                thumbnailURL = `https://v.redd.it/${videoId}/DASH_480.mp4`;
+            }
+
+            const hasPreviewImage = post.preview?.images?.[0]?.source?.url;
+            const isVideo = post.is_video ||
+                (post.domain && post.domain.includes('youtu')) ||
+                (post.url && post.url.includes('v.redd.it')) ||
+                (post.domain && post.domain.includes('streamable')) ||
+                (post.url && post.url.endsWith('.gifv'));
+            const isGalleryWithData = post.is_gallery && post.gallery_data && post.media_metadata;
+
+            const isGarbage = !thumbnailURL || ['self', 'default', 'nsfw', 'spoiler', 'image'].includes(thumbnailURL.toLowerCase());
+            const hasVisualMedia = (!isGarbage || isGalleryWithData || isVideo || shouldSaveToBackend ||
+                hasPreviewImage || !post.is_self || !domain.startsWith('self.'));
+
+            return {
+                thumbnailURL,
+                hasVisualMedia,
+                shouldSaveToBackend
+            };
         }
 
         function addPlayIconIfNeeded(fPost, resultCard) {
@@ -8121,57 +8078,70 @@
             }
         }
 
-        let isPopstateEvent = false;
-
-        function updateURL() {
-        if (isPopstateEvent) return;
-            const urlParams = new URLSearchParams(window.location.search);
-            const isBookmarksPage = urlParams.get('page') === 'bookmarks';
-
-            const subredditTyped = document.getElementById('subreddit-input').value.trim();
-            const chipVisible = subredditChipContainer.style.display === 'flex';
-            const chipText = chipVisible && subredditChipContainer.querySelector('.chip-text')
-                ? subredditChipContainer.querySelector('.chip-text').textContent.replace('r/', '')
-                : '';
-            const subreddit = chipText || subredditTyped;
-
-            const filters = getCurrentFiltersFromUI();
-            filters.subreddit = subreddit;
-
-            const params = new URLSearchParams(window.location.search);
-
-            params.set('page', currentPageIndex);
-
-            if (currentPageIndex === 0) {
-                params.delete('after');
-                params.delete('before');
-            } else {
-                if (currentAfter) params.set('after', currentAfter);
-                else params.delete('after');
-
-                if (currentBefore) params.set('before', currentBefore);
-                else params.delete('before');
+            function updateSearchPageURL() {
+                const filters = getCurrentFiltersFromUI();
+                const params = new URLSearchParams();
+                params.set('page', 'search');
+                if (filters.query) params.set('q', filters.query);
+                history.pushState({}, '', `?${params.toString()}`);
             }
 
-            if (filters.query) params.set('q', filters.query); else params.delete('q');
-            params.set('sub', filters.subreddit || 'all');
-            if (filters.contentType && filters.contentType !== 'all') params.set('type', filters.contentType); else params.delete('type');
-            if (filters.sort && filters.sort !== 'hot') params.set('sort', filters.sort); else params.delete('sort');
-            if (filters.time && filters.time !== 'all') params.set('time', filters.time); else params.delete('time');params.delete('section');
+            let isPopstateEvent = false;
+            function updateURL() {
+                if (isPopstateEvent) return;
 
-            const pathname = window.location.pathname.includes('/share/') ? '/' : window.location.pathname;
-            const paramString = params.toString();
-            const newURL = paramString ? `${pathname}?${paramString}` : pathname;
-            if (!isPopstateEvent) {
-                history.pushState({}, '', newURL);
+                const urlParams = new URLSearchParams(window.location.search);
+                const isSearchPage = urlParams.get('page') === 'search';
+
+                if (isSearchPage) {
+                    updateSearchPageURL();
+                    return;
+                }
+
+                const isBookmarksPage = urlParams.get('page') === 'bookmarks';
+                const subredditInput = document.getElementById('subreddit-input');
+                const subredditTyped = subredditInput ? subredditInput.value.trim() : '';
+                const chipVisible = subredditChipContainer && subredditChipContainer.style.display === 'flex';
+                const chipText = chipVisible && subredditChipContainer.querySelector('.chip-text')
+                    ? subredditChipContainer.querySelector('.chip-text').textContent.replace('r/', '')
+                    : '';
+                const subreddit = chipText || subredditTyped;
+                const filters = getCurrentFiltersFromUI();
+                filters.subreddit = subreddit;
+                const params = new URLSearchParams(window.location.search);
+                params.set('page', currentPageIndex);
+                if (currentPageIndex === 0) {
+                    params.delete('after');
+                    params.delete('before');
+                } else {
+                    if (currentAfter) params.set('after', currentAfter);
+                    else params.delete('after');
+                    if (currentBefore) params.set('before', currentBefore);
+                    else params.delete('before');
+                }
+                if (filters.query) params.set('q', filters.query); else params.delete('q');
+                params.set('sub', filters.subreddit || 'all');
+                if (filters.contentType && filters.contentType !== 'all') params.set('type', filters.contentType); else params.delete('type');
+                if (filters.sort && filters.sort !== 'hot') params.set('sort', filters.sort); else params.delete('sort');
+                if (filters.time && filters.time !== 'all') params.set('time', filters.time); else params.delete('time');
+                params.delete('section');
+                const pathname = window.location.pathname.includes('/share/') ? '/' : window.location.pathname;
+                const paramString = params.toString();
+                const newURL = paramString ? `${pathname}?${paramString}` : pathname;
+                if (!isPopstateEvent) {
+                    history.pushState({}, '', newURL);
+                }
             }
-        }
-
-        function initBookmarksFromURL() {
-            initBookmarks();
-        }
 
         function initPage() {
+
+            // Don't run on search page
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('page') === 'search') {
+                updateLoginButton();
+                return; 
+            }
+            
             // Initialize authentication state
             updateLoginButton();
 
@@ -8217,12 +8187,11 @@
 
             // Handle bookmarks page initialization separately
             if (isBookmarksPage) {
-                initBookmarksFromURL();
+                initBookmarks();
                 return;
             }
 
             // Check if we're on the homepage (no search parameters)
-            const urlParams = new URLSearchParams(window.location.search);
             const isHomepage = currentPageIndex === 0 &&
                 !urlParams.has('q') &&
                 !urlParams.has('sub') &&
@@ -8255,7 +8224,7 @@
             }
 
             // Initialize search with or without bookmark preloading
-            if (window.authToken) {
+            if (getAuthStatus()) {
                 preloadBookmarks(() => {
                     if (!isSearchInProgress) {
                         handleSearchRequest(initialAfterToken, initialBeforeToken, false, true);
@@ -8266,9 +8235,19 @@
             }
         }
 
-    // DOM load wrapper
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
+        // DOM load wrapper
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get('token');
+                const hasRedirectParams = urlParams.has('page') || urlParams.has('sub') || urlParams.has('after');
+
+                if (!window.location.pathname.includes('/share/') && !token) {
+                    initPage();
+                }
+                loadBlocklist();
+            });
+        } else {
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
             const hasRedirectParams = urlParams.has('page') || urlParams.has('sub') || urlParams.has('after');
@@ -8277,17 +8256,301 @@
                 initPage();
             }
             loadBlocklist();
-        });
-    } else {
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-        const hasRedirectParams = urlParams.has('page') || urlParams.has('sub') || urlParams.has('after');
-
-        if (!window.location.pathname.includes('/share/') && !token) {
-            initPage();
         }
-        loadBlocklist();
-    }
+
+        // Show section picker menu (mobile)
+        async function showSectionPickerMenu(post) {
+            return new Promise(async (resolve, reject) => {
+                // Create overlay 
+                const overlay = document.createElement('div');
+                overlay.className = 'section-picker-overlay';
+                overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 9998;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    `;
+
+                // Create bottom sheet
+                const sheet = document.createElement('div');
+                sheet.className = 'section-picker-sheet';
+                sheet.style.cssText = `
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--card-color);
+    border-radius: 16px 16px 0 0;
+    height: 50vh;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 9999;
+    transform: translateY(100%);
+    transition: transform 0.2s ease;
+    box-shadow: 0 -4px 20px var(--shadow-card);
+`;
+
+          
+                // Header
+                const header = document.createElement('div');
+                header.style.cssText = `
+                    padding: 16px 16px 17px;
+                    position: sticky;
+                    top: 0;
+                    background: var(--card-color);
+                    z-index: 1;
+                `;
+                header.innerHTML = `
+                    <div style="width: 56px; height: 4px; background: var(--border-color); border-radius: 2px; margin: 0 auto 4px;"></div>
+                    <h3 style="margin: 0; font-size: 1.2rem; color: var(--text-primary); font-weight: 600;">Collections</h3>
+                `;
+
+                // List container
+                const listContainer = document.createElement('div');
+                listContainer.style.cssText = `
+        padding: 8px 0;
+    `;
+
+                sheet.appendChild(header);
+                sheet.appendChild(listContainer);
+
+                // Fetch sections
+                let sectionsData;
+
+                try {
+                    const sectionsResponse = await fetch(`${API_BASE}/api/sections/with-previews`, {
+                        credentials: 'include'
+                    });
+                    sectionsData = await sectionsResponse.json();
+
+                    // Build section items
+                    for (const section of sectionsData.sections) {
+                        const item = document.createElement('div');
+                        item.className = 'section-picker-item';
+                        item.setAttribute('data-permalink', section.permalink);
+                        item.style.cssText = `
+                display: flex;
+                align-items: center;
+                padding: 10px 16px;
+                cursor: pointer;
+                transition: background 0.15s ease;
+            `;
+
+                        // Hover effect
+                        item.addEventListener('mouseenter', () => {
+                            item.style.background = 'var(--hover-bg-lite)';
+                        });
+                        item.addEventListener('mouseleave', () => {
+                            item.style.background = 'transparent';
+                        });
+
+                        // Thumbnail container 
+                        const thumbContainer = document.createElement('div');
+                        thumbContainer.style.cssText = `
+                width: 61px;
+                height: 61px;
+                border-radius: 13px;
+                overflow: hidden;
+                flex-shrink: 0;
+                margin-right: 9px;
+                background: var(--placeholder-bg);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+                        // Get thumbnail with cache
+                        if (section.url) {
+                            const sectionPost = {
+                                reddit_post_id: section.reddit_post_id,
+                                title: section.title,
+                                url: section.url,
+                                permalink: section.permalink,
+                                subreddit: section.subreddit,
+                                score: section.score,
+                                is_video: section.is_video,
+                                domain: section.domain,
+                                author: section.author,
+                                created_utc: section.created_utc,
+                                num_comments: section.num_comments,
+                                over_18: section.over_18,
+                                preview: section.preview,
+                                selftext: section.selftext,
+                                body: section.body,
+                                is_gallery: section.is_gallery,
+                                gallery_data: section.gallery_data,
+                                media_metadata: section.media_metadata,
+                                crosspost_parent_list: section.crosspost_parent_list,
+                                content_type: section.content_type,
+                                icon_url: section.icon_url,
+                                locked: section.locked,
+                                stickied: section.stickied
+                            };
+
+                            const domain = getDomainFromUrl(sectionPost.url);
+                            const thumbnailURL = getThumbnailUrl(sectionPost);
+                            const cachedUrl = await getCachedSectionImage(section.permalink);
+                            const urlToUse = cachedUrl || thumbnailURL;
+                            const mediaContainer = createMediaElement(sectionPost, urlToUse, domain, thumbContainer, true);
+                            thumbContainer.appendChild(mediaContainer);
+
+                            // Cache if not cached
+                            if (!cachedUrl && thumbnailURL) {
+                                cacheSectionImage(section.permalink, thumbnailURL);
+                            }
+                        } else {
+                            // Empty section - show news icon fallback
+                            const newsIcon = document.createElement('div');
+                            newsIcon.className = 'news-icon-fallback';
+                            newsIcon.style.cssText = `
+                    width: 24px;
+                    height: 24px;
+                    opacity: 0.5;
+                `;
+                            thumbContainer.appendChild(newsIcon);
+                        }
+
+                        // Section info 
+                        const info = document.createElement('div');
+                        info.style.cssText = `
+                flex: 1;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            `;
+                        info.innerHTML = `
+                <span style="font-size: 1.1rem;">${section.section_emoji}</span>
+                <span style="font-size: 1rem; color: var(--text-primary); font-weight: 600;">${section.section_name}</span>
+            `;
+
+                        item.appendChild(thumbContainer);
+                        item.appendChild(info);
+
+                        // Click handler
+                        item.addEventListener('click', () => {
+                            closeMenu();
+                            resolve(section.section_id);
+                        });
+
+                        listContainer.appendChild(item);
+                    }
+
+                } catch (error) {
+                    console.error('Failed to load sections:', error);
+                    closeMenu();
+                    reject(error);
+                    return;
+                }
+
+                // Patch gallery images
+                sectionsData.sections.forEach(section => {
+                    if (section.is_gallery && section.gallery_data && section.media_metadata) {
+                        const item = listContainer.querySelector(`[data-permalink="${section.permalink}"]`);
+                        if (item) {
+                            const fullPost = {
+                                is_gallery: section.is_gallery,
+                                gallery_data: section.gallery_data,
+                                media_metadata: section.media_metadata
+                            };
+                            tryGalleryPatch(fullPost, section.permalink, item, 1, true);
+                        }
+                    }
+                });
+
+                // Close menu function
+                function closeMenu() {
+                    sheet.style.transform = 'translateY(100%)';
+                    overlay.style.opacity = '0';
+                    setTimeout(() => {
+                        overlay.remove();
+                        sheet.remove();
+                    }, 200);
+                }
+
+                // Swipe to close or expand
+                let isDragging = false;
+                let startY = 0;
+                let startHeight = 0;
+
+                const dragStart = (e) => {
+                    isDragging = true;
+                    startY = e.touches?.[0].pageY || e.pageY;
+                    startHeight = parseInt(getComputedStyle(sheet).height);
+                    sheet.style.transition = 'none';
+                };
+
+                const dragging = (e) => {
+                    if (!isDragging) return;
+
+                    const currentY = e.touches?.[0].pageY || e.pageY;
+                    const delta = startY - currentY; // Positive when dragging up
+                    const newHeight = startHeight + delta;
+
+                    // Constrain between 0 and 80vh
+                    const maxHeightPx = window.innerHeight * 0.8;
+                    const constrainedHeight = Math.max(0, Math.min(newHeight, maxHeightPx));
+
+                    sheet.style.height = `${constrainedHeight}px`;
+                    e.preventDefault();
+                };
+
+                const dragStop = () => {
+                    if (!isDragging) return;
+                    isDragging = false;
+
+                    sheet.style.transition = 'height 0.3s ease';
+
+                    const currentHeightPx = parseInt(getComputedStyle(sheet).height);
+                    const currentHeightVh = (currentHeightPx / window.innerHeight) * 100;
+
+                    // Snap logic
+                    if (currentHeightVh < 25) {
+                        // Close if dragged below 25vh
+                        closeMenu();
+                        resolve(null);
+                    } else if (currentHeightVh > 60) {
+                        // Snap to 80vh if dragged above 60vh
+                        sheet.style.height = '80vh';
+                    } else {
+                        // Snap back to 45vh
+                        sheet.style.height = '45vh';
+                    }
+                };
+
+                // Add listeners to the header (drag handle area)
+                header.addEventListener('mousedown', dragStart);
+                header.addEventListener('touchstart', dragStart);
+
+                document.addEventListener('mousemove', dragging);
+                document.addEventListener('touchmove', dragging, { passive: false });
+
+                document.addEventListener('mouseup', dragStop);
+                document.addEventListener('touchend', dragStop);
+
+                // Close on overlay click
+                overlay.addEventListener('click', () => {
+                    closeMenu();
+                    resolve(null); // User cancelled
+                });
+
+                // Append and animate
+                document.body.appendChild(overlay);
+                document.body.appendChild(sheet);
+
+                // Trigger animations
+                requestAnimationFrame(() => {
+                    overlay.style.opacity = '1';
+                    sheet.style.transform = 'translateY(0)';
+                });
+            });
+        }
+
+         // ============ HELPERS ============
 
         function getYouTubeThumbnail(url) {
             // Extract video ID from various YouTube URL formats
@@ -8301,23 +8564,90 @@
             return null;
         }
 
+        async function applySafeSearchFilter() {
+                const safeSearchSelect = document.getElementById('safesearch-select');
+                if (safeSearchSelect?.value === 'on') {
+                    document.body.classList.add('safe-search-enabled');
+                } else {
+                    document.body.classList.remove('safe-search-enabled');
+                }
+            }
+
+        function initializeVideoPlayers() {
+            const players = document.querySelectorAll('.js-player');
+            players.forEach(player => {
+                if (!player.plyr) {
+                    const plyrInstance = new Plyr(player, {
+                        controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+                        volume: 1,
+                        muted: false,
+                        clickToPlay: true,
+                        hideControls: false,
+                        seekTime: 10,
+                        displayDuration: true,
+                        invertTime: false,
+                        toggleInvert: true
+                    });
+
+                    // Force unmute after initialization
+                    plyrInstance.muted = false;
+                    plyrInstance.volume = 1;
+                }
+            });
+        }
+
+        function createVoteButtons(post, permalinkUrl) {
+            const upvoteBtn = document.createElement('a');
+            upvoteBtn.href = permalinkUrl;
+            upvoteBtn.target = '_blank';
+            upvoteBtn.className = 'vote-button-red';
+            upvoteBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="18 15 12 9 6 15"></polyline>
+            </svg>`;
+
+            const voteCount = document.createElement('div');
+            voteCount.className = 'vote-count';
+            voteCount.textContent = formatNumber(post.score);
+
+            const downvoteBtn = document.createElement('a');
+            downvoteBtn.href = permalinkUrl;
+            downvoteBtn.target = '_blank';
+            downvoteBtn.className = 'vote-button';
+            downvoteBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="margin-top: 6px" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>`;
+
+            return { upvoteBtn, voteCount, downvoteBtn };
+        }
+
+        function createCommentIcon(post, permalinkUrl) {
+                const commentIcon = document.createElement('a');
+                commentIcon.href = permalinkUrl;
+                commentIcon.target = '_blank';
+                commentIcon.className = 'mobile-vote-item comment-count-mobile';
+                commentIcon.innerHTML = `
+                <svg width="27" height="27" viewBox="0 0 29 29" fill="none" stroke="currentColor" style="margin-top: 4px" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span>${formatNumber(post.num_comments || 0)}</span>
+            `;
+                return commentIcon;
+            }
+
         function savePostsToDatabase(posts, pageGroupParam) {
-            // Only save if there are 10 or more posts
             if (posts.length < 10) {
                 return;
             }
 
             const pageGroup = pageGroupParam;
-
-            // ✅ Filter out posts with missing or invalid data
             const validPosts = posts.filter(post => post?.data && post.data.id);
 
-            // 🚨 Check if any were dropped
             if (validPosts.length < posts.length) {
                 console.warn(`⚠️ Dropped ${posts.length - validPosts.length} malformed posts`);
             }
 
-            // ✅ Clean and map posts
             const cleanPosts = validPosts.map((post, index) => ({
                 data: {
                     id: post.data.id,
@@ -8365,72 +8695,46 @@
                 .catch(err => console.error(`Save failed: ${err.message}`));
         }
 
-        function getThumbnailUrl(post) {
+        function createAuthorLink(author) {
+            const authorLink = document.createElement('a');
+            authorLink.className = 'author-link';
+            authorLink.href = `https://www.reddit.com/user/${author}`;
+            authorLink.target = '_blank';
+            authorLink.textContent = `${author}`;
+            return authorLink;
+        }
 
-            // Handle RedGifs - fetch thumbnail from backend
-            if (post.url?.includes('redgifs.com')) {
-                const match = post.url.match(/redgifs\.com\/watch\/([a-zA-Z0-9-]+)/);
-                if (match) {
-                    const videoId = match[1];
-                    // Fetch thumbnail from backend
-                    fetch(`${API_BASE}/api/redgifs/${videoId}`)
-                        .then(r => r.json())
-                        .then(data => {
-                            if (data.thumbnail) {
-                                // Find the img element for this post and update it
-                                const imgs = document.querySelectorAll('.result-image');
-                                imgs.forEach(img => {
-                                    if (img.closest('.result-card')?.querySelector('a')?.href?.includes(post.id)) {
-                                        img.src = data.thumbnail;
-                                    }
-                                });
-                            }
-                        });
-                }
-            }
+        function applyStaggeredAnimation(selector, classToAdd, delayBetween = 30) {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach((element, index) => {
+                setTimeout(() => {
+                    requestAnimationFrame(() => {
+                        element.classList.add(classToAdd);
+                    });
+                }, index * delayBetween);
+            });
+        }
 
-            // For Reddit videos without preview, construct DASH thumbnail URL
-            if (post.is_video && post.url && post.url.includes('v.redd.it')) {
-                const cleanUrl = post.url.split('?')[0];
-                const videoId = cleanUrl.split('/').pop();
-                const dashUrl = `https://v.redd.it/${videoId}/DASH_480.mp4`;
-                // DON'T proxy video files - return direct URL
-                return dashUrl;
-            }
+        function showLoading() {
 
-            // Check if it's a regular thumbnail
-            if (post.thumbnail && !['self', 'default', 'nsfw', 'spoiler', 'image'].includes(post.thumbnail.toLowerCase())) {
-                return post.thumbnail;
-            }
+            isLoading = true;
+            resultsContainer.innerHTML = '';
+            resultsContainer.innerHTML = `
+<div class='results-error' id='spinner-box' style="opacity: 0; transition: opacity 0.25s ease;"></div>
+`;
+            const spinnerWrapper = createCanvasSpinner();
+            const spinnerBox = document.getElementById('spinner-box');
+            spinnerBox.appendChild(spinnerWrapper);
 
-            // Final fallback: use real_thumbnail if available
-            if (post.real_thumbnail && !['self', 'default', 'nsfw', 'spoiler', 'image'].includes(post.real_thumbnail.toLowerCase())) {
-                return post.real_thumbnail;
-            }
+            // Trigger the fade-in animation
+            setTimeout(() => {
+                requestAnimationFrame(() => {
+                    spinnerBox.style.opacity = '1';
+                });
+            }, 10);
 
-            // Check if the URL is a direct link to media
-            if (post.url) {
-                const mediaExtensions = [
-                    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg',
-                    '.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v'
-                ];
-
-                const mediaHosts = [
-                    'i.redd.it', 'v.redd.it', 'preview.redd.it',
-                    'i.imgur.com', 'media.giphy.com', 'gfycat.com',
-                    'streamable.com'
-                ];
-
-                const urlLower = post.url.toLowerCase();
-                const isDirectMedia = mediaExtensions.some(ext => urlLower.endsWith(ext)) ||
-                    mediaHosts.some(host => urlLower.includes(host));
-
-                if (isDirectMedia) {
-                    return post.url;
-                }
-            }
-
-            return null;
+            paginationContainer.innerHTML = '';
+            resultsContainer.style.opacity = 1;
         }
 
         function decodeEntities(input) {
@@ -8590,6 +8894,85 @@
             return wrapper;
         }
 
+        async function deleteBookmark(bookmarkId) {
+            await fetch(`${API_BASE}/api/bookmarks/${bookmarkId}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+        }
+
+        async function saveBookmarkWithSection(post, bookmarkId, sectionId) {
+            await fetch(`${API_BASE}/api/bookmarks`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                        },
+                credentials: 'include',
+                body: JSON.stringify({
+                    postId: bookmarkId,
+                    sectionId: sectionId,
+                    title: post.title || '',
+                    url: post.url || '',
+                    permalink: post.permalink || '',
+                    subreddit: post.subreddit || '',
+                    score: post.score || 0,
+                    is_video: Boolean(post.is_video),
+                    domain: post.domain || '',
+                    author: post.author || '',
+                    created_utc: post.created_utc || 0,
+                    num_comments: post.num_comments || 0,
+                    over_18: Boolean(post.over_18),
+                    selftext: post.selftext || '',
+                    body: post.body || '',
+                    is_gallery: Boolean(post.is_gallery),
+                    gallery_data: post.gallery_data || null,
+                    media_metadata: post.media_metadata || null,
+                    crosspost_parent_list: post.crosspost_parent_list || [],
+                    content_type: post.content_type || '',
+                    icon_url: post.icon_url || null,
+                    locked: Boolean(post.locked),
+                    stickied: Boolean(post.stickied),
+                    preview: post.preview || null
+                }),
+            });
+        }
+
+        async function reorderBookmarkToTop(bookmarkId, sectionId) {
+            const sectionResponse = await fetch(`${API_BASE}/api/bookmarks/section/${sectionId}?offset=0&limit=100`, {
+                credentials: 'include'
+            });
+            const sectionData = await sectionResponse.json();
+            const existingIds = sectionData.bookmarks.map(b => b.reddit_post_id).filter(id => id !== bookmarkId);
+            const orderedIds = [bookmarkId, ...existingIds];
+
+            await fetch(`${API_BASE}/api/bookmarks/reorder`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    orderedIds,
+                    sectionId: sectionId
+                })
+            });
+        }
+
+        function updateBookmarkUI(iconElement, bookmarkId, isSaved) {
+            const savedBookmarks = JSON.parse(sessionStorage.getItem('bookmarks') || '{}');
+
+            if (isSaved) {
+                iconElement.classList.add('saved');
+                savedBookmarks[bookmarkId] = true;
+            } else {
+                iconElement.classList.remove('saved');
+                delete savedBookmarks[bookmarkId];
+            }
+
+            sessionStorage.setItem('bookmarks', JSON.stringify(savedBookmarks));
+        }
+
+        
         function hideBookmarksUI() {
             const tabsSection = document.querySelector('.tabs-section');
             if (tabsSection) tabsSection.remove();
@@ -8601,10 +8984,161 @@
             if (buttonGroup) buttonGroup.remove();
         }
 
+        function getAuthStatus() {
+            return localStorage.getItem('isLoggedIn') === 'true';
+        }
+
+        function requireAuth() {
+            const authStatus = getAuthStatus();
+            if (!authStatus) {
+                window.location.href = '/html/login.html';
+                return null;
+            }
+            return authStatus;
+        }
+
+        function filterPostsByContent(posts, contentType) {
+                if (contentType === 'all') {
+                    return posts;
+                }
+
+                return posts.filter(post => {
+                    const postContentType = classifyContentType(post);
+                    return postContentType === contentType;
+                });
+            }
+
+        function filterPostsByTime(posts, timeFilter) {
+            if (timeFilter === 'all') {
+                return posts;
+            }
+
+            const now = Math.floor(Date.now() / 1000);
+            let timeCutoff = 0;
+
+            switch (timeFilter) {
+                case "hour": timeCutoff = now - 7140; break;     // 119 minutes
+                case "day": timeCutoff = now - 169200; break;    // 47 hours  
+                case "week": timeCutoff = now - 604800; break;   // 7 days
+                case "month": timeCutoff = now - 2592000; break; // 30 days
+                case "year": timeCutoff = now - 31536000; break; // 365 days
+                default: timeCutoff = 0;
+            }
+
+            return posts.filter(post => post.created_utc >= timeCutoff);
+        }
+
+        function loadAfterToken(filters, index) {
+            const key = `kf_after_${index}`;
+            const raw = sessionStorage.getItem(key);
+            if (!raw) return null;
+
+            const data = JSON.parse(raw);
+            if (
+                data.query === filters.query &&
+                data.subreddit === filters.subreddit &&
+                data.sort === filters.sort &&
+                data.time === filters.time &&
+                data.contentType === filters.contentType
+            ) {
+                return data.after || null;
+            }
+
+            return null;
+        }
+
+        function saveAfterToken(filters, index, afterToken) {
+            if (!afterToken) return;
+
+            const key = `kf_after_${index}`;
+            const data = {
+                query: filters.query,
+                subreddit: filters.subreddit,
+                sort: filters.sort,
+                time: filters.time,
+                contentType: filters.contentType,
+                after: afterToken
+            };
+
+            sessionStorage.setItem(key, JSON.stringify(data));
+        }
 
 
+        function trimRedditPostData(post) {
+            return {
+                id: post.data.id,
+                title: post.data.title,
+                url: post.data.url,
+                permalink: post.data.permalink,
+                subreddit: post.data.subreddit,
+                score: post.data.score,
+                is_video: post.data.is_video,
+                domain: post.data.domain,
+                author: post.data.author,
+                created_utc: post.data.created_utc,
+                num_comments: post.data.num_comments,
+                over_18: post.data.over_18,
+                preview: post.data.preview,
+                selftext: post.data.selftext,
+                body: post.data.body,
+                is_gallery: post.data.is_gallery,
+                gallery_data: post.data.gallery_data,
+                media_metadata: post.data.media_metadata,
+                crosspost_parent_list: post.data.crosspost_parent_list || [],
+                content_type: post.data.content_type || '',
+                icon_url: null,
+                locked: post.data.locked,
+                stickied: post.data.stickied
+            };
+        }
 
-    // Mobile Sidebar
+        function loadCachedPosts() {
+            // Initialize global cache objects if they don't exist
+            if (typeof window !== 'undefined') {
+                if (!window.cachedPostsById) window.cachedPostsById = {};
+                if (!window.cachedMediaByUrl) window.cachedMediaByUrl = {};
+            }
+
+            return Promise.resolve();
+        }
+
+        async function processBatchedPosts(posts, batchSize, processFn) {
+            for (let i = 0; i < posts.length; i += batchSize) {
+                const batch = posts.slice(i, i + batchSize);
+
+                for (const post of batch) {
+                    await processFn(post);
+                }
+
+                // Yield to event loop between batches
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+        }
+
+        function createActionButton(label, iconPath, url) {
+            const action = document.createElement('div');
+            action.className = 'result-action';
+            action.tabIndex = 0;
+            action.setAttribute('aria-label', label);
+            action.innerHTML = `
+<svg class="action-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    ${iconPath}
+</svg>
+${label}`;
+
+            action.style.cursor = 'pointer';
+
+            const openUrl = () => window.open(url, '_blank');
+            action.addEventListener('click', openUrl);
+            action.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') openUrl();
+            });
+
+            return action;
+        }
+
+ // ============ MOBILE ============
+        // Mobile Sidebar
         (function () {
             const hamburger = document.getElementById('mobileHamburger');
             const sidebar = document.getElementById('mobileSidebar');
@@ -8637,8 +9171,15 @@
 
             function syncMobileDarkToggle() {
                 const desktopIcon = document.getElementById('themeIcon');
-                if (desktopIcon && mobileDarkIcon) {
-                    mobileDarkIcon.src = desktopIcon.src;
+                const mobileToggleText = mobileDarkToggle.querySelector('span');
+
+                if (desktopIcon) {
+                    const isDarkMode = desktopIcon.src.includes('sun.png');
+
+                    // Update text
+                    if (mobileToggleText) {
+                        mobileToggleText.textContent = isDarkMode ? 'Light Mode' : 'Dark Mode';
+                    }
                 }
             }
 
@@ -8654,9 +9195,10 @@
             const mobilePaletteItem = document.querySelector('.mobile-palette-item');
 
             function syncMobilePaletteVisibility() {
-                const desktopPalette = document.querySelector('.theme-toggle-container');
-                if (desktopPalette && mobilePaletteItem) {
-                    if (desktopPalette.classList.contains('visible')) {
+                if (mobilePaletteItem) {
+                    const authStatus = getAuthStatus();
+
+                    if (authStatus && window.innerWidth < 1024) {
                         mobilePaletteItem.style.display = 'block';
                     } else {
                         mobilePaletteItem.style.display = 'none';
@@ -8680,16 +9222,25 @@
             function syncMobilePlanDisplay() {
                 const desktopPlan = document.getElementById('plan-display');
                 const desktopPlanContainer = document.querySelector('.plan-display-container');
+                const mobileGetPremiumBtn = document.getElementById('mobileGetPremiumBtn');
 
                 if (desktopPlanContainer && mobilePlanItem) {
                     if (desktopPlanContainer.classList.contains('visible')) {
+                        // User is logged in
                         mobilePlanItem.style.display = 'block';
-                        if (desktopPlan && mobilePlanDisplay) {
-                            mobilePlanDisplay.textContent = desktopPlan.textContent;
-                            mobilePlanDisplay.className = 'sidebar-plan-display ' + desktopPlan.className;
+
+                        // Hide Get Premium button if user has plan
+                        if (mobileGetPremiumBtn) {
+                            const isPaid = desktopPlan && (desktopPlan.textContent.includes('Pro') || desktopPlan.textContent.includes('Premium'));
+                            mobileGetPremiumBtn.parentElement.style.display = isPaid ? 'none' : 'block';
                         }
                     } else {
+                        // User is logged out
                         mobilePlanItem.style.display = 'none';
+                        // Show Get Premium button
+                        if (mobileGetPremiumBtn) {
+                            mobileGetPremiumBtn.parentElement.style.display = 'block';
+                        }
                     }
                 }
             }
@@ -8708,7 +9259,7 @@
         // Handle view switching
             window.addEventListener('resize', function () {
                 const sidebar = document.getElementById('mobileSidebar');
-                if (window.innerWidth > 768) {
+                if (window.innerWidth > 1024) {
                     // Desktop view - close mobile sidebar if open
                     if (sidebar) {
                         sidebar.classList.remove('open');
@@ -8720,45 +9271,11 @@
                 }
             });
 
-            // Create mobile top bar
-            if (window.innerWidth <= 768) {
-                const mobileTopBar = document.createElement('div');
-                mobileTopBar.className = 'mobile-top-bar';
 
-                // Create logo row with logo and Hermes
-                const logoRow = document.createElement('div');
-                logoRow.className = 'mobile-logo-row';
-
-                const logoLink = document.createElement('a');
-                logoLink.href = '/';
-                logoLink.className = 'logo'; // Use the existing logo class
-                logoLink.textContent = 'KarmaFinder';
-
-                const hermes = document.querySelector('.hermes-cat').cloneNode(true);
-                hermes.style.display = 'block';
-
-                logoRow.appendChild(logoLink);
-                
-                mobileTopBar.appendChild(logoRow);
-
-                // Create search row
-                const searchInput = document.querySelector('.search-input-container');
-                const hamburger = document.querySelector('.mobile-hamburger');
-                const loginBtn = document.querySelector('#loginLogoutBtn');
-
-                const searchRow = document.createElement('div');
-                searchRow.className = 'mobile-search-row';
-                searchRow.appendChild(hamburger);
-                searchRow.appendChild(searchInput);
-                searchRow.appendChild(loginBtn);
-
-                mobileTopBar.appendChild(searchRow);
-
-                document.body.prepend(mobileTopBar);
-            }
     </script>
 
     <script>
+    // Words words words
         fetch('html/words.json')
             .then(res => res.json())
             .then(words => {
@@ -8772,6 +9289,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2/dist/fuse.min.js"></script>
     <script src="/html/bookmarks.js"></script>
+    <script src="/html/search.js"></script>
 
     <div class="hermes-context-menu" id="hermesContextMenu">
         <div class="hermes-context-menu-item" id="muteHermes">
