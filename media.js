@@ -21,7 +21,9 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
     imgWrapper.mediaMetadata = mediaMetadata;
     imgWrapper.currentIndex = 0;
 
-    const { useSameSize } = analyzeGalleryAspectRatios(galleryData, mediaMetadata);
+    const { useSameSize: analyzedUseSameSize } = analyzeGalleryAspectRatios(galleryData, mediaMetadata);
+    const isMobileGallery = window.innerWidth <= 1024;
+    const useSameSize = isMobileGallery ? true : analyzedUseSameSize;
     imgWrapper.useSameSize = useSameSize;
 
     // Initialize gallery state
@@ -34,7 +36,8 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
     // Add gallery navigation elements
     if (!skipNavigation && !imgWrapper.querySelector('.gallery-nav')) {
         // Make image-wrapper relative for absolute positioning
-        imgWrapper.style.position = 'relative';
+                imgWrapper.style.position = 'relative';
+        imgWrapper.style.touchAction = 'pan-y';
 
         // Create navigation container
         const navContainer = document.createElement('div');
@@ -296,6 +299,13 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
                         newImg.style.top = '';
                         newImg.style.left = '';
                         newImg.style.transition = '';
+
+                        const isMobile = window.innerWidth <= 1024;
+                        if (useSameSize && isMobile && imgWrapper.comfyFirstWidth && imgWrapper.comfyFirstHeight) {
+                            newImg.style.width = imgWrapper.comfyFirstWidth + 'px';
+                            newImg.style.height = imgWrapper.comfyFirstHeight + 'px';
+                            newImg.style.objectFit = 'cover';
+                        }
                     }
                 }, 450);
             };
@@ -390,14 +400,14 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
             }
         });
 
-        let touchStartX = 0;
+                let touchStartX = 0;
         let touchStartY = 0;
         let currentTranslate = 0;
         let prevTranslate = 0;
         let isDragging = false;
         let animationID = 0;
-        const SWIPE_THRESHOLD = 50;
-
+        const SWIPE_THRESHOLD = 70;
+        
         imgWrapper.addEventListener('touchstart', (e) => {
             touchStartX = e.touches[0].clientX;
             touchStartTime = Date.now();
@@ -405,26 +415,26 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
             animationID = requestAnimationFrame(animation);
             imgWrapper.style.cursor = 'grabbing';
         });
-
+        
         imgWrapper.addEventListener('touchmove', (e) => {
             if (isDragging) {
                 const currentX = e.touches[0].clientX;
                 const currentY = e.touches[0].clientY;
                 const diffX = Math.abs(currentX - touchStartX);
                 const diffY = Math.abs(currentY - touchStartY);
-
+        
                 // Only prevent scroll if swiping more horizontally than vertically
                 if (diffX > diffY) {
-                    currentTranslate = prevTranslate + currentX - touchStartX;
                     e.preventDefault();
+                    currentTranslate = prevTranslate + currentX - touchStartX;
                 } else {
                     // Vertical scroll - cancel drag
                     isDragging = false;
                     cancelAnimationFrame(animationID);
                 }
             }
-        }, { passive: false });
-
+                }, { passive: false });
+        
         imgWrapper.addEventListener('touchend', (e) => {
             const touchEndX = e.changedTouches[0].clientX;
             const swipeDistance = touchEndX - touchStartX;
@@ -513,9 +523,12 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
                 shimmer.style.display = 'none';
 
                 // Capture first thumbnail size for comfy mode fixed sizing
-                if (useSameSize && document.body.classList.contains('comfy-mode') && !imgWrapper.comfyFirstWidth) {
-                    imgWrapper.comfyFirstWidth = img.offsetWidth;
-                    imgWrapper.comfyFirstHeight = img.offsetHeight;
+                const isMobile = window.innerWidth <= 1024;
+                if (useSameSize && !imgWrapper.comfyFirstWidth && (document.body.classList.contains('comfy-mode') || isMobile)) {
+                    setTimeout(() => {
+                        imgWrapper.comfyFirstWidth = img.offsetWidth;
+                        imgWrapper.comfyFirstHeight = img.offsetHeight;
+                    }, 50);
                 }
             };
             img.src = fallbackURL;
@@ -1320,11 +1333,12 @@ function setupImageModal(imageWrapper) {
                 modalPlyrInstance.muted = false;
                 modalPlyrInstance.volume = 1;
                 
-                if (isMobile) {
-                    let hasEnteredFullscreen = false;
-                    modalPlyrInstance.on('play', () => {
-                        if (!hasEnteredFullscreen && newVideo.webkitEnterFullscreen) {
-                            hasEnteredFullscreen = true;
+                                                                if (isMobile) {
+                                    let hasEnteredFullscreen = false;
+                                    modalPlyrInstance.on('play', () => {
+                                        if (!hasEnteredFullscreen && newVideo.webkitEnterFullscreen) {
+                                            hasEnteredFullscreen = true;
+                                            newVideo.webkitEnterFullscreen();
                             newVideo.webkitEnterFullscreen();
                         }
                     });
@@ -1344,7 +1358,8 @@ function setupImageModal(imageWrapper) {
             }
 
             // Add spinner overlay (positioned to not block close button)
-            const loadingOverlay = document.createElement('div');
+                        const loadingOverlay = document.createElement('div');
+            loadingOverlay.className = 'loading-overlay';
             loadingOverlay.style.cssText = `
                 position: absolute;
                 top: 50%;
@@ -1385,8 +1400,13 @@ function setupImageModal(imageWrapper) {
                             return;
                         }
 
-                        if (combinedVideoUrl) {
+                                                if (combinedVideoUrl) {
                             newVideo.src = combinedVideoUrl;
+                            // Trigger iOS native fullscreen as soon as src is set
+                            if (isMobile && newVideo.webkitEnterFullscreen) {
+                                newVideo.load();
+                                newVideo.webkitEnterFullscreen();
+                            }
                             loadingOverlay.remove();
                             // Show the play button again
                             if (plyrPlayButton) {
@@ -1735,8 +1755,82 @@ function setupImageModal(imageWrapper) {
             }
         });
 
-        const hasGallery = galleryData && galleryData.length > 1;
+                                const hasGallery = galleryData && galleryData.length > 1;
+                
+                // Swipe down to close on mobile
+                if (isMobile) {
+                let swipeDownStartX = 0;
+                let swipeDownStartY = 0;
+                const SWIPE_DOWN_THRESHOLD = 80;
+                
+                modalOverlay.addEventListener('touchstart', (e) => {
+                swipeDownStartX = e.touches[0].clientX;
+                swipeDownStartY = e.touches[0].clientY;
+                }, { passive: true });
+                
+                modalOverlay.addEventListener('touchend', (e) => {
+                const diffY = e.changedTouches[0].clientY - swipeDownStartY;
+                const diffX = Math.abs(e.changedTouches[0].clientX - swipeDownStartX);
+                if (diffY > SWIPE_DOWN_THRESHOLD && diffX < diffY) {
+                    closeModal();
+                }
+                });
+                }
+                
+                // Add swipe support for modal gallery on mobile
+                if (hasGallery && isMobile) {
+            let modalTouchStartX = 0;
+            let modalTouchStartY = 0;
+            let modalSwipeDirection = null;
+            const MODAL_SWIPE_THRESHOLD = 70;
+        
+            modalOverlay.addEventListener('touchstart', (e) => {
+                modalTouchStartX = e.touches[0].clientX;
+                modalTouchStartY = e.touches[0].clientY;
+                modalSwipeDirection = null;
+            }, { passive: true });
+        
+            modalOverlay.addEventListener('touchmove', (e) => {
+                if (modalSwipeDirection === null) {
+                    const diffX = Math.abs(e.touches[0].clientX - modalTouchStartX);
+                    const diffY = Math.abs(e.touches[0].clientY - modalTouchStartY);
+                    if (diffX > 5 || diffY > 5) {
+                        modalSwipeDirection = diffX > diffY ? 'horizontal' : 'vertical';
+                    }
+                }
+                if (modalSwipeDirection === 'horizontal') {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        
+            modalOverlay.addEventListener('touchend', (e) => {
+                const swipeDistance = e.changedTouches[0].clientX - modalTouchStartX;
+                if (modalSwipeDirection === 'horizontal' && Math.abs(swipeDistance) > MODAL_SWIPE_THRESHOLD) {
+                    navigateModalGallery(swipeDistance > 0 ? 'prev' : 'next');
+                }
+            });
+        }
 
+                // Swipe down to close on mobile
+        if (isMobile) {
+            let swipeDownStartX = 0;
+            let swipeDownStartY = 0;
+            const SWIPE_DOWN_THRESHOLD = 80;
+        
+            modalOverlay.addEventListener('touchstart', (e) => {
+                swipeDownStartX = e.touches[0].clientX;
+                swipeDownStartY = e.touches[0].clientY;
+            }, { passive: true });
+        
+            modalOverlay.addEventListener('touchend', (e) => {
+                const diffY = e.changedTouches[0].clientY - swipeDownStartY;
+                const diffX = Math.abs(e.changedTouches[0].clientX - swipeDownStartX);
+                if (diffY > SWIPE_DOWN_THRESHOLD && diffX < diffY) {
+                    closeModal();
+                }
+            });
+        }
+        
         if (hasGallery) {
             // Add arrows to container
             modalContainer.appendChild(leftArrow);
@@ -1872,14 +1966,20 @@ function setupImageModal(imageWrapper) {
 
         // Save global ref
         window.currentModalOverlay = modalOverlay;
-
+        
         // Trigger opening animation
         setTimeout(() => {
-            modalOverlay.style.backgroundColor = 'rgba(0,0,0,0.8)';
+            modalContent.style.transition = 'none';
+            modalContent.style.opacity = '0';
+            modalContent.style.transform = 'scale(0.5) translateY(-5vh)';
+
+            // Force reflow
+            modalContent.getBoundingClientRect();
+
+            modalContent.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
             modalContent.style.opacity = '1';
             modalContent.style.transform = 'scale(1) translateY(-5vh)';
-
-            // Show arrows with same timing
+            modalOverlay.style.backgroundColor = 'rgba(0,0,0,0.8)';
             leftArrow.style.opacity = '1';
             rightArrow.style.opacity = '1';
         }, 10);
@@ -1895,13 +1995,8 @@ function setupImageModal(imageWrapper) {
 
         // Close modal function
         function closeModal() {
-                        videoProcessingAborted = true; // Stop any ongoing video processing
+        videoProcessingAborted = true; // Stop any ongoing video processing
             
-                                                // Clean up touchmove prevention
-                        if (isMobile) {
-                            modalOverlay.removeEventListener('touchmove', preventScroll);
-                        }
-
             // Hard reset to index 0 when modal closes
             imageWrapper.currentIndex = 0;
 
@@ -1937,15 +2032,17 @@ function setupImageModal(imageWrapper) {
 
         // Background click handler - updated to not close when clicking arrows
         modalOverlay.addEventListener('click', function (event) {
-            // Don't close if clicking on video controls, video itself, or navigation arrows
-            if (event.target.closest('video, .plyr, .plyr__controls, .js-player, .modal-nav-arrow')) {
+                        // Don't close if clicking on video controls, video itself, or navigation arrows
+            if (!isMobile && event.target.closest('video, .plyr, .plyr__controls, .js-player, .modal-nav-arrow')) {
                 return;
             }
 
-            // Don't close if clicking on the modal content itself
-            if (event.target.closest('.modal-container') && !event.target.classList.contains('modal-overlay')) {
-                return;
-            }
+                                                // Don't close if clicking on the modal content itself, unless it's the loading overlay
+                        if (!isMobile && event.target.closest('.modal-container') && 
+                            !event.target.classList.contains('modal-overlay') &&
+                            !event.target.closest('.loading-overlay')) {
+                            return;
+                        }
 
             closeModal();
         });

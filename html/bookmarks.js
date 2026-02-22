@@ -42,13 +42,14 @@ if (isBookmarksPage || isSharePage) {
         ogDescMeta.content = "Save and organize Reddit content with drag-and-drop bookmarking, custom categories, and visual organization.";
     }
     
-    // Kick you out if auth token is cleared
     if (!isSharePage) {
-        setInterval(() => {
-            if (!getAuthStatus()) {
-                window.location.href = 'index.html';
-            }
-        }, 1000);
+        setTimeout(() => {
+            setInterval(() => {
+                if (!isLoggedIn) {
+                    window.location.href = 'index.html';
+                }
+            }, 1000);
+        }, 3000);
     }
 }
 
