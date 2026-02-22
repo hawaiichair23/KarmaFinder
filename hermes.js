@@ -53,7 +53,7 @@ if (document.querySelector('.hermes-cat')) {
 }
 
 // Mouseover triggers a single blink
-document.querySelector('.hermes-cat').addEventListener('mouseover', singleBlink);
+document.querySelector('.hermes-cat')?.addEventListener('mouseover', singleBlink);
 
 // Sleep timer logic: go to sleep after inactivity
 function resetSleepTimer() {
@@ -315,7 +315,7 @@ async function showRareLines() {
 
 
 
-document.querySelector('.hermes-cat').addEventListener('contextmenu', function (e) {
+document.querySelector('.hermes-cat')?.addEventListener('contextmenu', function (e) {
     e.preventDefault();
     const importMenu = document.getElementById('importMenu');
     if (importMenu) {

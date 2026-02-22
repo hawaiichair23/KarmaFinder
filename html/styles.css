@@ -135,11 +135,10 @@ header {
 }
 
 .logo {
-    font-size: 2.8rem;
+    font-size: 2.6rem;
     font-weight: bold;
     color: var(--primary-color);
     text-decoration: none;
-    /* kills underline */
     cursor: pointer;
 }
 
@@ -147,7 +146,6 @@ header {
 .logo:focus,
 .logo:focus-visible {
     outline: 3px solid dodgerblue;
-    /* visible blue outline */
     outline-offset: 4px;
     border-radius: 4px;
 }
@@ -2874,13 +2872,27 @@ body.forest-theme .link-preview-btn:hover {
     font-size: 1rem;
 }
 
-@media (max-width: 1024px) {
-    #loginLogoutBtn {
-        display: none !important;
-    }
+.mobile-logo-row {
+    display: none;
+}
+
+.mobile-top-bar {
+    display: none;
+}
+
+.result-time-bottom {
+    display: none;
 }
 
 @media (max-width: 1024px) {
+    #loginLogoutBtn {
+            display: none !important;
+        }
+
+    .subreddit-icon img {
+        width: 22px;
+        height: 22px;
+    }
 
     .bottom-bar-item:nth-child(2) span {
         margin-left: -1px;
@@ -3442,7 +3454,7 @@ body.forest-theme .link-preview-btn:hover {
         max-height: none !important;
         overflow: visible !important;
         box-shadow: none;
-        padding-bottom: 1px;
+        padding-bottom: 2px;
     }
 
     body.dark-mode .result-card {
@@ -3460,24 +3472,19 @@ body.forest-theme .link-preview-btn:hover {
         box-shadow: none;
     }
 
-    .result-title {
-        font-size: 1rem;
-    }
-
     .result-content {
         font-size: 1rem;
     }
 
     .result-subreddit {
-        font-size: 0.8rem;
+        font-size: 0.9rem;
+        overflow: visible;
+        gap: 7px;
     }
 
     .result-author {
-        font-size: 0.8rem;
-    }
-
-    .result-time {
-        font-size: 0.8rem;
+        font-size: 0.9rem;
+        color: var(--medium-text);
     }
 
     .result-actions {
@@ -3492,6 +3499,7 @@ body.forest-theme .link-preview-btn:hover {
         order: 0;
         width: 100%;
         margin: 5px;
+        overflow: visible;
     }
 
     .link-preview-card {
@@ -3513,6 +3521,20 @@ body.forest-theme .link-preview-btn:hover {
 
     .comments-scroll {
         max-height: 100px;
+    }
+
+    .result-time-bottom {
+        display: block !important;
+        order: 4;
+        margin-left: 1px;
+        font-size: 0.8rem;
+        color: var(--light-text);
+        padding-bottom: 6px;
+        align-self: flex-start;
+    }
+
+    .result-time {
+        display: none;
     }
 
     .vote-section {
@@ -3720,5 +3742,6 @@ body.dark-mode .search-input-container {
 
 .result-title {
     -webkit-line-clamp: 4;
+    font-size: 1.1rem;
 }
 }

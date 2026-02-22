@@ -392,7 +392,6 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
 
         let touchStartX = 0;
         let touchStartY = 0;
-        let touchStartTime = 0;
         let currentTranslate = 0;
         let prevTranslate = 0;
         let isDragging = false;
@@ -1094,7 +1093,8 @@ function setupMediaLoadHandling(mediaElement, imagePlaceholder) {
     }
 }
 
-function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null, currentIndex = 0) {
+function setupImageModal(imageWrapper) {
+    const isMobile = window.innerWidth <= 1024;
     imageWrapper.addEventListener('click', async function (event) {
         // Prevent any default behaviors that might cause navigation
         event.preventDefault();
@@ -1121,7 +1121,7 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
             existingModal.remove();
         }
 
-        const modalOverlay = document.createElement('div');
+                const modalOverlay = document.createElement('div');
         modalOverlay.className = 'modal-overlay';
         modalOverlay.style.cssText = `
             position: fixed;
@@ -1135,6 +1135,7 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
             align-items: center;
             justify-content: center;
             transition: all 0.1s ease;
+            ${isMobile ? 'overflow: hidden;' : ''}
         `;
 
         // Create modal container that will hold both content and arrows
@@ -1146,8 +1147,8 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
             justify-content: center;
             width: 100%;
             height: 100%;
-            max-width: 90vw;
-            max-height: 90vh;
+            max-width: ${isMobile ? '100vw' : '90vw'};
+            max-height: ${isMobile ? '100vh' : '90vh'};
         `;
 
         // Check if this is a Reddit video thumbnail
@@ -1167,17 +1168,17 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
         if (isExternalVideo && imageElement.dataset.videoSource) {
             modalContent = document.createElement('div');
             modalContent.style.cssText = `
-                        width: auto !important;
-                        height: auto !important;
-                        max-width: 90vw;
-                        max-height: 90vh;
-                        opacity: 0;
-                        transform: scale(0.8);
-                        transition: all 0.1s ease;
-                        border-radius: 25px;
-                        overflow: hidden;
-                        background: black;
-                    `;
+            width: auto !important;
+            height: auto !important;
+            max-width: 90vw;
+            max-height: 90vh;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.1s ease;
+            border-radius: 25px;
+            overflow: hidden;
+            background: black;
+        `;
 
             // Create video element instead of iframe (no watermark!)
             const newVideo = document.createElement('video');
@@ -1188,12 +1189,12 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
             newVideo.setAttribute('autoplay', '');
             newVideo.muted = false;
             newVideo.style.cssText = `
-                        width: 70vw !important;
-                        height: auto !important;
-                        max-height: 80vh;
-                        border-radius: 25px;
-                        object-fit: contain;
-                    `;
+            width: 70vw !important;
+            height: auto !important;
+            max-height: 80vh;
+            border-radius: 25px;
+            object-fit: contain;
+        `;
 
             // Extract video ID and type
             const embedId = imageElement.dataset.embedId;
@@ -1204,12 +1205,12 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
                 const iframe = document.createElement('iframe');
                 iframe.src = `https://streamable.com/e/${embedId}?autoplay=1&muted=0`;
                 iframe.style.cssText = `
-        width: 70vw;
-        height: calc(70vw * 9 / 16);
-        max-height: 80vh;
-        border: none;
-        border-radius: 25px;
-    `;
+                width: 70vw;
+                height: calc(70vw * 9 / 16);
+                max-height: 80vh;
+                border: none;
+                border-radius: 25px;
+            `;
                 iframe.setAttribute('allowfullscreen', '');
                 iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
 
@@ -1236,12 +1237,12 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
                 const iframe = document.createElement('iframe');
                 iframe.src = `https://www.youtube.com/embed/${embedId}?autoplay=1`;
                 iframe.style.cssText = `
-        width: 70vw;
-        height: calc(70vw * 9 / 16);
-        max-height: 80vh;
-        border: none;
-        border-radius: 25px;
-    `;
+                width: 70vw;
+                height: calc(70vw * 9 / 16);
+                max-height: 80vh;
+                border: none;
+                border-radius: 25px;
+            `;
                 iframe.setAttribute('allowfullscreen', '');
                 iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
 
@@ -1249,18 +1250,18 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
             } else if (videoType !== 'streamable') {
                 modalContent.appendChild(newVideo);
             }
-        } else if (isRedditVideo) {
+                } else if (isRedditVideo) {
             // Create video with poster  
             modalContent = document.createElement('div');
             modalContent.style.cssText = `
-                width: auto !important;
-                height: auto !important;
-                max-width: 90vw;
-                max-height: 90vh;
+                width: ${isMobile ? '100vw' : 'auto'} !important;
+                height: ${isMobile ? '100vh' : 'auto'} !important;
+                max-width: ${isMobile ? '100vw' : '90vw'};
+                max-height: ${isMobile ? '100vh' : '90vh'};
                 opacity: 0;
                 transform: scale(0.8);
                 transition: all 0.1s ease;
-                border-radius: 25px;
+                border-radius: ${isMobile ? '0' : '25px'};
                 padding: 0;
                 background: transparent;
                 overflow: hidden;
@@ -1276,10 +1277,11 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
             newVideo.muted = false;
             newVideo.style.cssText = `
                 width: 100% !important;
-                height: auto !important;
-                max-width: 90vw;
-                max-height: 90vh;
-                border-radius: 25px;
+                height: ${isMobile ? '100vh' : 'auto'} !important;
+                max-width: ${isMobile ? '100vw' : '90vw'};
+                max-height: ${isMobile ? '100vh' : '90vh'};
+                border-radius: ${isMobile ? '0' : '25px'};
+                object-fit: ${isMobile ? 'contain' : 'cover'};
             `;
 
             modalContent.appendChild(newVideo);
@@ -1287,7 +1289,7 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
             // Initialize Plyr immediately
             try {
                 const modalPlyrInstance = new Plyr(newVideo, {
-                    controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+                                        controls: isMobile ? [] : ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
                     volume: 1,
                     muted: false,
                     clickToPlay: true,
@@ -1317,6 +1319,19 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
 
                 modalPlyrInstance.muted = false;
                 modalPlyrInstance.volume = 1;
+                
+                if (isMobile) {
+                    let hasEnteredFullscreen = false;
+                    modalPlyrInstance.on('play', () => {
+                        if (!hasEnteredFullscreen && newVideo.webkitEnterFullscreen) {
+                            hasEnteredFullscreen = true;
+                            newVideo.webkitEnterFullscreen();
+                        }
+                    });
+                    newVideo.addEventListener('webkitendfullscreen', () => {
+                        closeModal();
+                    });
+                }
 
             } catch (error) {
                 console.log('❌ Error initializing Plyr:', error);
@@ -1459,28 +1474,31 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
                     `;
             }
 
-            modalContent.style.cssText = `
-                width: auto !important;
-                height: auto !important;
+                        modalContent.style.cssText = `
+                width: ${isMobile ? '100vw' : 'auto'} !important;
+                height: ${isMobile ? '100vh' : 'auto'} !important;
                 cursor: pointer;
-                max-width: 90vw;
-                max-height: 90vh;
-                display: block !important;
+                max-width: ${isMobile ? '100vw' : '90vw'};
+                max-height: ${isMobile ? '100vh' : '90vh'};
+                display: ${isMobile ? 'flex' : 'block'} !important;
+                align-items: center;
+                justify-content: center;
                 opacity: 0;
                 transform: scale(0.8);
                 transition: all 0.1s ease;
-                border-radius: 25px;
+                border-radius: ${isMobile ? '0' : '25px'};
             `;
 
             const imageInside = modalContent.querySelector('img');
             const shimmerPlaceholder = modalContent.querySelector('.image-placeholder');
 
-            if (imageInside) {
+                        if (imageInside) {
                 imageInside.style.cssText = `
-                    width: 100% !important;
-                    height: auto !important;
-                    max-width: 90vw;
-                    max-height: 90vh;
+                    width: ${isMobile ? '100vw' : '100%'} !important;
+                    height: ${isMobile ? 'auto' : 'auto'} !important;
+                    max-width: ${isMobile ? '100vw' : '90vw'};
+                    max-height: ${isMobile ? '100vh' : '90vh'};
+                    object-fit: contain;
                     opacity: 1 !important;
                 `;
             }
@@ -1508,7 +1526,6 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
 
         // Create left navigation arrow (positioned outside the content)
         const leftArrow = document.createElement('div');
-        const isMobile = window.innerWidth <= 1024;
         leftArrow.className = 'modal-nav-arrow modal-nav-left';
         leftArrow.tabIndex = 0;
         leftArrow.setAttribute('role', 'button');
@@ -1519,10 +1536,10 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
 `;
 
         leftArrow.style.cssText = `
-            position: absolute;
+                        position: absolute;
             left: ${isMobile ? '0px' : '320px'};
             top: 50%;
-            transform: translateY(-50%);
+            transform: ${isMobile ? 'translateY(calc(-50% - 5vh))' : 'translateY(-50%)'};
             width: 55px;
             height: 55px;
             background: rgba(0, 0, 0, 0.5);
@@ -1547,10 +1564,10 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
     <svg xmlns="http://www.w3.org/2000/svg" width="${arrowSize}" height="${arrowSize}" viewBox="0 0 24 24" fill="none" style="transform: translateX(1px);" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right-icon lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg>
 `;
         rightArrow.style.cssText = `
-                    position: absolute;
+                                        position: absolute;
                     right: ${isMobile ? '0px' : '320px'};
                     top: 50%;
-                    transform: translateY(-50%);
+                    transform: ${isMobile ? 'translateY(calc(-50% - 5vh))' : 'translateY(-50%)'};
                     width: 55px;
                     height: 55px;
                     background: rgba(0, 0, 0, 0.5);
@@ -1737,7 +1754,15 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
 
         document.body.appendChild(modalOverlay);
 
-        document.body.style.overflow = 'hidden';
+                document.body.style.overflow = 'hidden';
+        
+                                                                // Prevent page scroll behind modal on mobile, but allow pinch-to-zoom
+                                const preventScroll = (e) => {
+                                    if (e.touches.length === 1) e.preventDefault();
+                                };
+                                if (isMobile) {
+                                    modalOverlay.addEventListener('touchmove', preventScroll, { passive: false });
+                                }
 
         // Add scroll-to-zoom functionality
         let currentZoom = 1;
@@ -1852,7 +1877,7 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
         setTimeout(() => {
             modalOverlay.style.backgroundColor = 'rgba(0,0,0,0.8)';
             modalContent.style.opacity = '1';
-            modalContent.style.transform = 'scale(1)';
+            modalContent.style.transform = 'scale(1) translateY(-5vh)';
 
             // Show arrows with same timing
             leftArrow.style.opacity = '1';
@@ -1870,7 +1895,12 @@ function setupImageModal(imageWrapper, galleryData = null, mediaMetadata = null,
 
         // Close modal function
         function closeModal() {
-            videoProcessingAborted = true; // Stop any ongoing video processing
+                        videoProcessingAborted = true; // Stop any ongoing video processing
+            
+                                                // Clean up touchmove prevention
+                        if (isMobile) {
+                            modalOverlay.removeEventListener('touchmove', preventScroll);
+                        }
 
             // Hard reset to index 0 when modal closes
             imageWrapper.currentIndex = 0;

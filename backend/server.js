@@ -1856,106 +1856,8 @@ app.delete('/api/bookmarks/:reddit_post_id', async (req, res) => {
     }
 });
 
-// 4c. Get all bookmarks for a user
-app.get('/api/sections/with-previews', async (req, res) => {
-    try {
-        const authToken = req.cookies.authToken;
 
-        if (!authToken) {
-            return res.status(401).json({ error: 'No auth token provided' });
-        }
-
-        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
-        if (userResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid auth token' });
-        }
-
-        const stripeCustomerId = userResult.rows[0].user_id;
-
-        const result = await pool.query(`
-            SELECT DISTINCT ON (s.sort_order, s.id)
-                s.id as section_id,
-                s.name as section_name,
-                s.emoji as section_emoji,
-                s.description as section_description,
-                s.created_at as section_created_at,
-                b.reddit_post_id,
-                b.title,
-                b.url,
-                b.permalink,
-                b.subreddit,
-                b.score,
-                b.is_video,
-                b.domain,
-                b.author,
-                b.created_utc,
-                b.num_comments,
-                b.over_18,
-                b.preview,
-                b.selftext,
-                b.body,
-                b.is_gallery,
-                b.gallery_data,
-                b.media_metadata,
-                b.crosspost_parent_list,
-                b.content_type,
-                b.icon_url,
-                b.locked,
-                b.stickied
-            FROM sections s
-            LEFT JOIN bookmarks b ON b.section_id = s.id AND b.user_id = s.user_id
-            WHERE s.user_id = $1
-            ORDER BY s.sort_order ASC, s.id, b.sort_order DESC, b.created_utc DESC
-        `, [stripeCustomerId]);
-
-        res.json({ sections: result.rows });
-    } catch (error) {
-        console.error('GET sections with previews error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 4d. Get all bookmarks for a user
-app.get('/api/bookmarks', async (req, res) => {
-    try {
-        const authToken = req.cookies.authToken;
-        const { offset = 0, limit = 10 } = req.query;
-
-        if (!authToken) {
-            return res.status(401).json({ error: 'No auth token provided' });
-        }
-
-        // Get user ID from token
-        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
-        if (userResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid auth token' });
-        }
-
-        const stripeCustomerId = userResult.rows[0].user_id;
-
-        const result = await pool.query(`
-            SELECT id, reddit_post_id, title, url, permalink, subreddit, score,
-                   is_video, domain, author, created_utc, num_comments, over_18,
-                   selftext, body, is_gallery, gallery_data, media_metadata,
-                   crosspost_parent_list, content_type, icon_url, locked, stickied, preview
-            FROM bookmarks
-            WHERE user_id = $1
-            ORDER BY sort_order ASC, created_at DESC
-            LIMIT $2 OFFSET $3
-        `, [stripeCustomerId, parseInt(limit), parseInt(offset)]); 
-
-        res.json({ bookmarks: result.rows });
-    } catch (error) {
-        const now = new Date().toLocaleTimeString();
-        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
-            ['error', '/api/bookmarks', `${now} - ${error.message}`]);
-
-        console.error('GET bookmarks error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
- 
-// 4b. Get bookmarks for a user by section  
+// 4a. Get bookmarks for a user by section  
 app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
     try {
         const authToken = req.cookies.authToken;
@@ -1971,7 +1873,7 @@ app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
         }
 
         const stripeCustomerId = userResult.rows[0].user_id;
-        const { offset = 0, limit = 10, order = 'asc' } = req.query; 
+        const { offset = 0, limit = 10, order = 'asc' } = req.query;
 
         console.log('userId:', stripeCustomerId, 'sectionId:', sectionId, 'limit:', limit, 'offset:', offset);
 
@@ -2037,7 +1939,7 @@ app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
     }
 });
 
-// 4c. Get all sections with preview bookmarks in one query
+// 3. Get all bookmarks for a user
 app.get('/api/sections/with-previews', async (req, res) => {
     try {
         const authToken = req.cookies.authToken;
@@ -2053,29 +1955,85 @@ app.get('/api/sections/with-previews', async (req, res) => {
 
         const stripeCustomerId = userResult.rows[0].user_id;
 
-        // Get all sections with their first bookmark in ONE query
         const result = await pool.query(`
-            SELECT DISTINCT ON (s.id)
+            SELECT DISTINCT ON (s.sort_order, s.id)
                 s.id as section_id,
                 s.name as section_name,
                 s.emoji as section_emoji,
                 s.description as section_description,
                 s.created_at as section_created_at,
-                b.url as bookmark_url,
-                b.preview as bookmark_preview,
-                b.content_type as bookmark_content_type,
-                b.is_video as bookmark_is_video,
-                b.domain as bookmark_domain,
-                b.title as bookmark_title
+                b.reddit_post_id,
+                b.title,
+                b.url,
+                b.permalink,
+                b.subreddit,
+                b.score,
+                b.is_video,
+                b.domain,
+                b.author,
+                b.created_utc,
+                b.num_comments,
+                b.over_18,
+                b.preview,
+                b.selftext,
+                b.body,
+                b.is_gallery,
+                b.gallery_data,
+                b.media_metadata,
+                b.crosspost_parent_list,
+                b.content_type,
+                b.icon_url,
+                b.locked,
+                b.stickied
             FROM sections s
             LEFT JOIN bookmarks b ON b.section_id = s.id AND b.user_id = s.user_id
             WHERE s.user_id = $1
-            ORDER BY s.id, b.sort_order ASC, b.created_utc ASC
+            ORDER BY s.sort_order ASC, s.id, b.sort_order DESC, b.created_utc DESC
         `, [stripeCustomerId]);
 
         res.json({ sections: result.rows });
     } catch (error) {
         console.error('GET sections with previews error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 4. Get all bookmarks for a user
+app.get('/api/bookmarks', async (req, res) => {
+    try {
+        const authToken = req.cookies.authToken;
+        const { offset = 0, limit = 10 } = req.query;
+
+        if (!authToken) {
+            return res.status(401).json({ error: 'No auth token provided' });
+        }
+
+        // Get user ID from token
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid auth token' });
+        }
+
+        const stripeCustomerId = userResult.rows[0].user_id;
+
+        const result = await pool.query(`
+            SELECT id, reddit_post_id, title, url, permalink, subreddit, score,
+                   is_video, domain, author, created_utc, num_comments, over_18,
+                   selftext, body, is_gallery, gallery_data, media_metadata,
+                   crosspost_parent_list, content_type, icon_url, locked, stickied, preview
+            FROM bookmarks
+            WHERE user_id = $1
+            ORDER BY sort_order ASC, created_at DESC
+            LIMIT $2 OFFSET $3
+        `, [stripeCustomerId, parseInt(limit), parseInt(offset)]); 
+
+        res.json({ bookmarks: result.rows });
+    } catch (error) {
+        const now = new Date().toLocaleTimeString();
+        await pool.query('INSERT INTO monitoring_logs (log_level, endpoint, error_message) VALUES ($1, $2, $3)',
+            ['error', '/api/bookmarks', `${now} - ${error.message}`]);
+
+        console.error('GET bookmarks error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -2329,7 +2287,7 @@ app.get('/api/sections', async (req, res) => {
     }
 });
 
-// Create new section
+// 1. Create new section
 app.post('/api/sections', async (req, res) => {
     try {
         const authToken = req.cookies.authToken;
@@ -2373,6 +2331,7 @@ app.post('/api/sections', async (req, res) => {
     }
 });
 
+// 2. Delete section
 app.delete('/api/sections/:sectionId', async (req, res) => {
     const authToken = req.cookies.authToken;
     const { sectionId } = req.params;
@@ -2437,7 +2396,7 @@ app.delete('/api/sections/:sectionId', async (req, res) => {
     }
 });
 
-// Share sections endpoint
+// 3. Share sections endpoint
 app.post('/api/sections/:sectionId/share', async (req, res) => {
     try {
         const authToken = req.cookies.authToken;
@@ -2496,7 +2455,7 @@ app.post('/api/sections/:sectionId/share', async (req, res) => {
     }
 });
 
-// Get code for section
+// 4. Get code for section
 app.get('/api/share/:shareCode', async (req, res) => {
     try {
         const { shareCode } = req.params;
@@ -2552,7 +2511,7 @@ app.get('/api/share/:shareCode', async (req, res) => {
     }
 });
 
-// Section description endpoint
+// 5. Section description endpoint
 app.put('/api/sections/:sectionId/description', async (req, res) => {
     try {
         const authToken = req.cookies.authToken;
@@ -2599,7 +2558,7 @@ app.put('/api/sections/:sectionId/description', async (req, res) => {
     }
 });
 
-// send html response for opengl
+// Send html response for opengl 
 app.get('/share/:shareCode', async (req, res) => {
     try {
         const { shareCode } = req.params;
@@ -2719,9 +2678,7 @@ if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 // Serve combined videos
 app.use('/temp', express.static(tempDir));
 app.get('/api/reddit-video/:videoId', async (req, res) => {
-    //console.log('🔍 ENDPOINT HIT - videoId:', req.params.videoId);
-    //console.log('🔍 Query params:', req.query);
-    //console.log('🔍 Request from:', req.ip);
+
     try {
         const { videoId } = req.params;
         // Get URLs from query parameters if provided by frontend
@@ -3983,7 +3940,7 @@ app.post('/verify-token', verifyTokenLimiter, async (req, res) => {
 if (STRIPE_ENABLED) {
 app.post('/api/create-checkout', async (req, res) => {
     try {
-        const { type, email } = req.body;
+        const { email } = req.body;
 
         if (email) {
             const existingSubscription = await pool.query(`
@@ -4033,7 +3990,7 @@ app.post('/api/create-checkout', async (req, res) => {
 if (STRIPE_ENABLED) {
 app.post('/api/create-checkout-pro', async (req, res) => {
     try {
-        const { type, email } = req.body;
+        const { email } = req.body;
 
         if (email) {
             const existingSubscription = await pool.query(`
