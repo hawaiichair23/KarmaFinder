@@ -2099,13 +2099,8 @@ body.dark-mode .lock-icon {
 .checkmark {
     color: #007bff;
     font-weight: bold;
-    margin: 0 5px;
-}
-
-.checkmark {
-    color: #007bff;
-    font-weight: bold;
-    margin: 0px;
+    margin-left: 5px;
+    margin-right: 3px;
 }
 
 .bell,
@@ -2878,11 +2873,6 @@ body.forest-theme .link-preview-btn:hover {
     color: var(--text-color);
     font-size: 1rem;
 }
-@media (min-width: 1025px) {
-    .mobile-top-bar {
-        display: none !important;
-    }
-}
 
 @media (max-width: 1024px) {
     #loginLogoutBtn {
@@ -3026,6 +3016,11 @@ body.forest-theme .link-preview-btn:hover {
         padding-right: 2px;
         padding-top: 5px;
         padding-bottom: 5px;
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .mobile-top-bar.hidden {
+        transform: translateY(-100%);
     }
 
     .mobile-top-bar .logo {
@@ -3555,15 +3550,15 @@ body.forest-theme .link-preview-btn:hover {
         border-radius: 0px;
     }
 
-                .section-picker-item .image-wrapper {
-                    width: 80% !important;
-                    height: 100% !important;
-                    object-fit: contain !important;
-                }
+    .section-picker-item .image-wrapper {
+        width: 80% !important;
+        height: 100% !important;
+        object-fit: contain !important;
+    }
 
     .result-image {
         width: 100% !important;
-        max-height: 325px;
+        max-height: 460px;
         object-fit: cover;
         border-radius: 0px;
     }
@@ -3721,5 +3716,9 @@ body.forest-theme .link-preview-btn:hover {
 body.dark-mode .search-input-container {
     border: 1px solid var(--border-color);
     background-color: #18181d;
+}
+
+.result-title {
+    -webkit-line-clamp: 4;
 }
 }

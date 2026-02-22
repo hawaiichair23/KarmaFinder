@@ -3919,7 +3919,7 @@ app.post('/api/auto-login-after-payment', async (req, res) => {
         res.cookie('authToken', authToken, {
             httpOnly: true,
             secure: false,
-            sameSite: 'strict',
+            sameSite: 'lax',
             maxAge: 90 * 24 * 60 * 60 * 1000
         });
 

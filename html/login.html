@@ -281,7 +281,7 @@
             padding: 20px;
             color: var(--meta-text);
             font-size: 13px;
-            border-top: 1px solid var(--border-color);
+            border: 1px solid var(--border-color);
             background: var(--card-color-b);
         }
 
@@ -313,7 +313,8 @@
         @media (max-width: 600px) {
             .container {
                 margin: 20px auto;
-                border-radius: 8px;
+                border: none;
+                box-shadow: none;
             }
 
             .header {
@@ -324,8 +325,23 @@
                 padding: 0 20px 30px;
             }
 
+            .footer-info {
+                background-color: var(--button-bg);
+                border: none;
+            }
+
             h1 {
                 font-size: 28px;
+            }
+
+            .theme-toggle {
+                display: none;
+            }
+
+            body.dark-mode .container {
+                background-color: transparent;
+                box-shadow: none;
+                border-color: none;
             }
         }
     </style>
@@ -444,6 +460,7 @@
                         successMessage.textContent = data.error;
                         successMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                         submitButton.textContent = 'Send magic link';
+                        
                     }
                 } catch (error) {
                     alert('Network error. Please try again.');
