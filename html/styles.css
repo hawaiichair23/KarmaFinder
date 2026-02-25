@@ -2884,6 +2884,10 @@ body.forest-theme .link-preview-btn:hover {
     display: none;
 }
 
+.screen:not(.active) {
+    display: none;
+}
+
 .mobile-vote-item {
     display: none;
 }

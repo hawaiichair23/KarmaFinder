@@ -230,8 +230,19 @@
         window.addEventListener('popstate', () => {
             setTimeout(() => {
                 const urlParams = new URLSearchParams(window.location.search);
-                const isBookmarksPage = urlParams.get('page') === 'bookmarks';
-                const isSearchPage = urlParams.get('page') === 'search';
+
+                // Handle tab-level navigation
+                const page = urlParams.get('page');
+                if (page === 'search') {
+                    switchTab('search', true);
+                } else if (page === 'bookmarks') {
+                    switchTab('bookmarks', true);
+                } else {
+                    switchTab('home', true);
+                }
+
+                const isBookmarksPage = page === 'bookmarks';
+                const isSearchPage = page === 'search';
                 const isSharePage = window.location.pathname.includes('/share/');
 
                 if (isSearchPage) {
@@ -3993,7 +4004,7 @@
         });
 
         // Mobile bookmarks link handler
-        document.querySelector('.mobile-bottom-bar a[href="?page=bookmarks"]').addEventListener('click', function (e) {
+        document.querySelector('.mobile-bottom-bar [data-tab="bookmarks"]').addEventListener('click', function (e) {
             if (!isLoggedIn) {
                 e.preventDefault();
                 window.location.href = 'html/login.html?redirect=bookmarks';
@@ -4250,6 +4261,48 @@
                     history.pushState({}, '', newURL);
                 }
             }
+
+        const tabInitialized = { home: true, search: false, bookmarks: false };
+
+        function switchTab(tab, skipPush = false) {
+            // Hide all screens
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+
+            // Show the right one
+            const screen = document.getElementById('screen-' + tab);
+            if (screen) screen.classList.add('active');
+
+            // Manage data-page attribute for search
+            if (tab === 'search') {
+                document.body.setAttribute('data-page', 'search');
+            } else {
+                document.body.removeAttribute('data-page');
+            }
+
+            // Update URL without reloading
+            if (!skipPush) {
+                const url = new URL(window.location);
+                if (tab === 'home') {
+                    url.searchParams.delete('page');
+                } else {
+                    url.searchParams.set('page', tab);
+                }
+                history.pushState({}, '', url);
+            }
+
+            // Init tab on first visit
+            if (!tabInitialized[tab]) {
+                tabInitialized[tab] = true;
+                window.dispatchEvent(new Event(tab + '-tab-init'));
+            }
+
+            // Update active state on bottom bar
+            document.querySelectorAll('.bottom-bar-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            const activeItem = document.querySelector(`.bottom-bar-item[data-tab="${tab}"]`);
+            if (activeItem) activeItem.classList.add('active');
+        }
 
         function initPage() {
 
