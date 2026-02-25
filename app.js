@@ -2067,7 +2067,7 @@
             }
 
             document.querySelector('.vector-scroll-loader')?.remove();
-            showLoading();
+            showLoading(getResultsContainer());
 
             // Only do vector search if there is a query
             fetch(`${API_BASE}/api/vector-search`, {
@@ -2366,7 +2366,7 @@
 
         async function performProgressiveSearch(after = null, before = null, navigateBack = false, isInitialLoad = false) {
 
-            showLoading();
+            showLoading(getResultsContainer());
 
             if (navigateBack || isPopstateEvent) {
                 const cachedPage = loadPageDataFromSession(currentPageIndex);
@@ -2512,11 +2512,7 @@
 
                 currentAfter = cachedPage.after || null;
                 currentBefore = cachedPage.before || null;
-
-                const tokenForThisPage = buildCacheKey(
-                    currentPageIndex === 0 ? 'page_1' : currentAfter,
-                    currentFilters
-                );            
+         
                 displayResults(cachedPage.results);
                 
                 // Only preload bookmarks if there are results
@@ -2560,7 +2556,7 @@
         if (after) params.append('after', after);
         params.append('limit', limit.toString());
 
-        showLoading();
+        showLoading(getResultsContainer());
 
         // Attempt DB fetch first
         fetch(`${API_BASE}/api/db-posts?${params.toString()}`)
@@ -2656,7 +2652,7 @@
         }
 
         function noResultsMessage(errorText = "No results found. Try different search terms or filters.🔎") {
-            showLoading();
+            showLoading(getResultsContainer());
             showError(errorText);
             handleRandomResponse([
                 "I couldn't find that, kid.",
@@ -2902,9 +2898,27 @@
         
             return { resultContent, snippet };
         }
+
+        const getPaginationContainer = () => {
+            if (document.body.getAttribute('data-page') === 'search' && window.innerWidth <= 1024) {
+                return document.getElementById('search-pagination');
+            }
+            return document.getElementById('pagination');
+        };
+
+        const getResultsContainer = () => {
+            if (document.body.getAttribute('data-page') === 'search' && window.innerWidth <= 1024) {
+                return document.getElementById('search-results');
+            }
+            if (window.location.search.includes('page=bookmarks')) {
+                return document.getElementById('bookmarks-results');
+            }
+            return document.getElementById('results');
+        };
         
         async function displayResults(data, isAppend = false) {
-            // For append mode in bookmarks
+            const resultsContainer = getResultsContainer();
+            // For append mode
             if (!isAppend) {
                 resultsContainer.style.opacity = 0;
                 resultsContainer.innerHTML = '';
@@ -3446,8 +3460,9 @@
         }
         
         function updatePagination() {
+            const container = getPaginationContainer();
             const visibleCards = document.querySelectorAll('.result-card:not([style*="display: none"])');
-            paginationContainer.innerHTML = '';
+            container.innerHTML = '';
 
             // ← Previous button
             if (currentPageIndex > 0) {
@@ -3466,7 +3481,7 @@
                         console.warn('No session data found for previous page');
                     }
                 });
-                paginationContainer.appendChild(prevButton);
+                container.appendChild(prevButton);
             }
 
             // → Next button
@@ -3479,7 +3494,7 @@
                     currentPageIndex++;
                     handleSearchRequest(currentAfter, null, false, false);
                 });
-                paginationContainer.appendChild(nextButton);
+                container.appendChild(nextButton);
             }
         }
 
@@ -4823,18 +4838,16 @@
             });
         }
 
-        function showLoading() {
-
+        function showLoading(targetContainer = resultsContainer) {
             isLoading = true;
-            resultsContainer.innerHTML = '';
-            resultsContainer.innerHTML = `
-<div class='results-error' id='spinner-box' style="opacity: 0; transition: opacity 0.25s ease;"></div>
-`;
+            targetContainer.innerHTML = '';
+            targetContainer.innerHTML = `
+        <div class='results-error' id='spinner-box' style="opacity: 0; transition: opacity 0.25s ease;"></div>
+        `;
             const spinnerWrapper = createCanvasSpinner();
             const spinnerBox = document.getElementById('spinner-box');
             spinnerBox.appendChild(spinnerWrapper);
 
-            // Trigger the fade-in animation
             setTimeout(() => {
                 requestAnimationFrame(() => {
                     spinnerBox.style.opacity = '1';
@@ -4842,7 +4855,7 @@
             }, 10);
 
             paginationContainer.innerHTML = '';
-            resultsContainer.style.opacity = 1;
+            targetContainer.style.opacity = 1;
         }
 
         function decodeEntities(input) {

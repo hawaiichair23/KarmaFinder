@@ -334,7 +334,7 @@ function handleTabSpecificPI(tabName) {
 // Function to create and insert the tabs UI
 async function insertTabsUI(tabsData) {
     let tabContainer = document.querySelector('.tab-container');
-    const contentContainer = document.querySelector('.results-container');
+    const contentContainer = document.getElementById('bookmarks-results');
 
     if (!tabContainer) {
         const tabsSectionHTML = `
@@ -951,7 +951,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function insertSharedTabUI(sectionData) {
     let tabContainer = document.querySelector('.tab-container');
-    const contentContainer = document.querySelector('.results-container');
+    const contentContainer = document.getElementById('bookmarks-results');
 
     if (!tabContainer) {
         const tabsSectionHTML = `
@@ -2542,7 +2542,7 @@ function handleDragOver(e) {
 
     const afterElement = getDragAfterElement(e.clientY);
     const dragging = document.querySelector('.dragging');
-    const resultsContainer = document.querySelector('.results-container');
+    const resultsContainer = document.getElementById('bookmarks-results');
 
     if (afterElement == null) {
         resultsContainer.appendChild(dragging);
@@ -2681,7 +2681,7 @@ function setupMediaVisibilityOptimization() {
 }
 
 function showErrorWithHeader(message, sectionId, sectionName) {
-    const resultsContainer = document.querySelector('.results-container');
+    const resultsContainer = document.getElementById('bookmarks-results');
     resultsContainer.innerHTML = '';
 
     // Build header
@@ -2780,7 +2780,7 @@ function showSectionMoreMenu(sectionId, sectionName) {
 }
 
 async function showSectionsAntepage(skipHistoryPush = false) {
-    showLoading();
+    showLoading(document.getElementById('bookmarks-results'));
 
     if (!skipHistoryPush) {
         const url = new URL(window.location);
@@ -2873,7 +2873,7 @@ async function showSectionsAntepage(skipHistoryPush = false) {
     }
 
         // Replace loading animation with content
-        const resultsContainer = document.querySelector('.results-container');
+        const resultsContainer = document.getElementById('bookmarks-results');
         resultsContainer.innerHTML = '';
         resultsContainer.appendChild(grid);
 
@@ -2903,7 +2903,7 @@ async function showSectionsAntepage(skipHistoryPush = false) {
 function loadSharedContent(shareCode, isLoadMore = false) {
     if (isLoading) return;
 
-    const resultsContainer = document.querySelector('.results-container');
+    const resultsContainer = document.getElementById('bookmarks-results');
 
     // If not loading more, reset everything
     if (!isLoadMore) {
@@ -2911,7 +2911,7 @@ function loadSharedContent(shareCode, isLoadMore = false) {
         sharedContentOffset = 0;
         hasMoreSharedContent = false;
         resultsContainer.textContent = '';
-        showLoading();
+        showLoading(document.getElementById('bookmarks-results'));
     }
     isLoading = true;
 
@@ -3007,18 +3007,15 @@ function loadSharedContent(shareCode, isLoadMore = false) {
 // Unified loading function for all sections
 function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false, numToLoad = 10) {
     if (isLoading) return;
-    if (isMobile) {
-        window.scrollTo(0, 0);
-    }
-    const resultsContainer = document.querySelector('.results-container');
+
+    const resultsContainer = document.getElementById('bookmarks-results');
 
     // If not loading more, reset the offset for this section
     if (!isLoadMore) {
         sectionOffsets[sectionId] = 0;
         hasMoreBookmarks[sectionId] = false;
         resultsContainer.textContent = '';
-        showLoading();
-        
+        showLoading(document.getElementById('bookmarks-results'));  
     }
 
     isLoading = true;
@@ -3055,71 +3052,8 @@ function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false,
                 return;
             }
 
-            if (data.bookmarks && data.bookmarks.length > 0) {
-                // Build mobile section header on first load
-                if (!isLoadMore && isMobile()) {
-                    const existingHeader = document.querySelector('.mobile-section-header');
-                    if (existingHeader) existingHeader.remove();
-                    const mobileSectionName = data.name || 'Bookmarks';
-                    const totalCount = data.total_count || 0;
-            
-                    const header = document.createElement('div');
-                    header.className = 'mobile-section-header';
-                    header.innerHTML = `
-                        <div class="mobile-section-header-top">
-                            <div class="mobile-section-header-left">
-                                <div class="mobile-section-title">${mobileSectionName}</div>
-                                <div class="mobile-section-count">${totalCount} ${totalCount === 1 ? 'Save' : 'Saves'}</div>
-                            </div>
-                            <div class="mobile-section-header-right">
-                                <button class="mobile-section-more-btn" title="More">...</button>
-                                <button class="mobile-section-share-btn" title="Share">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
-                                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-                                        <polyline points="16 6 12 2 8 6"/>
-                                        <line x1="12" y1="2" x2="12" y2="15"/>
-                                    </svg>
-                                </button>
-                            </div>
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
-                                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-                                    <polyline points="16 6 12 2 8 6"/>
-                                    <line x1="12" y1="2" x2="12" y2="15"/>
-                                </svg>
-                            </button>
-                        </div>
-                            <div class="mobile-section-actions">
-                                                        <button class="mobile-section-action-btn" id="mobileOrganizeBtn">
-                                                                <img src="../assets/icons8-rook-96.png" class="organize-icon">
-                                Organize
-                                </button>
-                                <button class="mobile-section-action-btn" id="mobileImportBtn">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                                Import
-                                </button>
-                                <button class="mobile-section-action-btn" id="mobileSectionInfoBtn">
-                                <img src="../assets/icons8-tag-96.png" class="info-icon">
-                                Info
-                                </button>
-                                </div>
-                                `;
-                                
-                                const resultsContainer = document.querySelector('.results-container');
-                                resultsContainer.insertBefore(header, resultsContainer.firstChild);
-            
-                    // Wire up buttons
-                    header.querySelector('.mobile-section-share-btn').addEventListener('click', () => showShareMenu());
-                    header.querySelector('#mobileOrganizeBtn').addEventListener('click', () => {});
-                    header.querySelector('#mobileImportBtn').addEventListener('click', () => initiateRedditLogin());
-                    header.querySelector('#mobileSectionInfoBtn').addEventListener('click', () => showSectionInfo());
-                    header.querySelector('.mobile-section-more-btn').addEventListener('click', async () => {
-                        const result = await showSectionMoreMenu(sectionId, mobileSectionName);
-                        if (!result) return;
-                        if (result.action === 'rename') await renameSectionById(result.sectionId, result.sectionName);
-                        else if (result.action === 'delete') await deleteSectionById(result.sectionId, result.sectionName);
-                    });
-                    }
-                    // Add to our section-specific array
+            if (data.bookmarks && data.bookmarks.length > 0) { 
+                // Add to our section-specific array
                 if (isLoadMore && sectionBookmarks[sectionId]) {
                     sectionBookmarks[sectionId] = sectionBookmarks[sectionId].concat(data.bookmarks);
                 } else {
@@ -3166,6 +3100,7 @@ function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false,
                 // Build mobile section header after displayResults
                 if (!isLoadMore && isMobile()) {
                     setTimeout(() => {
+                        window.scrollTo(0, 0);
                         const existingHeader = document.querySelector('.mobile-section-header');
                         if (existingHeader) existingHeader.remove();
                         const mobileSectionName = data.name || 'Bookmarks';
@@ -3210,7 +3145,6 @@ function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false,
                                     </div>
                                     `;
                                     
-                                     const resultsContainer = document.querySelector('.results-container');
                                     resultsContainer.prepend(header);
                 
                         header.querySelector('.mobile-section-share-btn').addEventListener('click', () => showShareMenu());
@@ -3223,17 +3157,17 @@ function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false,
                             if (result.action === 'rename') await renameSectionById(result.sectionId, result.sectionName);
                             else if (result.action === 'delete') await deleteSectionById(result.sectionId, result.sectionName);
                         });
-                        }, 100);
+                        }, 0);
                 }
-
-                setTimeout(() => {
-                    makeBookmarksDraggable(sectionId);
-                    addSectionDropdowns().then(() => {
-                        setupDropdownEvents();
-                    });
-                    setupMediaVisibilityOptimization();
-                }, 150);
-
+                if (!isMobile){
+                    setTimeout(() => {
+                        makeBookmarksDraggable(sectionId);
+                        addSectionDropdowns().then(() => {
+                            setupDropdownEvents();
+                        });
+                        setupMediaVisibilityOptimization();
+                    }, 150);
+                }
                 // Apply bookmarks to newly rendered posts
                 const existingBookmarks = JSON.parse(sessionStorage.getItem('bookmarks') || '{}');
                 document.querySelectorAll('.bookmark-icon').forEach(icon => {

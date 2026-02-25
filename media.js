@@ -406,7 +406,7 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
         let prevTranslate = 0;
         let isDragging = false;
         let animationID = 0;
-        const SWIPE_THRESHOLD = 100;
+        const SWIPE_THRESHOLD = 90;
         
         imgWrapper.addEventListener('touchstart', (e) => {
             touchStartX = e.touches[0].clientX;

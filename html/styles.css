@@ -16,7 +16,7 @@
 
     --comments-bg-mobile: #ececf4f7;
     --button-bg-mobile: #ececf5;
-    --topbar-mobile: #f0f3f8;
+    --topbar-mobile: #f2f4f8;
 
     /* Text Colors */
     --text-color: #1a1a1b;
@@ -1086,7 +1086,7 @@ body.dark-mode .shimmer::before {
     height: 116px;
     overflow-y: hidden;
     background-color: var(--comments-bg);
-    border-radius: 7px;
+    border-radius: 9px;
     padding: 8px;
     margin: -2px 25px 0 15px;
     transition: opacity 0.3s ease;
@@ -1133,8 +1133,10 @@ body.dark-mode .comment {
 .comment-author {
     font-weight: bold;
     margin-bottom: 2px;
+    font-size: 0.9rem;
     display: flex;
     align-items: center;
+    font-family: 'Lato', 'sans-serif';
 }
 
 .comment-author a {
@@ -2907,6 +2909,16 @@ body.forest-theme .link-preview-btn:hover {
 
 @media (max-width: 1024px) {
 
+    .comment-meta {
+        color: var(--medium-text);
+    }
+
+    body.safe-search-enabled .nsfw .image-wrapper img,
+    body.safe-search-enabled .nsfw .image-wrapper video,
+    body.safe-search-enabled .nsfw .image-wrapper .thumbnail {
+        filter: none;
+    }
+
     .results-error {
         padding: 13px;
         margin: 0 8px;
@@ -3537,11 +3549,10 @@ body.forest-theme .link-preview-btn:hover {
     }
 
     .result-subreddit {
-        font-size: 1rem;
+        font-size: 0.9rem;
         overflow: visible;
         gap: 7px;
-        font-family: 'Lato', 'sans-serif';
-        margin-top: -1px;
+        margin-top: 1px;
     }
 
     .result-author {
@@ -3580,6 +3591,7 @@ body.forest-theme .link-preview-btn:hover {
         width: 97%;
         height: 86%;
         margin: 0;
+        border-radius: 15px;
         margin-top: 12px;
         background-color: var(--comments-bg-mobile);
     }
@@ -3812,8 +3824,9 @@ body.dark-mode .search-input-container {
 
 .result-title {
     -webkit-line-clamp: 5;
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     padding-bottom: 0.2rem;
+    font-family: 'Lato', 'sans-serif';
 }
 
 .comment-icon-img {
