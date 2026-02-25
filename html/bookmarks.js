@@ -375,11 +375,12 @@ async function insertTabsUI(tabsData) {
         newTabElement.dataset.tabId = tab.id;
         newTabElement.dataset.sortOrder = tab.sort_order;
 
-        // Create emoji span
+        // Create emoji span 
         const emojiSpan = document.createElement('span');
         emojiSpan.classList.add('tab-emoji');
         emojiSpan.textContent = tab.emoji || '📌';
         newTabElement.appendChild(emojiSpan);
+    
 
         // Create title span
         const titleSpan = document.createElement('span');
@@ -671,6 +672,119 @@ function setupTabEvents() {
     });
 }
 
+async function renameSectionById(sectionId, currentName, tabIndex = null) {
+    const { value: newName } = await Swal.fire({
+        title: 'Rename Section',
+        input: 'text',
+        inputLabel: 'Enter new section name:',
+        inputValue: currentName,
+        inputPlaceholder: 'Section name',
+        showCancelButton: true,
+        confirmButtonText: 'Rename',
+        cancelButtonText: 'Cancel'
+    });
+
+    if (!newName || newName.trim() === '') return;
+
+    try {
+        const response = await fetch(`${API_BASE}/api/sections/${sectionId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ name: newName })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            // Update desktop tab if present
+            const tab = document.querySelector(`[data-tab-id="${sectionId}"]`);
+            if (tab) {
+                const titleSpan = tab.querySelector('.tab-title');
+                if (titleSpan) titleSpan.textContent = newName;
+                else tab.textContent = newName;
+
+                if (tabIndex !== null) {
+                    sessionStorage.setItem('focusTabAfterRefresh', tabIndex);
+                }
+
+                await initializeTabs();
+
+                const storedIndex = sessionStorage.getItem('focusTabAfterRefresh');
+                if (storedIndex !== null) {
+                    const tabs = document.querySelectorAll('.tab');
+                    const targetTab = tabs[parseInt(storedIndex)];
+                    if (targetTab) targetTab.focus();
+                    sessionStorage.removeItem('focusTabAfterRefresh');
+                }
+            }
+
+            // Update mobile section header if present
+            const mobileTitle = document.querySelector('.mobile-section-title');
+            if (mobileTitle) mobileTitle.textContent = newName;
+
+        } else {
+            Swal.fire({
+                title: 'Error',
+                text: 'Failed to rename section: ' + (data.error || 'Unknown error'),
+                icon: 'error',
+                didOpen: () => document.activeElement.blur()
+            });
+        }
+    } catch (error) {
+        console.error('Error renaming section:', error);
+        Swal.fire({
+            title: 'Error',
+            text: 'Failed to rename section',
+            didOpen: () => document.activeElement.blur()
+        });
+    }
+}
+
+async function deleteSectionById(sectionId, sectionName) {
+    const result = await Swal.fire({
+        title: `Delete Section?`,
+        text: `This will permanently delete '${sectionName}' and all its bookmarks.`,
+        showCancelButton: true,
+        confirmButtonText: 'Delete',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#ef4444',
+        didOpen: () => {
+            if (!document.body.classList.contains('user-is-tabbing')) {
+                document.activeElement.blur();
+            }
+        }
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+        await fetch(`${API_BASE}/api/sections/${sectionId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+
+        if (isMobile()) {
+            showSectionsAntepage();
+            showToast(`Deleted ${sectionName}.`, 'error');
+        } else {
+            await initializeTabs();
+
+            const sectionsResponse = await fetch(`${API_BASE}/api/sections`, { credentials: 'include' });
+            const data = await sectionsResponse.json();
+            const activeTab = document.querySelector('.tab.active');
+            const allTabs = document.querySelectorAll('.tab');
+            const activeTabIndex = Array.from(allTabs).indexOf(activeTab);
+            const tabs = document.querySelectorAll('.tab');
+            const activeSectionId = tabs[activeTabIndex]?.dataset.tabId;
+            if (activeSectionId) loadSectionContent(activeSectionId, false);
+            else showSectionsAntepage();
+        }
+
+    } catch (err) {
+        console.error('❌ Error deleting section:', err);
+    }
+}
+
 function setupContextMenuHandlers() {
     const contextMenu = document.getElementById('contextMenu');
     if (!contextMenu) return;
@@ -682,125 +796,14 @@ function setupContextMenuHandlers() {
 
             if (action === 'rename') {
                 const currentName = contextMenu.dataset.currentTabText;
-                const { value: newName } = await Swal.fire({
-                    title: 'Rename Section',
-                    input: 'text',
-                    inputLabel: 'Enter new section name:',
-                    inputValue: currentName,
-                    inputPlaceholder: 'Section name',
-                    showCancelButton: true,
-                    confirmButtonText: 'Rename',
-                    cancelButtonText: 'Cancel'
-                });
+                const sectionId = contextMenu.dataset.currentSectionId;
+                const tabIndex = parseInt(contextMenu.dataset.currentTabIndex);
+                await renameSectionById(sectionId, currentName, tabIndex);
 
-                if (newName && newName.trim() !== '') {
-                    const sectionId = contextMenu.dataset.currentSectionId;
-                    const tabIndex = parseInt(contextMenu.dataset.currentTabIndex);
-
-                    try {
-                        const response = await fetch(`${API_BASE}/api/sections/${sectionId}`, {
-                            method: 'PUT',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            credentials: 'include',
-                            body: JSON.stringify({ name: newName })
-                        });
-
-                        const data = await response.json();
-                        if (data.success) {
-                            // Update the tab name in the UI
-                            const tab = document.querySelector(`[data-tab-id="${sectionId}"]`);
-                            if (tab) {
-                                const titleSpan = tab.querySelector('.tab-title');
-                                if (titleSpan) {
-                                    titleSpan.textContent = newName;
-                                } else {
-                                    tab.textContent = newName;
-                                }
-
-                                // Store which tab to focus after refresh
-                                sessionStorage.setItem('focusTabAfterRefresh', tabIndex);
-
-                                // Refresh tabs and dropdowns to reflect the new name
-                                initializeTabs().then(() => {
-                                    // Restore focus to the correct tab
-                                    const storedIndex = sessionStorage.getItem('focusTabAfterRefresh');
-                                    if (storedIndex !== null) {
-                                        const tabs = document.querySelectorAll('.tab');
-                                        const targetTab = tabs[parseInt(storedIndex)];
-                                        if (targetTab) {
-                                            targetTab.focus();
-                                        }
-                                        sessionStorage.removeItem('focusTabAfterRefresh');
-                                    }
-                                });
-                            }
-                        } else {
-                            Swal.fire({
-                                title: 'Error',
-                                text: 'Failed to rename section: ' + (data.error || 'Unknown error'),
-                                icon: 'error',
-                                didOpen: () => {
-                                    document.activeElement.blur();
-                                }
-                            });
-                        }
-                    } catch (error) {
-                        console.error('Error renaming section:', error);
-                        Swal.fire({
-                        title: 'Error', 
-                        text: 'Failed to rename section',
-                        didOpen: () => {
-                                document.activeElement.blur();
-                            }
-                        });
-                    }
-                }
             } else if (action === 'delete') {
                 const sectionName = contextMenu.dataset.currentTabText;
-                const result = await Swal.fire({
-                    title: `Delete Section?`,
-                    text: `This will permanently delete '${sectionName}' and all its bookmarks.`,
-                    showCancelButton: true,
-                    confirmButtonText: 'Delete',
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#ef4444',
-                    didOpen: () => {
-                        if (!document.body.classList.contains('user-is-tabbing')) {
-                            document.activeElement.blur();
-                        }
-                    }
-                });
-
-                if (result.isConfirmed) {
-                    const sectionId = contextMenu.dataset.currentSectionId;
-
-                                        fetch(`${API_BASE}/api/sections/${sectionId}`, {
-                        method: 'DELETE',
-                        credentials: 'include'
-                    })
-                        .then(res => res.json())
-                        .then(data => {
-                            initializeTabs().then(() => {
-                                fetch(`${API_BASE}/api/sections`, {
-                                    credentials: 'include'
-                                })
-                                    .then(response => response.json())
-                                    .then(data => {
-                                        const activeTab = document.querySelector('.tab.active');
-                                        const allTabs = document.querySelectorAll('.tab');
-                                        const activeTabIndex = Array.from(allTabs).indexOf(activeTab);
-                                        const tabs = document.querySelectorAll('.tab');
-                                        const sectionId = tabs[activeTabIndex]?.dataset.tabId;
-                                        loadSectionContent(sectionId, false);
-                                    });
-                            });
-                        })
-                        .catch(err => {
-                            console.error('❌ Error deleting section:', err);
-                        });
-                }
+                const sectionId = contextMenu.dataset.currentSectionId;
+                await deleteSectionById(sectionId, sectionName);
             }
 
             contextMenu.style.display = 'none';
@@ -938,10 +941,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (isSharedPage) {
         document.body.classList.add('is-shared-page');
     }
-    const urlParams = new URLSearchParams(window.location.search);
-    const page = urlParams.get('page');
-    
-
     if (window.location.pathname.includes('/share/')) {
         const shareCode = window.location.pathname.split('/share/')[1];
         loadSharedContent(shareCode);
@@ -1732,7 +1731,7 @@ function setupShareMenuEvents() {
                         }
                     } else {
                         // Original logic for owned sections
-                                                const urlParams = new URLSearchParams(window.location.search);
+                        const urlParams = new URLSearchParams(window.location.search);
                         const sectionId = urlParams.get('section');
                         
                         const response = await fetch(`${API_BASE}/api/sections/${sectionId}/share`, {
@@ -2136,11 +2135,18 @@ function showImportMenu(targetElement, event) {
         return;
     }
 
-    const rect = targetElement.getBoundingClientRect();
-    menu.style.position = 'absolute';
-    menu.style.left = rect.left + 'px';
-    menu.style.top = (rect.bottom + window.scrollY + 5) + 'px';
-    menu.style.display = 'block';
+        if (targetElement) {
+            const rect = targetElement.getBoundingClientRect();
+            menu.style.position = 'absolute';
+            menu.style.left = rect.left + 'px';
+            menu.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+        } else {
+            menu.style.position = 'fixed';
+            menu.style.left = '50%';
+            menu.style.top = '50%';
+            menu.style.transform = 'translate(-50%, -50%)';
+        }
+        menu.style.display = 'block';
 
     // Check if this was triggered by keyboard
     const wasKeyboard = event && event.detail === 0;
@@ -2285,6 +2291,7 @@ async function showSectionInfo() {
     let createdDate = 'Unknown';
     let description = 'No description';
     let sectionName = 'Unknown';
+    let lastModified = 'Unknown';
 
     if (isSharedPage) {
         // For shared pages, get info from the share code
@@ -2307,9 +2314,11 @@ async function showSectionInfo() {
             bookmarkCount = 0;
         }
     } else {
-        // Original logic for owned sections
+                // Original logic for owned sections
         const activeTab = document.querySelector('.tab.active');
-        const sectionId = activeTab?.dataset.tabId;
+        const sectionId = activeTab
+            ? activeTab.dataset.tabId
+            : new URLSearchParams(window.location.search).get('section');
 
                 try {
             const response = await fetch(`${API_BASE}/api/bookmarks/section/${sectionId}?offset=0&limit=1`, {
@@ -2344,7 +2353,7 @@ async function showSectionInfo() {
             `<textarea id="sectionDescription" maxlength="500">${description === 'No description' ? '' : description.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
         <div class="description-counter" id="descriptionCounter">0/500</div>`
         }</p>
-    ${!isSharedPage ? `<button id="saveDescription">Save Description</button>` : ''}
+    ${!isSharedPage ? `<button id="saveDescription">Save description</button>` : ''}
     </div>
 </div>
 `;
@@ -2380,8 +2389,10 @@ async function showSectionInfo() {
                     });
                     saveBtn.addEventListener('click', async () => {
                         const newDescription = textarea.value.trim();
-                        const activeTab = document.querySelector('.tab.active');
-                        const sectionId = activeTab?.dataset.tabId;
+                                                const activeTab = document.querySelector('.tab.active');
+                                                const sectionId = activeTab
+                                                    ? activeTab.dataset.tabId
+                                                    : new URLSearchParams(window.location.search).get('section');
 
                                                 try {
                             const response = await fetch(`${API_BASE}/api/sections/${sectionId}/description`, {
@@ -2413,6 +2424,40 @@ async function showSectionInfo() {
             }
         }
     });
+}
+
+function showToast(message, type = 'info') {
+    const icons = {
+        success: '✓',
+        error: '✕',
+        info: 'ⓘ',
+        warning: '⚠'
+    };
+
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast--${type}`;
+
+    const icon = document.createElement('span');
+    icon.className = 'toast-icon';
+    icon.textContent = icons[type] || icons.info;
+
+    const text = document.createElement('span');
+    text.className = 'toast-text';
+    text.textContent = message;
+
+    toast.appendChild(icon);
+    toast.appendChild(text);
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.classList.add('toast--visible'), 10);
+
+    setTimeout(() => {
+        toast.classList.remove('toast--visible');
+        setTimeout(() => toast.remove(), 300);
+    }, 2500);
 }
 
 function initiateRedditLogin() {
@@ -2635,6 +2680,105 @@ function setupMediaVisibilityOptimization() {
     });
 }
 
+function showErrorWithHeader(message, sectionId, sectionName) {
+    const resultsContainer = document.querySelector('.results-container');
+    resultsContainer.innerHTML = '';
+
+    // Build header
+    const header = document.createElement('div');
+    header.className = 'mobile-section-header';
+    header.innerHTML = `
+        <div class="mobile-section-header-top">
+            <div class="mobile-section-header-left">
+                <div class="mobile-section-title">${sectionName}</div>
+                <div class="mobile-section-count">0 Saves</div>
+            </div>
+            <div class="mobile-section-header-right">
+                <button class="mobile-section-more-btn" title="More">...</button>
+                <button class="mobile-section-share-btn" title="Share">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                        <polyline points="16 6 12 2 8 6"/>
+                        <line x1="12" y1="2" x2="12" y2="15"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    `;
+    resultsContainer.appendChild(header);
+
+    header.querySelector('.mobile-section-more-btn').addEventListener('click', async () => {
+        const result = await showSectionMoreMenu(sectionId, sectionName);
+        if (!result) return;
+        if (result.action === 'rename') await renameSectionById(result.sectionId, result.sectionName);
+        else if (result.action === 'delete') await deleteSectionById(result.sectionId, result.sectionName);
+    });
+    header.querySelector('.mobile-section-share-btn').addEventListener('click', () => showShareMenu());
+
+    // Append error message below header
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'results-error';
+    errorDiv.innerHTML = `<p>${message}</p>`;
+    resultsContainer.appendChild(errorDiv);
+    applyStaggeredAnimation('.results-error', 'visible', 60);
+}
+
+function showSectionMoreMenu(sectionId, sectionName) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'section-picker-overlay';
+
+        const sheet = document.createElement('div');
+        sheet.className = 'section-more-sheet';
+
+        const menuHeader = document.createElement('div');
+        menuHeader.className = 'section-more-header';
+        menuHeader.innerHTML = `<span class="section-more-title">Section options</span>`;
+        sheet.appendChild(menuHeader);
+
+        function closeMenu() {
+            sheet.style.transform = 'translateY(100%)';
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.remove();
+                sheet.remove();
+            }, 200);
+        }
+
+        const options = [
+            { label: 'Rename Section', value: 'rename' },
+            { label: 'Delete Section', value: 'delete' },
+        ];
+
+        options.forEach(({ label, value }) => {
+            const item = document.createElement('div');
+            item.className = `section-more-item${value === 'delete' ? ' section-more-item--delete' : ''}`;
+            const inner = document.createElement('div');
+            inner.className = 'section-more-item-inner';
+            inner.textContent = label;
+            item.appendChild(inner);
+            item.addEventListener('click', () => {
+                closeMenu();
+                resolve({ action: value, sectionId, sectionName });
+            });
+            sheet.appendChild(item);
+        });
+
+        overlay.addEventListener('click', () => {
+            closeMenu();
+            resolve(null);
+        });
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(sheet);
+
+        requestAnimationFrame(() => {
+            overlay.style.opacity = '1';
+            sheet.style.transform = 'translateY(0)';
+        });
+    });
+}
+
 async function showSectionsAntepage(skipHistoryPush = false) {
     showLoading();
 
@@ -2721,17 +2865,17 @@ async function showSectionsAntepage(skipHistoryPush = false) {
         const info = document.createElement('div');
         info.className = 'section-info';
         info.innerHTML = `
-            <span class="section-emoji">${section.section_emoji}</span>
-            <span class="section-name">${section.section_name}</span>
-        `;
+    <span class="section-name">${section.section_name}</span>
+    <span class="section-save-count">${section.bookmark_count} ${section.bookmark_count == 1 ? 'Save' : 'Saves'}</span>
+`;
         card.appendChild(info);
         grid.appendChild(card);
     }
 
-    // Replace loading animation with content
-    const resultsContainer = document.querySelector('.results-container');
-    resultsContainer.innerHTML = '';
-    resultsContainer.appendChild(grid);
+        // Replace loading animation with content
+        const resultsContainer = document.querySelector('.results-container');
+        resultsContainer.innerHTML = '';
+        resultsContainer.appendChild(grid);
 
     // Set loading to false so interactions work
     isLoading = false;
@@ -2863,6 +3007,9 @@ function loadSharedContent(shareCode, isLoadMore = false) {
 // Unified loading function for all sections
 function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false, numToLoad = 10) {
     if (isLoading) return;
+    if (isMobile) {
+        window.scrollTo(0, 0);
+    }
     const resultsContainer = document.querySelector('.results-container');
 
     // If not loading more, reset the offset for this section
@@ -2883,7 +3030,7 @@ function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false,
         .then(response => response.text())
         .then(rawText => {
             const data = JSON.parse(rawText);
-
+         
             // Update URL
             if (!isLoadMore && !fromPopstate) {
                 const url = new URL(window.location);
@@ -2894,14 +3041,85 @@ function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false,
             if (!data.bookmarks || data.bookmarks.length === 0) {
                 hasMoreBookmarks[sectionId] = false;
                 if (!isLoadMore) {
-                    showError("No bookmarks found. Start bookmarking posts or import from Reddit to see them here.");
+                    if (isMobile()) {
+                        showErrorWithHeader(
+                            "No bookmarks found. Start bookmarking posts or import from Reddit to see them here.",
+                            sectionId,
+                            data.name || 'New Section'
+                        );
+                    } else {
+                        showError("No bookmarks found. Start bookmarking posts or import from Reddit to see them here.");
+                    }
                 }
                 isLoading = false;
                 return;
             }
 
             if (data.bookmarks && data.bookmarks.length > 0) {
-                // Add to our section-specific array
+                // Build mobile section header on first load
+                if (!isLoadMore && isMobile()) {
+                    const existingHeader = document.querySelector('.mobile-section-header');
+                    if (existingHeader) existingHeader.remove();
+                    const mobileSectionName = data.name || 'Bookmarks';
+                    const totalCount = data.total_count || 0;
+            
+                    const header = document.createElement('div');
+                    header.className = 'mobile-section-header';
+                    header.innerHTML = `
+                        <div class="mobile-section-header-top">
+                            <div class="mobile-section-header-left">
+                                <div class="mobile-section-title">${mobileSectionName}</div>
+                                <div class="mobile-section-count">${totalCount} ${totalCount === 1 ? 'Save' : 'Saves'}</div>
+                            </div>
+                            <div class="mobile-section-header-right">
+                                <button class="mobile-section-more-btn" title="More">...</button>
+                                <button class="mobile-section-share-btn" title="Share">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                                        <polyline points="16 6 12 2 8 6"/>
+                                        <line x1="12" y1="2" x2="12" y2="15"/>
+                                    </svg>
+                                </button>
+                            </div>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                                    <polyline points="16 6 12 2 8 6"/>
+                                    <line x1="12" y1="2" x2="12" y2="15"/>
+                                </svg>
+                            </button>
+                        </div>
+                            <div class="mobile-section-actions">
+                                                        <button class="mobile-section-action-btn" id="mobileOrganizeBtn">
+                                                                <img src="../assets/icons8-rook-96.png" class="organize-icon">
+                                Organize
+                                </button>
+                                <button class="mobile-section-action-btn" id="mobileImportBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                Import
+                                </button>
+                                <button class="mobile-section-action-btn" id="mobileSectionInfoBtn">
+                                <img src="../assets/icons8-tag-96.png" class="info-icon">
+                                Info
+                                </button>
+                                </div>
+                                `;
+                                
+                                const resultsContainer = document.querySelector('.results-container');
+                                resultsContainer.insertBefore(header, resultsContainer.firstChild);
+            
+                    // Wire up buttons
+                    header.querySelector('.mobile-section-share-btn').addEventListener('click', () => showShareMenu());
+                    header.querySelector('#mobileOrganizeBtn').addEventListener('click', () => {});
+                    header.querySelector('#mobileImportBtn').addEventListener('click', () => initiateRedditLogin());
+                    header.querySelector('#mobileSectionInfoBtn').addEventListener('click', () => showSectionInfo());
+                    header.querySelector('.mobile-section-more-btn').addEventListener('click', async () => {
+                        const result = await showSectionMoreMenu(sectionId, mobileSectionName);
+                        if (!result) return;
+                        if (result.action === 'rename') await renameSectionById(result.sectionId, result.sectionName);
+                        else if (result.action === 'delete') await deleteSectionById(result.sectionId, result.sectionName);
+                    });
+                    }
+                    // Add to our section-specific array
                 if (isLoadMore && sectionBookmarks[sectionId]) {
                     sectionBookmarks[sectionId] = sectionBookmarks[sectionId].concat(data.bookmarks);
                 } else {
@@ -2942,8 +3160,71 @@ function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false,
                         }))
                     }
                 };
-
+                
                 displayResults(transformedData, isLoadMore);
+                
+                // Build mobile section header after displayResults
+                if (!isLoadMore && isMobile()) {
+                    setTimeout(() => {
+                        const existingHeader = document.querySelector('.mobile-section-header');
+                        if (existingHeader) existingHeader.remove();
+                        const mobileSectionName = data.name || 'Bookmarks';
+                        const totalCount = data.total_count || 0;
+                
+                        const header = document.createElement('div');
+                        header.className = 'mobile-section-header';
+                        header.innerHTML = `
+                            <div class="mobile-section-header-top">
+                                <div class="mobile-section-header-left">
+                                    <div class="mobile-section-title">${mobileSectionName}</div>
+                                <div class="mobile-section-count">${totalCount} ${totalCount === 1 ? 'Save' : 'Saves'}</div>
+                            </div>
+                            <div class="mobile-section-header-right">
+                                <button class="mobile-section-more-btn" title="More">...</button>
+                                <button class="mobile-section-share-btn" title="Share">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                                        <polyline points="16 6 12 2 8 6"/>
+                                        <line x1="12" y1="2" x2="12" y2="15"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            </button>
+                        </div>
+                                <div class="mobile-section-actions">
+                                    <button class="mobile-section-action-btn" id="mobileOrganizeBtn">
+                                    <img src="../assets/icons8-rook-96.png" class="organize-icon">
+                                    Organize
+                                    </button>
+                                    <button class="mobile-section-action-btn" id="mobileImportBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+  <polyline points="17 7 12 12 7 7"/>
+<line x1="12" y1="0" x2="12" y2="12"/>
+</svg>   Import
+                                    </button>
+                                    <button class="mobile-section-action-btn" id="mobileSectionInfoBtn">
+                                    <img src="../assets/icons8-tag-96.png" class="info-icon">
+                                    Info
+                                    </button>
+                                    </div>
+                                    `;
+                                    
+                                     const resultsContainer = document.querySelector('.results-container');
+                                    resultsContainer.prepend(header);
+                
+                        header.querySelector('.mobile-section-share-btn').addEventListener('click', () => showShareMenu());
+                        header.querySelector('#mobileOrganizeBtn').addEventListener('click', () => {});
+                        header.querySelector('#mobileImportBtn').addEventListener('click', () => initiateRedditLogin());
+                        header.querySelector('#mobileSectionInfoBtn').addEventListener('click', () => showSectionInfo());
+                        header.querySelector('.mobile-section-more-btn').addEventListener('click', async () => {
+                            const result = await showSectionMoreMenu(sectionId, mobileSectionName);
+                            if (!result) return;
+                            if (result.action === 'rename') await renameSectionById(result.sectionId, result.sectionName);
+                            else if (result.action === 'delete') await deleteSectionById(result.sectionId, result.sectionName);
+                        });
+                        }, 100);
+                }
 
                 setTimeout(() => {
                     makeBookmarksDraggable(sectionId);
@@ -2986,3 +3267,8 @@ function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false,
             showError("Failed to load bookmarks");
         });
 }
+
+// Initialize when switching to bookmarks tab on mobile
+window.addEventListener('bookmarks-tab-init', () => {
+    if (isMobile()) initBookmarks();
+});

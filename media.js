@@ -46,7 +46,7 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
         // Left arrow
         const leftArrow = document.createElement('button');
         const isMobile = window.innerWidth <= 1024;
-        const size = isMobile ? '46px' : '24px';
+        const size = isMobile ? '46px' : '28px';
 
         leftArrow.className = 'gallery-arrow gallery-arrow-left';
         leftArrow.innerHTML = `
@@ -108,9 +108,9 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
             right: 3px;
             background: rgba(0, 0, 0, 0.5);
             color: white;
-            padding: 3px 7px;
+            padding: 4px 8px;
             border-radius: 10px;
-            font-size: 10px;
+            font-size: 0.8rem;
             font-weight: bold;
             z-index: 10;
         `;
@@ -400,13 +400,13 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
             }
         });
 
-                let touchStartX = 0;
+        let touchStartX = 0;
         let touchStartY = 0;
         let currentTranslate = 0;
         let prevTranslate = 0;
         let isDragging = false;
         let animationID = 0;
-        const SWIPE_THRESHOLD = 70;
+        const SWIPE_THRESHOLD = 100;
         
         imgWrapper.addEventListener('touchstart', (e) => {
             touchStartX = e.touches[0].clientX;
@@ -1372,12 +1372,11 @@ function setupImageModal(imageWrapper) {
                 pointer-events: none;
             `;
 
-            const spinnerWrapper = createCanvasSpinner('#ffffff')
+                        const spinnerWrapper = createCanvasSpinner('#ffffff', 75)
             spinnerWrapper.style.cssText = `
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                transform: scale(1.5);
             `;
 
             loadingOverlay.appendChild(spinnerWrapper);
@@ -1482,19 +1481,19 @@ function setupImageModal(imageWrapper) {
             if (galleryCounter) {
                 galleryCounter.style.cssText = `
                         position: absolute;
-                        top: 10px;
-                        right: 10px;
-                        background: rgba(0, 0, 0, 0.7);
+                        top: 200px;
+                        right: 2px;
+                        background: rgba(0, 0, 0, 0.5);
                         color: white;
-                        padding: 7px 12px;
+                        padding: 5px 10px;
                         border-radius: 15px;
-                        font-size: 15px;
+                        font-size: 1rem;
                         font-weight: bold;
                         z-index: 10;
                     `;
             }
 
-                        modalContent.style.cssText = `
+            modalContent.style.cssText = `
                 width: ${isMobile ? '100vw' : 'auto'} !important;
                 height: ${isMobile ? '100vh' : 'auto'} !important;
                 cursor: pointer;
@@ -1512,7 +1511,7 @@ function setupImageModal(imageWrapper) {
             const imageInside = modalContent.querySelector('img');
             const shimmerPlaceholder = modalContent.querySelector('.image-placeholder');
 
-                        if (imageInside) {
+            if (imageInside) {
                 imageInside.style.cssText = `
                     width: ${isMobile ? '100vw' : '100%'} !important;
                     height: ${isMobile ? 'auto' : 'auto'} !important;
@@ -1550,18 +1549,18 @@ function setupImageModal(imageWrapper) {
         leftArrow.tabIndex = 0;
         leftArrow.setAttribute('role', 'button');
         leftArrow.setAttribute('aria-label', 'Previous image');
-        const arrowSize = isMobile ? '44' : '29';
+        const arrowSize = isMobile ? '40' : '29';
         leftArrow.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${arrowSize}" height="${arrowSize}" viewBox="0 0 24 24" fill="none" style="transform: translateX(-1px);" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left-icon lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="${arrowSize}" height="${arrowSize}" viewBox="0 0 24 24" fill="none" style="transform: translateX(-1px);" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left-icon lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg>
 `;
 
         leftArrow.style.cssText = `
-                        position: absolute;
-            left: ${isMobile ? '0px' : '320px'};
+            position: absolute;
+            left: ${isMobile ? '2px' : '320px'};
             top: 50%;
             transform: ${isMobile ? 'translateY(calc(-50% - 5vh))' : 'translateY(-50%)'};
-            width: 55px;
-            height: 55px;
+            width: 50px;
+            height: 50px;
             background: rgba(0, 0, 0, 0.5);
             color: white;
             border-radius: 50%;
@@ -1581,15 +1580,15 @@ function setupImageModal(imageWrapper) {
         rightArrow.setAttribute('aria-label', 'Next image');
 
         rightArrow.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${arrowSize}" height="${arrowSize}" viewBox="0 0 24 24" fill="none" style="transform: translateX(1px);" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right-icon lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="${arrowSize}" height="${arrowSize}" viewBox="0 0 24 24" fill="none" style="transform: translateX(1px);" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right-icon lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg>
 `;
         rightArrow.style.cssText = `
-                                        position: absolute;
-                    right: ${isMobile ? '0px' : '320px'};
+                    position: absolute;
+                    right: ${isMobile ? '2px' : '320px'};
                     top: 50%;
                     transform: ${isMobile ? 'translateY(calc(-50% - 5vh))' : 'translateY(-50%)'};
-                    width: 55px;
-                    height: 55px;
+                    width: 50px;
+                    height: 50px;
                     background: rgba(0, 0, 0, 0.5);
                     color: white;
                     border-radius: 50%;
@@ -2030,22 +2029,31 @@ function setupImageModal(imageWrapper) {
         }
         document.addEventListener('keydown', handleEscKey);
 
-        // Background click handler - updated to not close when clicking arrows
-        modalOverlay.addEventListener('click', function (event) {
-                        // Don't close if clicking on video controls, video itself, or navigation arrows
-            if (!isMobile && event.target.closest('video, .plyr, .plyr__controls, .js-player, .modal-nav-arrow')) {
-                return;
-            }
-
-                                                // Don't close if clicking on the modal content itself, unless it's the loading overlay
-                        if (!isMobile && event.target.closest('.modal-container') && 
-                            !event.target.classList.contains('modal-overlay') &&
-                            !event.target.closest('.loading-overlay')) {
+                                // Background click handler - updated to not close when clicking arrows
+                modalOverlay.addEventListener('click', function (event) {
+                    // Don't close if clicking on video controls, video itself, or navigation arrows
+                    if (!isMobile && event.target.closest('video, .plyr, .plyr__controls, .js-player, .modal-nav-arrow')) {
+                        return;
+                    }
+                
+                    // On mobile, don't close if video is active (has src and loading overlay is gone)
+                    if (isMobile && event.target.closest('video, .plyr, .plyr__controls, .js-player')) {
+                        const activeVideo = modalOverlay.querySelector('video');
+                        const stillLoading = modalOverlay.querySelector('.loading-overlay');
+                        if (activeVideo && activeVideo.src && !stillLoading) {
                             return;
                         }
-
-            closeModal();
-        });
+                    }
+                
+                    // Don't close if clicking on the modal content itself, unless it's the loading overlay
+                    if (!isMobile && event.target.closest('.modal-container') && 
+                        !event.target.classList.contains('modal-overlay') &&
+                        !event.target.closest('.loading-overlay')) {
+                        return;
+                    }
+                
+                    closeModal();
+                });
     });
 }
 

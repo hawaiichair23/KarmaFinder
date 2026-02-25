@@ -7,8 +7,8 @@ style.textContent = `
     .search-back-button {
         background: none;
         border: none;
-        padding-right: 12px;
-        padding-left: 1px;
+        padding-right: 9px;
+        padding-left: 0px;
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -20,109 +20,98 @@ style.textContent = `
         opacity: 0.6;
     }
 
+    #search-tab-ui {
+        display: none;
+        flex: 1;
+        align-items: center;
+    }
+
+    [data-page="search"] #search-tab-ui {
+        display: flex;
+    }
+
+    [data-page="search"] .mobile-hamburger,
+    [data-page="search"] .mobile-logo-row,
+    [data-page="search"] #mobileLoginBtn {
+        display: none !important;
+    }
 `;
 document.head.appendChild(style);
 
-// Search page handler
-if (window.location.search.includes('page=search')) {
-    document.body.setAttribute('data-page', 'search');
-
-    // Ensure URL is set for initial state
-    if (!window.location.search.includes('q=')) {
-        const params = new URLSearchParams();
-        params.set('page', 'search');
-        history.replaceState({}, '', `?${params.toString()}`); 
-    }
-
-    // Hide main content
-    document.querySelector('.search-container')?.remove();
-    document.querySelector('.results')?.remove();
-    document.querySelector('header')?.remove();
-
+function initSearchTab() {
     const mobileTopBar = document.querySelector('.mobile-top-bar');
     const searchRow = mobileTopBar?.querySelector('.mobile-search-row');
 
-    if (searchRow) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const hasQuery = urlParams.has('q');
+    if (!searchRow) return;
 
-        searchRow.innerHTML = `
-            <button id="back-button" class="search-back-button" style="display: ${hasQuery ? 'flex' : 'none'};">
-                <svg width="27" height="27" viewBox="0 0 24 24" fill="none">
-                    <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    // Only build the UI once
+    if (document.getElementById('search-tab-ui')) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasQuery = urlParams.has('q');
+
+    const searchUI = document.createElement('div');
+    searchUI.id = 'search-tab-ui';
+    searchUI.innerHTML = `
+        <button id="back-button" class="search-back-button" style="display: ${hasQuery ? 'flex' : 'none'};">
+            <svg width="33" height="33" viewBox="0 0 24 24" fill="none">
+                <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <form id="search-form" style="flex: 1; display: contents;">
+            <div class="search-input-container">
+                <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2"/>
+                    <path d="m15.8 15.8 4.2 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 </svg>
-            </button>
-            <form id="search-form" style="flex: 1; display: contents;">
-                <div class="search-input-container">
-                    <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2"/>
-                        <path d="m15.8 15.8 4.2 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                    <input type="text" id="search-input" class="search-input" placeholder="Search Reddit">
-                </div>
-            </form>
-        `;
+                <input type="text" id="search-input" class="search-input" placeholder="Search Reddit">
+            </div>
+        </form>
+    `;
 
-        // Back button handler
-        document.getElementById('back-button').addEventListener('click', () => {
-            window.history.back();
-        });
+    searchRow.appendChild(searchUI);
 
-        const backButton = document.getElementById('back-button');
-        const searchForm = searchRow.querySelector('#search-form');
-        const searchInput = searchRow.querySelector('#search-input');
+    const backButton = searchUI.querySelector('#back-button');
+    const searchForm = searchUI.querySelector('#search-form');
+    const searchInput = searchUI.querySelector('#search-input');
 
-        // Handle search submission
-        searchForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const query = searchInput.value.trim();
-            if (query) {
-                // Show back button when search is performed
-                backButton.style.display = 'flex';
-                handleSearchRequest();
-            }
-        });
+    backButton.addEventListener('click', () => {
+        window.history.back();
+    });
 
-        if (searchInput) {
-            searchInput.addEventListener('blur', () => {
-                const suggestionsDiv = document.getElementById('suggestions');
-                if (suggestionsDiv) {
-                    suggestionsDiv.style.display = 'none';
-                }
-            });
+    window.addEventListener('search-started', () => {
+        backButton.style.display = 'flex';
+    });
+
+    searchForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const query = searchInput.value.trim();
+        if (query) {
+            backButton.style.display = 'flex';
+            handleSearchRequest();
+            if (window.abortSearchSuggestions) window.abortSearchSuggestions();
         }
+    });
+
+    searchInput.addEventListener('blur', () => {
+        const suggestionsDiv = document.getElementById('suggestions');
+        if (suggestionsDiv) suggestionsDiv.style.display = 'none';
+    });
+
+    if (!document.getElementById('suggestions')) {
         const suggestionsDiv = document.createElement('div');
         suggestionsDiv.id = 'suggestions';
         mobileTopBar.appendChild(suggestionsDiv);
     }
-
-    // Add results container for search results
-    const resultsContainer = document.createElement('div');
-    resultsContainer.className = 'results-container';
-    document.body.appendChild(resultsContainer);
-
-    if (typeof window.englishWords !== 'undefined') {
-        setupSearchSuggestions('search-input', 'suggestions', window.englishWords);
-    }
-
-    window.addEventListener('popstate', () => {
-        const urlParams = new URLSearchParams(window.location.search);
-
-        if (urlParams.get('page') === 'search') {
-            const hasQuery = urlParams.has('q');
-
-            if (hasQuery) {
-                // Show back button and load results
-                const backButton = document.getElementById('back-button');
-                if (backButton) backButton.style.display = 'flex';
-                handleSearchRequest();
-            } else {
-                // Hide back button and clear results
-                const backButton = document.getElementById('back-button');
-                if (backButton) backButton.style.display = 'none';
-                const resultsContainer = document.querySelector('.results-container');
-                if (resultsContainer) resultsContainer.innerHTML = '';
-            }
-        }
-    });
 }
+
+// Run on initial page load if arriving directly via URL
+if (window.location.search.includes('page=search')) {
+    document.body.setAttribute('data-page', 'search');
+    initSearchTab();
+}
+
+// Run when switching to search tab
+window.addEventListener('search-tab-init', () => {
+    initSearchTab();
+});

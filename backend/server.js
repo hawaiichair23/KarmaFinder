@@ -1991,6 +1991,20 @@ app.get('/api/sections/with-previews', async (req, res) => {
             ORDER BY s.sort_order ASC, s.id, b.sort_order DESC, b.created_utc DESC
         `, [stripeCustomerId]);
 
+        const countResult = await pool.query(
+            'SELECT section_id, COUNT(*) as bookmark_count FROM bookmarks WHERE user_id = $1 GROUP BY section_id',
+            [stripeCustomerId]
+        );
+
+        const countMap = {};
+        countResult.rows.forEach(row => {
+            countMap[row.section_id] = parseInt(row.bookmark_count);
+        });
+
+        result.rows.forEach(row => {
+            row.bookmark_count = countMap[row.section_id] || 0;
+        });
+
         res.json({ sections: result.rows });
     } catch (error) {
         console.error('GET sections with previews error:', error);
@@ -3912,7 +3926,7 @@ app.post('/api/auto-login-after-payment', async (req, res) => {
 
 const verifyTokenLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // 10 attempts per 15 minutes
+    max: 100, // 100 attempts per 15 minutes
     message: { valid: false, error: 'Too many attempts, try again later' }
 });
 

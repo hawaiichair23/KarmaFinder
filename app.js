@@ -231,7 +231,23 @@
             setTimeout(() => {
                 const urlParams = new URLSearchParams(window.location.search);
                 const isBookmarksPage = urlParams.get('page') === 'bookmarks';
+                const isSearchPage = urlParams.get('page') === 'search';
                 const isSharePage = window.location.pathname.includes('/share/');
+
+                if (isSearchPage) {
+                    const hasQuery = urlParams.has('q');
+                    const backButton = document.getElementById('back-button');
+                    if (backButton) backButton.style.display = hasQuery ? 'flex' : 'none';
+                    if (hasQuery) {
+                        isPopstateEvent = true;
+                        handleSearchRequest(null, null, true, false);
+                        isPopstateEvent = false;
+                    } else {
+                        const resultsContainer = document.querySelector('.results-container');
+                        if (resultsContainer) resultsContainer.innerHTML = '';
+                    }
+                    return;
+                }
 
                 if (isBookmarksPage) {
                     const sectionId = parseInt(urlParams.get('section'));
@@ -1161,6 +1177,7 @@
         document.addEventListener('click', function (event) {
             const suggestionsDiv = document.getElementById('suggestions');
             const input = document.getElementById('search-input');
+            input.autocomplete = "off"
             if (suggestionsDiv && input) {
                 if (!suggestionsDiv.contains(event.target) && event.target !== input) {
                     suggestionsDiv.innerHTML = '';
@@ -1364,15 +1381,19 @@
             requestAnimationFrame(animate);
         }
 
-        function createCanvasSpinner(color = null, size = 50) {
+                function createCanvasSpinner(color = null, size = 50) {
             const wrapper = document.createElement('div');
             wrapper.className = 'custom-spinner-wrapper';
             const canvas = document.createElement('canvas');
-            canvas.width = size;
-            canvas.height = size;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = size * dpr;
+            canvas.height = size * dpr;
+            canvas.style.width = size + 'px';
+            canvas.style.height = size + 'px';
             canvas.id = 'main-spinner-placeholder';
             wrapper.appendChild(canvas);
             const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
             const spinnerColor = color || getThemeColor();
             startSpinnerAnimation(ctx, spinnerColor, size);
             return wrapper;
@@ -1654,38 +1675,64 @@
 
         function setupSearchSuggestions(inputId, suggestionsId, dictionary) {
             let timeout;
+            let currentController = null;
 
             const input = document.getElementById(inputId);
             const suggestionsDiv = document.getElementById(suggestionsId);
+
+            // Expose abort function globally so search.js can call it on submit
+            window.abortSearchSuggestions = () => {
+                if (currentController) currentController.abort();
+                clearTimeout(timeout);
+                if (suggestionsDiv) suggestionsDiv.style.display = 'none';
+            };
 
             input.addEventListener('input', function (e) {
                 const query = e.target.value;
                 clearTimeout(timeout);
 
                 timeout = setTimeout(() => {
-                    getSmartSuggestions(query, suggestionsDiv, dictionary);
+                    if (currentController) currentController.abort();
+                    currentController = new AbortController();
+                    getSmartSuggestions(query, suggestionsDiv, dictionary, currentController.signal);
                 }, 170);
             });
 
             input.addEventListener('click', function (e) {
                 const query = e.target.value.trim();
                 if (query) {
-                    getSmartSuggestions(query, suggestionsDiv, dictionary);
+                    if (currentController) currentController.abort();
+                    currentController = new AbortController();
+                    getSmartSuggestions(query, suggestionsDiv, dictionary, currentController.signal);
+                }
+            });
+
+            suggestionsDiv.addEventListener('mousedown', (e) => {
+                const item = e.target.closest('.suggestion-item');
+                if (item) {
+                    e.preventDefault();
+                    const word = item.dataset.word;
+                    const subreddit = item.dataset.subreddit || null;
+                    selectSuggestion(word, inputId, suggestionsId, subreddit);
                 }
             });
         }
 
         
 
-        async function getSmartSuggestions(query, suggestionsDiv, dictionary) {
+        async function getSmartSuggestions(query, suggestionsDiv, dictionary, signal) {
             let trimmedQuery = query.trim();
 
             // If empty, show top searches instead
             if (!trimmedQuery) {
-                const response = await fetch(`${API_BASE}/api/top-searches`);
-                const data = await response.json();
-                const filteredData = data.filter(item => item.query.length > 2);
-                displaySuggestions(filteredData, suggestionsDiv);
+                try {
+                    const response = await fetch(`${API_BASE}/api/top-searches`, { signal });
+                    const data = await response.json();
+                    const filteredData = data.filter(item => item.query.length > 2);
+                    displaySuggestions(filteredData, suggestionsDiv);
+                } catch (e) {
+                    if (e.name !== 'AbortError') console.error('❌ Top searches error:', e);
+                }
                 return;
             }
 
@@ -1705,7 +1752,7 @@
             try {
                 const subreddit = subredditInput.value?.trim() || '';
                 const url = `${API_BASE}/api/suggestions?q=${encodeURIComponent(query)}`;
-                const response = await fetch(url);
+                const response = await fetch(url, { signal });
                 const data = await response.json();
                 storedSuggestions = data
                     .filter(item => item.query.length > 2)
@@ -1715,6 +1762,7 @@
                         isStored: true
                     }));
             } catch (error) {
+                if (error.name === 'AbortError') return;
                 console.error("❌ Stored suggestions error:", error);
             }
 
@@ -1730,7 +1778,7 @@
                     // Search for next term after first word mode ('elon musk')
                     try {
                         const apiUrl = `https://api.datamuse.com/words?rel_trg=${encodeURIComponent(trimmedQuery)}&max=${remainingSlots}`;
-                        const response = await fetch(apiUrl);
+                        const response = await fetch(apiUrl, { signal });
                         const data = await response.json();
                         const apiWords = data.map(item => `${trimmedQuery} ${item.word}`);
 
@@ -1863,7 +1911,7 @@
 
                 const subredditName = suggestionSubreddit ? `<span class="suggestion-subreddit">• r/${suggestionSubreddit.toLowerCase()}</span>` : '';
 
-                return `<div onclick="selectSuggestion('${word}', 'search-input', 'suggestions', '${suggestionSubreddit || ''}')" data-subreddit="${suggestionSubreddit || ''}" class="suggestion-item">
+                return `<div data-word="${word}" data-subreddit="${suggestionSubreddit || ''}" class="suggestion-item">
             ${iconContent}
             ${word}
             ${subredditName}
@@ -1957,6 +2005,7 @@
 
             // Reset page index and history for new search
             currentPageIndex = 0;
+            window.dispatchEvent(new Event('search-started'));
             handleSearchRequest();
         }
 
@@ -2263,9 +2312,6 @@
         function handleSearchRequest(after = null, before = null, navigateBack = false, isInitialLoad = false) {
             if (isPopstateEvent) navigateBack = true;
             
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlPageIndex = parseInt(urlParams.get('page')) || 0;
-
             // Reset shared content flag and clean up URL when doing normal searches
             if (window.location.pathname.includes('/share/')) {
                 window.isViewingSharedContent = false;
@@ -2442,7 +2488,6 @@
         const subreddit = currentFilters.subreddit || '';
         const sort = currentFilters.sort || 'hot';
         const time = currentFilters.time || 'all';
-        const contentType = currentFilters.contentType || 'all';
         const limit = 10;
 
         // Clear tokens if we're on front page 
@@ -2730,28 +2775,36 @@
             authorLink.setAttribute('aria-label', `Posted by user ${post.author}`);
             authorLink.appendChild(authorSpan);
 
-            // Time
+            // Time 
             const timeSpan = document.createElement('span');
             timeSpan.className = 'result-time';
             timeSpan.textContent = formatTimestamp(post.created_utc);
             timeSpan.tabIndex = 0;
             timeSpan.setAttribute('aria-label', `Posted ${formatTimestamp(post.created_utc)}`);
 
-                                                const metaRow = document.createElement('div');
-                        metaRow.className = 'result-meta';
-                        metaRow.appendChild(subredditLink);
-                        metaRow.appendChild(authorLink);
-                        metaRow.appendChild(timeSpan);
-                        resultHeader.appendChild(metaRow);
-                        
-                        return { resultHeader, bookmarkIcon, bookmarkContainer };
+            const metaRow = document.createElement('div');
+            metaRow.className = 'result-meta';
+            const metaTextGroup = document.createElement('div');
+            metaTextGroup.className = 'result-meta-text-group';
+            metaTextGroup.appendChild(subredditLink);
+            metaTextGroup.appendChild(authorLink);
+            metaTextGroup.appendChild(timeSpan);
+            metaRow.appendChild(metaTextGroup);
+            if (post.stickied && window.innerWidth <= 1024) {
+                const pushpinIcon = document.createElement('div');
+                pushpinIcon.className = 'pushpin-icon';
+                metaRow.appendChild(pushpinIcon);
+            }
+            resultHeader.appendChild(metaRow);
+            
+            return { resultHeader, bookmarkIcon, bookmarkContainer };
         }
 
         function createVoteSection(post, permalinkUrl, bookmarkId) {
             const voteSection = document.createElement('div');
             voteSection.className = 'vote-section';
         
-            if (post.stickied) {
+            if (post.stickied && window.innerWidth > 1024) {
                 const pushpinIcon = document.createElement('div');
                 pushpinIcon.className = 'pushpin-icon';
                 voteSection.appendChild(pushpinIcon);
@@ -3711,7 +3764,6 @@
         });
 
         function moneyShot() {
-        // function moneyShit() pragmatic next step 
             // First burst from center
             confetti({
                 particleCount: 200,
@@ -4004,7 +4056,7 @@
             if (isLoggedIn) {
                 const userEmail = localStorage.getItem('userEmail');
 
-                // Create a simpler endpoint that just takes email as a parameter
+                // Endpoint that just takes email as a parameter
                 fetch(`${API_BASE}/api/subscription/${userEmail}`)
                     .then(response => response.json())
                     .then(data => {
@@ -4291,7 +4343,6 @@
             document.addEventListener('DOMContentLoaded', () => {
                 const urlParams = new URLSearchParams(window.location.search);
                 const token = urlParams.get('token');
-                const hasRedirectParams = urlParams.has('page') || urlParams.has('sub') || urlParams.has('after');
 
                 if (!window.location.pathname.includes('/share/') && !token) {
                     initPage();
@@ -4301,7 +4352,6 @@
         } else {
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
-            const hasRedirectParams = urlParams.has('page') || urlParams.has('sub') || urlParams.has('after');
 
             if (!window.location.pathname.includes('/share/') && !token) {
                 initPage();
@@ -4316,35 +4366,35 @@
                 const overlay = document.createElement('div');
                 overlay.className = 'section-picker-overlay';
                 overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.3);
-        z-index: 9998;
-        opacity: 0;
-        transition: opacity 0.2s ease;
-    `;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.3);
+                    z-index: 9998;
+                    opacity: 0;
+                    transition: opacity 0.2s ease;
+                `;
 
                 // Create bottom sheet
                 const sheet = document.createElement('div');
                 sheet.className = 'section-picker-sheet';
                 sheet.style.cssText = `
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: var(--card-color);
-    border-radius: 16px 16px 0 0;
-    height: 50vh;
-    max-height: 80vh;
-    overflow-y: auto;
-    z-index: 9999;
-    transform: translateY(100%);
-    transition: transform 0.2s ease;
-    box-shadow: 0 -4px 20px var(--shadow-card);
-`;
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    background: var(--card-color);
+                    border-radius: 16px 16px 0 0;
+                    height: 51vh;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    z-index: 9999;
+                    transform: translateY(100%);
+                    transition: transform 0.25s ease-in-out;
+                    box-shadow: 0 -4px 20px var(--shadow-card);
+                `;
 
           
                 // Header
@@ -4364,8 +4414,8 @@
                 // List container
                 const listContainer = document.createElement('div');
                 listContainer.style.cssText = `
-        padding: 8px 0;
-    `;
+                    padding: 8px 0;
+                `;
 
                 sheet.appendChild(header);
                 sheet.appendChild(listContainer);
@@ -4384,36 +4434,21 @@
                         const item = document.createElement('div');
                         item.className = 'section-picker-item';
                         item.setAttribute('data-permalink', section.permalink);
-                        item.style.cssText = `
-                display: flex;
-                align-items: center;
-                padding: 10px 16px;
-                cursor: pointer;
-                transition: background 0.15s ease;
-            `;
-
-                        // Hover effect
-                        item.addEventListener('mouseenter', () => {
-                            item.style.background = 'var(--hover-bg-lite)';
-                        });
-                        item.addEventListener('mouseleave', () => {
-                            item.style.background = 'transparent';
-                        });
 
                         // Thumbnail container 
                         const thumbContainer = document.createElement('div');
                         thumbContainer.style.cssText = `
-                width: 61px;
-                height: 61px;
-                border-radius: 13px;
-                overflow: hidden;
-                flex-shrink: 0;
-                margin-right: 9px;
-                background: var(--placeholder-bg);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            `;
+                            width: 61px;
+                            height: 61px;
+                            border-radius: 13px;
+                            overflow: hidden;
+                            flex-shrink: 0;
+                            margin-right: 9px;
+                            background: var(--placeholder-bg);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        `;
 
                         // Get thumbnail with cache
                         if (section.url) {
@@ -4459,25 +4494,25 @@
                             const newsIcon = document.createElement('div');
                             newsIcon.className = 'news-icon-fallback';
                             newsIcon.style.cssText = `
-                    width: 24px;
-                    height: 24px;
-                    opacity: 0.5;
-                `;
+                                width: 61px;
+                                height: 61px;
+                                background-size: 60px 60px;
+                                position: relative;
+                            `;
                             thumbContainer.appendChild(newsIcon);
                         }
 
                         // Section info 
                         const info = document.createElement('div');
                         info.style.cssText = `
-                flex: 1;
-                display: flex;
-                align-items: center;
-                gap: 5px;
-            `;
+                            flex: 1;
+                            display: flex;
+                            align-items: center;
+                            gap: 5px;
+                        `;
                         info.innerHTML = `
-                <span style="font-size: 1.1rem;">${section.section_emoji}</span>
-                <span style="font-size: 1rem; color: var(--text-primary); font-weight: 600;">${section.section_name}</span>
-            `;
+                            <span style="font-size: 1rem; color: var(--text-primary); font-weight: 600;">${section.section_name}</span>
+                        `;
 
                         item.appendChild(thumbContainer);
                         item.appendChild(info);
@@ -4486,10 +4521,46 @@
                         item.addEventListener('click', () => {
                             closeMenu();
                             resolve(section.section_id);
+                            showToast(`Saved to ${section.section_name}.`, 'success');
                         });
 
                         listContainer.appendChild(item);
                     }
+
+                    // Create New Section button
+                    const createBtn = document.createElement('div');
+                    createBtn.className = 'section-picker-create-btn';
+                    createBtn.textContent = 'Create new section';
+                    createBtn.addEventListener('click', async () => {
+                        const { value: newName } = await Swal.fire({
+                            title: 'New Section',
+                            input: 'text',
+                            inputPlaceholder: 'Section name',
+                            showCancelButton: true,
+                            confirmButtonText: 'Create Section',
+                            cancelButtonText: 'Cancel'
+                        });
+
+                        if (!newName || !newName.trim()) return;
+
+                        try {
+                            const response = await fetch(`${API_BASE}/api/sections`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({ name: newName.trim() })
+                            });
+                            const data = await response.json();
+                            if (response.ok) {
+                                closeMenu();
+                                resolve(data.section.id);
+                                showToast(`Saved to ${newName.trim()}.`, 'success');
+                            }
+                        } catch (err) {
+                            console.error('❌ Failed to create section:', err);
+                        }
+                    });
+                    listContainer.appendChild(createBtn);
 
                 } catch (error) {
                     console.error('Failed to load sections:', error);
@@ -4554,7 +4625,7 @@
                     if (!isDragging) return;
                     isDragging = false;
 
-                    sheet.style.transition = 'height 0.3s ease';
+                    sheet.style.transition = 'height 0.2s ease';
 
                     const currentHeightPx = parseInt(getComputedStyle(sheet).height);
                     const currentHeightVh = (currentHeightPx / window.innerHeight) * 100;
@@ -4566,10 +4637,10 @@
                         resolve(null);
                     } else if (currentHeightVh > 60) {
                         // Snap to 80vh if dragged above 60vh
-                        sheet.style.height = '80vh';
+                        sheet.style.height = '90vh';
                     } else {
                         // Snap back to 45vh
-                        sheet.style.height = '45vh';
+                        sheet.style.height = '51vh';
                     }
                 };
 
@@ -4662,18 +4733,16 @@
         }
 
         function createCommentIcon(post, permalinkUrl) {
-                const commentIcon = document.createElement('a');
-                commentIcon.href = permalinkUrl;
-                commentIcon.target = '_blank';
-                commentIcon.className = 'mobile-vote-item comment-count-mobile';
-                commentIcon.innerHTML = `
-                <svg width="27" height="27" viewBox="0 0 29 29" fill="none" stroke="currentColor" style="margin-top: 4px" stroke-width="2">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                </svg>
+            const commentIcon = document.createElement('a');
+            commentIcon.href = permalinkUrl;
+            commentIcon.target = '_blank';
+            commentIcon.className = 'mobile-vote-item comment-count-mobile';
+            commentIcon.innerHTML = `
+                <img src="assets/icons8-comment.svg" class="comment-icon-img">
                 <span>${formatNumber(post.num_comments || 0)}</span>
-            `;
-                return commentIcon;
-            }
+        `;
+            return commentIcon;
+        }
 
         function savePostsToDatabase(posts, pageGroupParam) {
             if (posts.length < 10) {
