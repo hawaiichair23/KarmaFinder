@@ -831,6 +831,105 @@ app.get('/reddit/icons', async (req, res) => {
     }
 });
 
+app.get('/reddit/subreddit-info', async (req, res) => {
+    const subreddit = req.query.subreddit?.trim().toLowerCase();
+    if (!subreddit) return res.status(400).json({ error: 'Missing subreddit param' });
+
+    try {
+        // Check cache — valid for 30 days
+        const cached = await pool.query(
+            `SELECT * FROM subreddit_info WHERE subreddit = $1 AND created_at > NOW() - INTERVAL '30 days'`,
+            [subreddit]
+        );
+        if (cached.rows.length > 0) {
+            console.log(`📦 Serving cached subreddit info for r/${subreddit}`);
+            return res.json(cached.rows[0]);
+        }
+
+        // Fetch from Reddit
+        let aboutData;
+        if (emergencyMode) {
+            console.log(`🚨 Emergency mode: fetching r/${subreddit} info via public JSON`);
+            const aboutRes = await dogFetch(`https://www.reddit.com/r/${subreddit}/about.json`);
+            aboutData = (await aboutRes.json()).data;
+        } else {
+            let token;
+            try {
+                token = await getRedditAppToken();
+            } catch (error) {
+                console.error(`Failed to get token for r/${subreddit}:`, error.message);
+                return res.status(500).json({ error: 'Failed to authenticate with Reddit' });
+            }
+            const aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
+                headers: {
+                    ...headers,
+                    'Authorization': `Bearer ${token}`,
+                    'User-Agent': getCurrentUserAgent()
+                }
+            });
+            aboutData = (await aboutRes.json()).data;
+        }
+
+        // Resolve best icon
+        const iconOptions = [
+            aboutData.community_icon,
+            aboutData.icon_img,
+            aboutData.mobile_banner_image,
+            aboutData.header_img,
+            aboutData.banner_img
+        ].filter(url => url).map(url => url.replace(/&amp;/g, '&').trim());
+
+        let iconUrl = null;
+        for (const url of iconOptions) {
+            try {
+                const check = await dogFetch(url, { method: 'HEAD' });
+                if (check.status === 200) { iconUrl = url; break; }
+            } catch (err) { /* try next */ }
+        }
+
+        // Resolve best banner
+        const bannerOptions = [
+            aboutData.banner_background_image,
+            aboutData.mobile_banner_image,
+            aboutData.header_img
+        ].filter(url => url).map(url => url.replace(/&amp;/g, '&').trim());
+
+        let bannerUrl = null;
+        for (const url of bannerOptions) {
+            try {
+                const check = await dogFetch(url, { method: 'HEAD' });
+                if (check.status === 200) { bannerUrl = url; break; }
+            } catch (err) { /* try next */ }
+        }
+
+        const row = {
+            subreddit,
+            title: aboutData.title || aboutData.display_name || subreddit,
+            description: aboutData.public_description || '',
+            subscribers: aboutData.subscribers || 0,
+            icon_url: iconUrl,
+            banner_url: bannerUrl
+        };
+
+        // Upsert into cache
+        await pool.query(`
+            INSERT INTO subreddit_info (subreddit, title, description, subscribers, icon_url, banner_url, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            ON CONFLICT (subreddit)
+            DO UPDATE SET title = EXCLUDED.title, description = EXCLUDED.description,
+                          subscribers = EXCLUDED.subscribers, icon_url = EXCLUDED.icon_url,
+                          banner_url = EXCLUDED.banner_url, created_at = NOW()
+        `, [row.subreddit, row.title, row.description, row.subscribers, row.icon_url, row.banner_url]);
+
+        console.log(`💾 Cached subreddit info for r/${subreddit}`);
+        res.json(row);
+
+    } catch (error) {
+        console.error(`❌ subreddit-info error for r/${subreddit}:`, error.message);
+        res.status(500).json({ error: 'Failed to fetch subreddit info' });
+    }
+});
+
 app.get('/reddit', async (req, res) => {
     const encodedUrl = req.query.url;
     let decodedUrl = decodeURIComponent(encodedUrl);
@@ -1430,10 +1529,10 @@ app.get('/api/db-posts', async (req, res) => {
         if (pageGroup) {
             // Look for posts with this exact page group
             const pageQuery = `
-    SELECT * FROM posts
-    WHERE LOWER(page_group) = LOWER($1)
-    ORDER BY position ASC
-`;
+                SELECT * FROM posts
+                WHERE LOWER(page_group) = LOWER($1)
+                ORDER BY position ASC
+            `;
             const pageParams = [pageGroup];
             const pageResult = await pool.query(pageQuery, pageParams);
 
@@ -1493,6 +1592,14 @@ app.get('/api/db-posts', async (req, res) => {
             console.log(`No complete page group found for ${pageGroup}, falling back to empty response`);
 
             // Return empty response to trigger Reddit API fetch
+            return res.json({
+                data: {
+                    children: [],
+                    after: null,
+                    before: null
+                }
+            });
+        } else {
             return res.json({
                 data: {
                     children: [],
@@ -2412,38 +2519,24 @@ app.delete('/api/sections/:sectionId', async (req, res) => {
 
 // 3. Share sections endpoint
 app.post('/api/sections/:sectionId/share', async (req, res) => {
+    console.time('share');
     try {
-        const authToken = req.cookies.authToken;
-        const userId = await validateAuthToken(authToken);
         const { sectionId } = req.params;
 
-        // Verify user owns section
-        const sectionCheck = await pool.query(
-            'SELECT id FROM sections WHERE id = $1 AND user_id = $2',
-            [sectionId, userId]
-        );
-
-        if (sectionCheck.rows.length === 0) {
-            return res.status(403).json({ error: 'Section not found' });
-        }
-
-        // Check if share code already exists for this section
+        console.timeLog('share', 'before query');
         const existingShare = await pool.query(
             'SELECT share_code FROM share_links WHERE section_id = $1',
             [sectionId]
         );
+        console.timeLog('share', 'after query');
 
         let shareCode;
         if (existingShare.rows.length > 0) {
-            // Reuse existing share code
             shareCode = existingShare.rows[0].share_code;
         } else {
-            // Generate new share code
             let attempts = 0;
-
             do {
                 shareCode = crypto.randomBytes(7).toString('base64url').slice(0, 9);
-
                 const existing = await pool.query('SELECT id FROM share_links WHERE share_code = $1', [shareCode]);
                 if (existing.rows.length === 0) break;
                 attempts++;
@@ -2460,7 +2553,7 @@ app.post('/api/sections/:sectionId/share', async (req, res) => {
         }
 
         const shareUrl = `${req.protocol}://${req.get('host')}/share/${shareCode}`;
-
+        console.timeEnd('share');
         res.json({ shareCode, shareUrl });
 
     } catch (error) {
