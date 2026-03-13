@@ -16,6 +16,8 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
         return;
     }
 
+    resultCard.classList.add('is-gallery');
+
     // Send gallery data to modal
     imgWrapper.galleryData = galleryData;
     imgWrapper.mediaMetadata = mediaMetadata;
@@ -250,7 +252,7 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
         top: 0;
         left: 0;
         width: 100%;
-        height: 100%;
+        height: auto;
         object-fit: cover;
         transform: ${direction === 'prev' ? 'translateX(-100%)' : 'translateX(100%)'};
         transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease-in-out;
@@ -1090,7 +1092,6 @@ function setupMediaLoadHandling(mediaElement, imagePlaceholder) {
         // Remove shimmer after fade completes
         setTimeout(() => {
             imagePlaceholder.style.display = 'none';
-            // or imagePlaceholder.remove(); if you want to completely remove it
         }, 300);
     };
 
@@ -1134,7 +1135,7 @@ function setupImageModal(imageWrapper) {
             existingModal.remove();
         }
 
-                const modalOverlay = document.createElement('div');
+        const modalOverlay = document.createElement('div');
         modalOverlay.className = 'modal-overlay';
         modalOverlay.style.cssText = `
             position: fixed;
@@ -1480,17 +1481,17 @@ function setupImageModal(imageWrapper) {
             const galleryCounter = modalContent.querySelector('.gallery-counter');
             if (galleryCounter) {
                 galleryCounter.style.cssText = `
-                        position: absolute;
-                        top: 200px;
-                        right: 2px;
-                        background: rgba(0, 0, 0, 0.5);
-                        color: white;
-                        padding: 5px 10px;
-                        border-radius: 15px;
-                        font-size: 1rem;
-                        font-weight: bold;
-                        z-index: 10;
-                    `;
+                    position: absolute;
+                    top: ${isMobile ? '200px' : '10px'};
+                    right:  ${isMobile ? '2px' : '9px'};
+                    background: rgba(0, 0, 0, 0.5);
+                    color: white;
+                    padding: 5px 10px;
+                    border-radius: 12px;
+                    font-size: 1rem;
+                    font-weight: bold;
+                    z-index: 10;
+                `;
             }
 
             modalContent.style.cssText = `
@@ -1968,16 +1969,17 @@ function setupImageModal(imageWrapper) {
         
         // Trigger opening animation
         setTimeout(() => {
+            const mobileOffset = isMobile ? 'translateY(-5vh)' : 'translateY(0)';
             modalContent.style.transition = 'none';
             modalContent.style.opacity = '0';
-            modalContent.style.transform = 'scale(0.5) translateY(-5vh)';
+            modalContent.style.transform = `scale(0.5) ${mobileOffset}`;
 
             // Force reflow
             modalContent.getBoundingClientRect();
 
-            modalContent.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+            modalContent.style.transition = `opacity ${isMobile ? '0.2s' : '0.1s'} ease, transform ${isMobile ? '0.2s' : '0.1s'} ease`;
             modalContent.style.opacity = '1';
-            modalContent.style.transform = 'scale(1) translateY(-5vh)';
+            modalContent.style.transform = `scale(1) ${mobileOffset}`;
             modalOverlay.style.backgroundColor = 'rgba(0,0,0,0.8)';
             leftArrow.style.opacity = '1';
             rightArrow.style.opacity = '1';
@@ -2059,14 +2061,6 @@ function setupImageModal(imageWrapper) {
 
 class ImageHandler {
     constructor() {
-        this.knownNewsDomains = new Set([
-            "nytimes.com", "apnews.com", "reuters.com", "cnn.com", "bbc.com",
-            "cnbc.com", "abcnews.go.com", "aljazeera.com", "nbcnews.com", "independent.co.uk",
-            "kstp.com", "nbcnews.to", "nzherald.co.nz", "cnet.com", "latimes.com", "cbsnews.com",
-            "spin.com", "xxlmag.com", "newschannel9.com", "kutv.com", "deadline.com",
-            "wbez.org", "rawstory.com", "abc15.com", "npr.org", "foxnews.com",
-            "washingtonpost.com", "theguardian.com", "wired.com", "bloomberg.com", "politico.com"
-        ]);
 
         this.knownMediaDomains = [
             "i.redd.it", "v.redd.it", "streamable.com", "imgur.com", "preview.redd.it",
@@ -2369,10 +2363,19 @@ class ImageHandler {
     `;
 
         if (window.innerWidth <= 1024) {
-            // Mobile
+            // Mobile — insert overlay badge on the thumbnail
             const mediaContainer = resultCard.querySelector('.img-container');
             if (mediaContainer) {
                 mediaContainer.before(linkPreview);
+                mediaContainer.style.position = 'relative';
+                const overlay = document.createElement('a');
+                overlay.className = 'compact-open-overlay';
+                overlay.href = post.url;
+                overlay.target = '_blank';
+                overlay.rel = 'noopener noreferrer';
+                overlay.style.pointerEvents = 'auto';
+                overlay.innerHTML = '<img src="/assets/icons8-open.svg" style="width:16px;height:16px;display:block;" />';
+                mediaContainer.appendChild(overlay);
             }
         } else {
             // Desktop
@@ -2569,14 +2572,6 @@ function classifyContentType(post) {
 }
 
 function classifyPostMedia(post, domain) {
-    const knownNewsDomains = new Set([
-        "nytimes.com", "apnews.com", "reuters.com", "cnn.com", "bbc.com",
-        "cnbc.com", "abcnews.go.com", "aljazeera.com", "nbcnews.com", "independent.co.uk",
-        "kstp.com", "nbcnews.to", "nzherald.co.nz", "cnet.com", "latimes.com", "cbsnews.com",
-        "spin.com", "xxlmag.com", "newschannel9.com", "kutv.com", "deadline.com",
-        "wbez.org", "rawstory.com", "abc15.com", "npr.org", "foxnews.com",
-        "washingtonpost.com", "theguardian.com", "wired.com", "bloomberg.com", "politico.com"
-    ]);
 
     const badThumbs = new Set(['self', 'default', 'nsfw', 'spoiler', 'image', '']);
     const normalizedThumb = (post.thumbnail || '').toLowerCase();

@@ -870,36 +870,28 @@ app.get('/reddit/subreddit-info', async (req, res) => {
             aboutData = (await aboutRes.json()).data;
         }
 
-        // Resolve best icon
-        const iconOptions = [
-            aboutData.community_icon,
-            aboutData.icon_img,
-            aboutData.mobile_banner_image,
-            aboutData.header_img,
-            aboutData.banner_img
-        ].filter(url => url).map(url => url.replace(/&amp;/g, '&').trim());
-
+        // Resolve icon — community_icon first, fall back to icon_img
         let iconUrl = null;
-        for (const url of iconOptions) {
+        const iconCandidates = [aboutData.community_icon, aboutData.icon_img]
+            .filter(url => url)
+            .map(url => url.replace(/&amp;/g, '&').trim());
+
+        for (const url of iconCandidates) {
             try {
                 const check = await dogFetch(url, { method: 'HEAD' });
                 if (check.status === 200) { iconUrl = url; break; }
             } catch (err) { /* try next */ }
         }
 
-        // Resolve best banner
-        const bannerOptions = [
-            aboutData.banner_background_image,
-            aboutData.mobile_banner_image,
-            aboutData.header_img
-        ].filter(url => url).map(url => url.replace(/&amp;/g, '&').trim());
-
+        // Resolve banner — only use banner_background_image, never icon-sized fallbacks
         let bannerUrl = null;
-        for (const url of bannerOptions) {
+        const rawBanner = aboutData.banner_background_image;
+        if (rawBanner) {
+            const cleanBanner = rawBanner.replace(/&amp;/g, '&').trim();
             try {
-                const check = await dogFetch(url, { method: 'HEAD' });
-                if (check.status === 200) { bannerUrl = url; break; }
-            } catch (err) { /* try next */ }
+                const check = await dogFetch(cleanBanner, { method: 'HEAD' });
+                if (check.status === 200) bannerUrl = cleanBanner;
+            } catch (err) { /* no banner */ }
         }
 
         const row = {
@@ -2952,9 +2944,6 @@ app.get('/api/redgifs/:videoId', async (req, res) => {
         });
 
         const data = await response.json();
-
-        // ADD THIS:
-        console.log('RedGifs API response:', JSON.stringify(data, null, 2));
 
         if (!data.gif || !data.gif.urls) {
             return res.status(404).json({ error: 'Video not found' });

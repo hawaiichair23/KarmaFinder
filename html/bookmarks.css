@@ -642,6 +642,22 @@ body.forest-theme .share-icon-wrapper {
     background-color: #22c45e !important;
 }
 
+.messages {
+    background-color: #20d12e !important;
+}
+
+.more-apps {
+    background-color: var(--hover-bg);
+}
+
+body.dark-mode .more-apps {
+    background-color: var(--hover-bg);
+}
+
+body.forest-theme .more-apps {
+    background: var(--hover-bg);
+}    
+
 .messenger {
     background-color: transparent !important;
     border: 1px solid #d1d5db;
@@ -943,6 +959,65 @@ body.dark-mode .hermes-context-menu-item.highlighted {
     display: none;
 }
 
+/* Mobile organize mode */
+.mobile-drag-handle {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    justify-content: center;
+    align-items: center;
+    gap: 3px;
+    flex-direction: column;
+    padding: 6px 0;
+    cursor: grab;
+    touch-action: none;
+    z-index: 10;
+}
+
+.mobile-drag-handle span {
+    display: block;
+    width: 28px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border-color);
+}
+
+.result-card.organize-mode .mobile-drag-handle {
+    display: flex;
+}
+
+.result-card.organize-mode {
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+    transition: transform 0.15s ease;
+}
+
+.mobile-drag-clone {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+#mobileOrganizeBtn.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+body.bluebird-theme #mobileOrganizeBtn.active {
+    color: white;
+}
+
+body.forest-theme #mobileOrganizeBtn.active {
+    color: inherit;
+}
+
+body.dark-mode #mobileOrganizeBtn.active {
+    background: var(--primary-color);
+    color: white;
+}
+
 @media (max-width: 1024px) {
 
     .result-card:hover .bookmark-section-dropdown {
@@ -1082,7 +1157,15 @@ body.dark-mode .hermes-context-menu-item.highlighted {
             padding-bottom: 22px;
             padding-left: 1px;
             width: 100%;
-            border-bottom: 1px solid var(--hover-bg)
+            border-bottom: 1px solid var(--hover-bg-lite);
+        }
+
+        body.dark-mode .mobile-section-header {
+            border-bottom: 1px solid var(--hover-bg);
+        }
+
+        body.forest-theme .mobile-section-header {
+            border-bottom: 1px solid rgb(8, 75, 63);
         }
     
         .mobile-section-header-top {
@@ -1138,29 +1221,49 @@ body.dark-mode .hermes-context-menu-item.highlighted {
             }
             
         .organize-icon {
-            width: 19px;
-            height: 19px;
+            width: 20px;
+            height: 20px;
             object-fit: contain;
         }
         
         .import-icon {
-            width: 23px;
-            height: 23px;
-            object-fit: contain;
-        }
-        
-        .info-icon {
             width: 25px;
             height: 25px;
             object-fit: contain;
         }
         
+        .info-icon {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+        }
+        
         body.dark-mode .organize-icon {
-            filter: invert(1)
+            content: url('../assets/icons8-paint-96_white.png');
+        }
+
+        body.bluebird-theme .organize-icon {
+            content: url('../assets/icons8-paint-96_blue.png');
+        }
+
+        body.bluebird-theme #mobileOrganizeBtn.active .organize-icon {
+            content: url('../assets/icons8-paint-96_white.png');
+        }
+
+        body.forest-theme .organize-icon {
+            content: url('../assets/icons8-paint-96_green.png');
         }
 
         body.dark-mode .info-icon {
-            filter: invert(1)
+            content: url('../assets/icons8-tag-96_white.png');
+        }
+
+        body.bluebird-theme .info-icon {
+            content: url('../assets/icons8-tag-96_blue.png');
+        }
+
+        body.forest-theme .info-icon {
+            content: url('../assets/icons8-tag-96_green.png');
         }
 
         .mobile-section-more-btn {
@@ -1170,7 +1273,7 @@ body.dark-mode .hermes-context-menu-item.highlighted {
             font-size: 2.2rem;
             font-weight: 500;
             font-family: "Lato";
-            color: var(--text-primary);
+            color: var(--text-color);
             padding: 4px 8px;
             border-radius: 8px;
             display: block;
@@ -1196,6 +1299,7 @@ body.dark-mode .hermes-context-menu-item.highlighted {
             border-radius: 1rem 1rem 0 0;
             overflow-y: auto;
             z-index: 9999;
+            max-height: 45vh;
             transform: translateY(100%);
             transition: transform 0.2s ease-in-out;
             box-shadow: 0 -0.25rem 1.25rem var(--shadow-card);
@@ -1204,37 +1308,94 @@ body.dark-mode .hermes-context-menu-item.highlighted {
         }
         
         .section-more-item-inner {
-            padding: 0.8rem 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.58rem 0.75rem;
             margin-left: 0.2rem;
             border-radius: 1rem;
+            color: var(--text-color);
         }
+
+        .share-option-icon {
+            width: 57px;
+            height: 57px;
+            border-radius: 20px;
+            background: var(--hover-bg-lite);
+            flex-shrink: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        body.dark-mode .share-option-icon {
+            background: var(--hover-bg);
+        }
+
+        .share-option-icon--instagram {
+            background: none;
+            position: relative;
+        }
+
+        .share-option-icon--copylink {
+            background: var(--hover-bg-lite);
+        }
+
+        body.forest-theme .share-option-icon--copylink {
+            background: var(--hover-bg);
+        }      
+
+        body.dark-mode .share-option-icon--copylink {
+            background: var(--hover-bg);
+        }
+
+
+        .share-option-icon--copylink .share-option-icon-overlay {
+            padding: 19px;
+        }
+
+        .share-option-icon-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 14px;
+        }
+
+        .share-option-icon-overlay svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .share-option-icon-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: inherit;
+            transform: scale(1.2);
+            filter: saturate(1.5);
+        }
+
 
         .section-more-header {
             padding: 0.9rem 1.2rem 0.6rem;
-            padding-top: 1.5rem;
         }
 
         .section-more-title {
             font-size: 0.95rem;
-            color: var(--text-primary);
+            color: var(--text-color);
             font-weight: 400;
             font-family: "Lato";
         }
 
         .section-more-item {
             padding-left: 0.2rem;
-            font-size: 1.4rem;
+            font-size: 1.2rem;
             font-weight: 500;
             font-family: "Lato";
-            color: var(--text-primary);
+            color: var(--text-color);
             font-weight: 500;
             cursor: pointer;
-        }
-
-        .section-more-item-inner:hover,
-        .section-more-item-inner:active {
-            background: var(--hover-bg);
-            margin-right: 0.4rem;
         }
 
         .section-picker-overlay {
@@ -1258,11 +1419,6 @@ body.dark-mode .hermes-context-menu-item.highlighted {
             margin: 0 0.5rem;
         }
 
-        .section-picker-item:hover,
-        .section-picker-item:active {
-            background: var(--hover-bg);
-        }
-
         .toast {
             position: fixed;
             bottom: calc(4.7rem + env(safe-area-inset-bottom));
@@ -1278,6 +1434,7 @@ body.dark-mode .hermes-context-menu-item.highlighted {
             z-index: 10000;
             display: flex;
             align-items: center;
+            white-space: nowrap;
             gap: 0.5rem;
             box-shadow: 0 4px 16px rgba(0,0,0,0.25);
             opacity: 0;
@@ -1309,5 +1466,15 @@ body.dark-mode .hermes-context-menu-item.highlighted {
             font-weight: 400;
         }
 
+        .messages-bubble-img {
+            width: 93%;
+            height: 93%;
+            object-fit: contain;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            object-position: center
+        }
 
 }

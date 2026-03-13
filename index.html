@@ -3,6 +3,7 @@
 
 <head>
     <base href="/">
+    <link rel="preload" as="image" href="/assets/forest.png">
     <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
     <link rel="stylesheet" href="/html/styles.css"/>
     <link rel="stylesheet" href="/html/bookmarks.css"/>
@@ -23,7 +24,7 @@
 
 </head>
 
-<body>
+<body data-layout="comfy">
 
     <a href="https://ko-fi.com/hawaiichair23" target="_blank" class="donate-btn floating-button">
         <img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi"
@@ -59,24 +60,49 @@
     <div class="mobile-top-bar">
         <div class="mobile-search-row">
             <button class="mobile-hamburger" id="mobileHamburger" aria-label="Menu">
-                <img width="384" height="384" src="https://img.icons8.com/material-rounded/384/menu--v1.png" alt="menu--v1" />
+                <img src="/assets/icons8-hamburger-menu-500.png" alt="menu" />
+            </button>
+            <button id="subreddit-back-btn" class="subreddit-nav-btn" onclick="history.back()" aria-label="Back">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.7071 4.29289C12.0976 4.68342 12.0976 5.31658 11.7071 5.70711L6.41421 11H20C20.5523 11 21 11.4477 21 12C21 12.5523 20.5523 13 20 13H6.41421L11.7071 18.2929C12.0976 18.6834 12.0976 19.3166 11.7071 19.7071C11.3166 20.0976 10.6834 20.0976 10.2929 19.7071L3.29289 12.7071C3.10536 12.5196 3 12.2652 3 12C3 11.7348 3.10536 11.4804 3.29289 11.2929L10.2929 4.29289C10.6834 3.90237 11.3166 3.90237 11.7071 4.29289Z" fill="currentColor"/></svg>
             </button>
     
             <div class="mobile-logo-row">
-                <a href="/" class="logo">KarmaFinder</a>
+                <a href="/" class="logo" onclick="sessionStorage.removeItem('kf_current_tab')">KarmaFinder</a>
                 <a href="/" class="hat-link">
                     <img src="/assets/hat.png" alt="hat">
                 </a>
             </div>
     
+            <button id="subreddit-search-btn" class="subreddit-nav-btn" aria-label="Search">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2"/><path d="m15.8 15.8 4.2 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
             <button id="mobileLoginBtn" class="login-link" type="button">
                 <span class="login-icon login-icon-image"></span>
             </button>
+
+
+
+
+            <button id="search-back-btn" class="search-back-button" onclick="history.back()">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.7071 4.29289C12.0976 4.68342 12.0976 5.31658 11.7071 5.70711L6.41421 11H20C20.5523 11 21 11.4477 21 12C21 12.5523 20.5523 13 20 13H6.41421L11.7071 18.2929C12.0976 18.6834 12.0976 19.3166 11.7071 19.7071C11.3166 20.0976 10.6834 20.0976 10.2929 19.7071L3.29289 12.7071C3.10536 12.5196 3 12.2652 3 12C3 11.7348 3.10536 11.4804 3.29289 11.2929L10.2929 4.29289C10.6834 3.90237 11.3166 3.90237 11.7071 4.29289Z" fill="currentColor"/></svg>
+            </button>
+            <button id="suggestions-back-btn" class="search-back-button">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.7071 4.29289C12.0976 4.68342 12.0976 5.31658 11.7071 5.70711L6.41421 11H20C20.5523 11 21 11.4477 21 12C21 12.5523 20.5523 13 20 13H6.41421L11.7071 18.2929C12.0976 18.6834 12.0976 19.3166 11.7071 19.7071C11.3166 20.0976 10.6834 20.0976 10.2929 19.7071L3.29289 12.7071C3.10536 12.5196 3 12.2652 3 12C3 11.7348 3.10536 11.4804 3.29289 11.2929L10.2929 4.29289C10.6834 3.90237 11.3166 3.90237 11.7071 4.29289Z" fill="currentColor"/></svg>
+            </button>
+
+            <div class="mobile-search-input-container search-input-container">
+                <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2"/>
+                    <path d="m15.8 15.8 4.2 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <input type="text" id="mobile-search-input" class="search-input" placeholder="Search Reddit">
+                <div id="mobile-suggestions" class="suggestions"></div>
+            </div>
         </div>
     </div>
         <header>
             <div style="text-align: center;">
-                <a href="/" class="link-container">
+                <a href="/" class="link-container" onclick="sessionStorage.removeItem('kf_current_tab')">
                     <div class="logo">KarmaFinder</div>
                 </a>
                 <div style="text-align: center;">
@@ -145,14 +171,14 @@
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
         <nav class="mobile-bottom-bar">
-            <a href="javascript:void(0)" class="bottom-bar-item active" data-tab="home" onclick="switchTab('home')">
+            <a href="javascript:void(0)" class="bottom-bar-item active" data-tab="home" onclick="navigate({tab:'home', subreddit:'', query:'', pageIndex:0, after:null, before:null, sectionId:null})">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
                     <polyline points="9 22 9 12 15 12 15 22" />
                 </svg>
                 <span>Home</span>
             </a>
-            <a href="javascript:void(0)" class="bottom-bar-item" data-tab="layout" onclick="switchTab('layout')">
+            <a href="javascript:void(0)" class="bottom-bar-item" data-tab="layout" onclick="showLayoutSheet()">
                 <svg width="22" height="22" viewBox="0 0 100 100" fill="currentColor">
                     <rect x="5" y="5" width="40" height="40" rx="10" ry="10" />
                     <rect x="52" y="5" width="40" height="40" rx="10" ry="10" />
@@ -161,16 +187,16 @@
                 </svg>
                 <span>Layout</span>
             </a>
-            <a href="javascript:void(0)" class="bottom-bar-item" data-tab="search" onclick="switchTab('search')">
-                <svg class="search-icon-bottom" width="22" height="22" viewBox="0 0 24 24" fill="none">
-                    <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2" fill="none" />
-                    <path d="m15.8 15.8 4.2 4.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <a href="javascript:void(0)" class="bottom-bar-item" data-tab="search" onclick="navigate({tab:'search', subreddit:'', query:'', pageIndex:0, after:null, before:null, sectionId:null})">
+                <svg class="search-icon-bottom" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="10" cy="10" r="7" fill="none" />
+                    <path d="m15.8 15.8 4.2 4.2" stroke-linecap="round" />
                 </svg>
                 <span>Search</span>
             </a>
-            <a href="javascript:void(0)" class="bottom-bar-item" data-tab="bookmarks" onclick="switchTab('bookmarks')">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            <a href="javascript:void(0)" class="bottom-bar-item" data-tab="bookmarks" onclick="navigate({tab:'bookmarks', subreddit:'', query:'', pageIndex:0, after:null, before:null, sectionId:null})">
+                <svg width="24" height="24" viewBox="0 0 29 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+                    <path d="M23 23l-8.5-5.5-8.5 5.5V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z" />
                 </svg>
                 <span>Bookmarks</span>
             </a>
@@ -187,7 +213,6 @@
             <span class="login-icon login-icon-image"></span>
             <span id="loginBtnText">Log In</span>
         </button>
-        <div id="screen-home" class="screen active">
         <div class="search-container">
 
             <div class="search-top-row">
@@ -290,6 +315,7 @@
                     </button>
                 </div>
         </div>
+        <div id="screen-home" class="screen active">
         <div id="results" class="results-container"></div>
         <div id="pagination" class="pagination">
         </div>
@@ -300,9 +326,22 @@
         </div>
 
         <div id="screen-search" class="screen">
+        <div id="search-filter-pills" class="filter-pills-row">
+            <button class="filter-pill" id="pill-sort" onclick="openSortSheet()">Relevance <img class="pill-arrow" src="/assets/icons8-sorting-arrowheads-90.png" alt=""></button>
+            <button class="filter-pill" id="pill-time" onclick="openTimeSheet()">All Time <img class="pill-arrow" src="/assets/icons8-sorting-arrowheads-90.png" alt=""></button>
+            <button class="filter-pill" id="pill-safe" onclick="toggleSafeSearchPill()">Safe Search</button>
+        </div>
         <div id="search-results" class="results-container"></div>
         <div id="search-pagination" class="pagination"></div>
         </div>
+
+        <div id="screen-subreddit" class="screen">
+        <div id="subreddit-header"></div>
+        <div id="subreddit-results" class="results-container"></div>
+        <div id="subreddit-pagination" class="pagination"></div>
+        </div>
+        </div>
+
         <footer>
             <p>KarmaFinder is an independent search utility and is not affiliated with Reddit Inc.</p>
             <br>
@@ -368,7 +407,7 @@
         bluebird: {
         "--primary-color": "rgb(255, 30, 64)",
         "--secondary-color": "#4169e1",
-        "--background-color": "rgb(221, 239, 255)",
+        "--background-color": "rgb(215, 233, 255)",
         "--card-color": "rgb(216, 236, 255)",
         "--card-color-b": "#ddeeff",
         "--input-bg": "rgb(193, 228, 255)",
@@ -407,10 +446,10 @@
         "--input-bg": "rgb(27, 33, 32)",
         "--comments-bg": "rgb(19, 50, 42)",
         "--suggestions-bg": "rgb(24, 46, 37)",
-        "--text-color": "rgb(164, 237, 236)",
+        "--text-color": "rgb(182, 248, 247)",
         "--text-primary": "#ffffff",
         "--text-secondary": "#d4eddb",
-        "--light-text": "rgb(65, 127, 111)",
+        "--light-text": "rgb(68, 134, 117)",
         "--meta-text": "#8ab998",
         "--placeholder-bg": "#2f5d41",
         "--footie-color": "#688b75",
@@ -420,7 +459,8 @@
         "--shadow-card": "rgba(0, 0, 0, 0.5)",
         "--inset-shadow": "var(--border-color)",
         "--hover-bg-lite": "rgb(40, 46, 44)",
-        "--button-bg": "rgb(34, 72, 56)",
+        "--hover-bg": "rgb(33, 49, 43)",
+        "--button-bg": "rgb(32, 73, 73)",
         "--toggle-bg": "rgb(30, 55, 42)",
         "--disabled-opacity": "0.5",
         "--card-radius": "9px",
@@ -429,8 +469,8 @@
         "--image-width": "160px",
         "--bg-image": "url('/assets/forest.png')",
         "--bg-size": "cover",
-        "--bg-position": "center",
-        "--bg-repeat": "no-repeat",
+        "--bg-position": "bottom",
+        "--bg-repeat": "repeat-y",
         "--github-button svg": "invert(0)"
         },
         
@@ -479,8 +519,9 @@
         const root = document.documentElement;
         const theme = themes[themeName] || themes.default;
         
-        // Remove all theme classes first
-        document.body.classList.remove('forest-theme', 'bluebird-theme', 'default');
+        // Always remove all theme classes and inline vars first
+        document.body.classList.remove('forest-theme', 'bluebird-theme', 'default-theme', 'dark-mode');
+        [...root.style].forEach(prop => root.style.removeProperty(prop));
         
         if (themeName === 'dark') {
         document.body.classList.add('dark-mode');
@@ -509,6 +550,24 @@
         
         // Save theme
         localStorage.setItem('selectedTheme', themeName);
+
+        // Swap comment icons per theme
+        const commentImgs = document.querySelectorAll('.comment-icon-img');
+        const commentSrc = themeName === 'bluebird' ? 'assets/icons8-comment_blue.svg' : themeName === 'forest' ? 'assets/icons8-comment-72.png' : 'assets/icons8-comment.svg';
+        commentImgs.forEach(img => {
+            img.src = commentSrc;
+        });
+
+        // Swap upvote icons per theme
+        document.querySelectorAll('.vote-button-red').forEach(btn => {
+            if (themeName === 'forest') {
+                btn.innerHTML = `<img src="assets/icons8-chevron-up-90_green.png" width="20" height="20">`;
+            } else if (themeName === 'bluebird') {
+                btn.innerHTML = `<img src="assets/icons8-chevron-up-90_blue.png" width="20" height="20">`;
+            } else {
+                btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
+            }
+        });
         }
         
         // Global theme functions for UI controls
@@ -564,14 +623,22 @@
         }
         
         window.toggleDarkMode = function () {
-        const isDark = document.body.classList.toggle('dark-mode');
-        localStorage.setItem('theme', isDark ? 'dark' : 'light');
-        
+        const currentTheme = localStorage.getItem('selectedTheme') || 'default';
+        const isDark = currentTheme === 'dark';
+        if (isDark) {
+            const previousTheme = localStorage.getItem('previousTheme') || 'default';
+            applyTheme(previousTheme);
+        } else {
+            localStorage.setItem('previousTheme', 'default');
+            applyTheme('dark');
+        }
+
         // Update icon
         const themeIcon = document.getElementById('themeIcon');
         if (themeIcon) {
-        themeIcon.src = isDark ? '/assets/sun.png' : '/assets/moon.png';
-        themeIcon.alt = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+        const nowDark = localStorage.getItem('selectedTheme') === 'dark';
+        themeIcon.src = nowDark ? '/assets/sun.png' : '/assets/moon.png';
+        themeIcon.alt = nowDark ? 'Switch to light mode' : 'Switch to dark mode';
         }
         }
         

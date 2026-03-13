@@ -743,7 +743,7 @@ async function renameSectionById(sectionId, currentName, tabIndex = null) {
 async function deleteSectionById(sectionId, sectionName) {
     const result = await Swal.fire({
         title: `Delete Section?`,
-        text: `This will permanently delete '${sectionName}' and all its bookmarks.`,
+        text: `This will permanently delete '${sectionName}' and all its saves.`,
         showCancelButton: true,
         confirmButtonText: 'Delete',
         cancelButtonText: 'Cancel',
@@ -765,7 +765,7 @@ async function deleteSectionById(sectionId, sectionName) {
 
         if (isMobile()) {
             showSectionsAntepage();
-            showToast(`Deleted ${sectionName}.`, 'error');
+            showToast(`Deleted ${sectionName}`, 'error');
         } else {
             await initializeTabs();
 
@@ -1084,17 +1084,15 @@ function handleDrop(e) {
 
     const sectionId = parseInt(draggedElement.dataset.sectionId);
 
-    // Get the current DOM order - this is what the user sees
-    const allCards = Array.from(document.querySelectorAll('.result-card'));
-    const orderedIds = allCards.map(card => card.dataset.bookmarkId);
+    const orderedIds = Array.from(document.querySelectorAll('.result-card'))
+        .map(card => card.dataset.bookmarkId)
+        .filter(Boolean);
 
-    // Update the sectionBookmarks array to match DOM order
     sectionBookmarks[sectionId] = orderedIds.map(id =>
         sectionBookmarks[sectionId].find(bookmark => bookmark.reddit_post_id === id)
-    );
+    ).filter(Boolean);
 
-    // Save to backend
-    updateBookmarkOrder(sectionId);
+    updateBookmarkOrder(sectionId, orderedIds);
 }
 
 function getDragAfterElement(y) {
@@ -1115,24 +1113,16 @@ function getDragAfterElement(y) {
 }
 
 // Function to update bookmark order in backend
-function updateBookmarkOrder(sectionId) {
-    const orderedIds = sectionBookmarks[sectionId].map(bookmark => bookmark.reddit_post_id);
-
-        fetch(`${API_BASE}/api/bookmarks/reorder`, {
+function updateBookmarkOrder(sectionId, orderedIds) {
+    fetch(`${API_BASE}/api/bookmarks/reorder`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-            orderedIds,
-            sectionId: sectionId
-        })
+        body: JSON.stringify({ orderedIds, sectionId })
     })
-        .then(response => response.json())
-        .catch(error => {
-            console.error(`❌ Error updating bookmark order for section ${sectionId}:`, error);
-        });
+    .catch(error => {
+        console.error(`❌ Error updating bookmark order for section ${sectionId}:`, error);
+    });
 }
 
 async function addSectionDropdowns(excludeSectionId = null) {
@@ -1735,8 +1725,7 @@ function setupShareMenuEvents() {
                         const sectionId = urlParams.get('section');
                         
                         const response = await fetch(`${API_BASE}/api/sections/${sectionId}/share`, {
-                            method: 'POST',
-                            credentials: 'include'
+                            method: 'POST'
                         });
                         
                         if (response.ok) {
@@ -1768,8 +1757,7 @@ function setupShareMenuEvents() {
                     const sectionId = urlParams.get('section');
                     
                     const response = await fetch(`${API_BASE}/api/sections/${sectionId}/share`, {
-                        method: 'POST',
-                        credentials: 'include'
+                        method: 'POST'
                     });
                     
                     if (response.ok) {
@@ -1791,8 +1779,7 @@ function setupShareMenuEvents() {
                     const sectionId = urlParams.get('section');
                     
                     const response = await fetch(`${API_BASE}/api/sections/${sectionId}/share`, {
-                        method: 'POST',
-                        credentials: 'include'
+                        method: 'POST'
                     });
                     
                     if (response.ok) {
@@ -1815,8 +1802,7 @@ function setupShareMenuEvents() {
                     const sectionId = urlParams.get('section');
                     
                     const response = await fetch(`${API_BASE}/api/sections/${sectionId}/share`, {
-                        method: 'POST',
-                        credentials: 'include'
+                        method: 'POST'
                     });
                     
                     if (response.ok) {
@@ -1838,8 +1824,7 @@ function setupShareMenuEvents() {
                     const sectionId = urlParams.get('section');
                     
                     const response = await fetch(`${API_BASE}/api/sections/${sectionId}/share`, {
-                        method: 'POST',
-                        credentials: 'include'
+                        method: 'POST'
                     });
                     
                     if (response.ok) {
@@ -1860,6 +1845,140 @@ function setupShareMenuEvents() {
         }
     });
     setupShareMenuKeyboardNav();
+}
+
+async function showMobileShareSheet() {
+    const isSharedPage = window.location.pathname.includes('/share/');
+    let shareUrl;
+
+    if (isSharedPage) {
+        shareUrl = window.location.href;
+    } else {
+        const urlParams = new URLSearchParams(window.location.search);
+        const sectionId = urlParams.get('section');
+        try {
+            const response = await fetch(`${API_BASE}/api/sections/${sectionId}/share`, { method: 'POST' });
+            if (!response.ok) return;
+            const data = await response.json();
+            shareUrl = data.shareUrl;
+        } catch (err) {
+            console.error('Failed to get share URL:', err);
+            return;
+        }
+    }
+
+    const text = 'Check out this curated Reddit collection on KarmaFinder!';
+
+    const overlay = document.createElement('div');
+    overlay.className = 'section-picker-overlay';
+
+    const sheet = document.createElement('div');
+    sheet.className = 'section-more-sheet';
+
+    const header = document.createElement('div');
+    header.className = 'section-more-header';
+    header.innerHTML = `<div style="width: 56px; height: 4px; background: var(--border-color); border-radius: 2px; margin: 0 auto 4px;"></div><span class="section-more-title">Share</span>`;
+    sheet.appendChild(header);
+
+    function closeSheet() {
+        sheet.style.transform = 'translateY(100%)';
+        overlay.style.opacity = '0';
+        setTimeout(() => { overlay.remove(); sheet.remove(); }, 200);
+    }
+
+    const options = [
+        { label: 'Copy link', iconClass: 'share-option-icon--copylink', iconOverlay: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`, action: async () => {
+            try { await navigator.clipboard.writeText(shareUrl); } catch(e) { console.error('clipboard error:', e); }
+            showToast('Link copied!');
+        } },
+        { label: 'Instagram', iconClass: 'share-option-icon--instagram', iconSrc: '../assets/instagradient.png', iconOverlay: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="white" stroke="none"/></svg>`, action: () => window.open(`instagram://share?url=${encodeURIComponent(shareUrl)}`, '_blank') },
+        { label: 'Messages', iconClass: 'messages', iconSrc: '../assets/bubble.png', iconImgClass: 'messages-bubble-img', action: () => window.open(`sms:&body=${encodeURIComponent(text + ' ' + shareUrl)}`, '_blank') },
+        { label: 'WhatsApp', iconClass: 'whatsapp', iconOverlay: `<i class="fab fa-whatsapp" style="font-size:31px;color:white;"></i>`, action: () => window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + shareUrl)}`, '_blank') },
+        { label: 'More apps', iconClass: 'more-apps', iconOverlay: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="22" height="22"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>`, action: () => {
+            if (!navigator.share) return;
+            navigator.share({ title: 'KarmaFinder', text, url: shareUrl })
+                .catch(err => console.error('share error:', err));
+        }},
+    ];
+
+    options.forEach(({ label, iconClass, iconSrc, iconImgClass, iconOverlay, action }) => {
+        const item = document.createElement('div');
+        item.className = 'section-more-item';
+        const inner = document.createElement('div');
+        inner.className = 'section-more-item-inner';
+        const icon = document.createElement('div');
+        icon.className = 'share-option-icon' + (iconClass ? ' ' + iconClass : '');
+        if (iconSrc) {
+            const img = document.createElement('img');
+            img.src = iconSrc;
+            img.className = 'share-option-icon-img' + (iconImgClass ? ' ' + iconImgClass : '');
+            icon.appendChild(img);
+        }
+        if (iconOverlay) {
+            const overlayEl = document.createElement('div');
+            overlayEl.className = 'share-option-icon-overlay';
+            overlayEl.innerHTML = iconOverlay;
+            icon.appendChild(overlayEl);
+        }
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = label;
+        inner.appendChild(icon);
+        inner.appendChild(labelSpan);
+        item.appendChild(inner);
+        item.addEventListener('click', () => { action(); closeSheet(); });
+        sheet.appendChild(item);
+    });
+
+    overlay.addEventListener('click', closeSheet);
+
+    let isDragging = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    const dragStart = (e) => {
+        isDragging = true;
+        startY = e.touches?.[0].pageY || e.pageY;
+        startHeight = parseInt(getComputedStyle(sheet).height);
+        sheet.style.transition = 'none';
+    };
+
+    const dragging = (e) => {
+        if (!isDragging) return;
+        const currentY = e.touches?.[0].pageY || e.pageY;
+        const delta = startY - currentY;
+        const newHeight = startHeight + delta;
+        const maxHeightPx = window.innerHeight * 0.8;
+        sheet.style.height = `${Math.max(0, Math.min(newHeight, maxHeightPx))}px`;
+        e.preventDefault();
+    };
+
+    const dragStop = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        sheet.style.transition = 'height 0.2s ease';
+        const currentHeightVh = (parseInt(getComputedStyle(sheet).height) / window.innerHeight) * 100;
+        if (currentHeightVh < 20) {
+            closeSheet();
+        } else {
+            sheet.style.height = 'auto';
+        }
+    };
+
+    header.addEventListener('mousedown', dragStart);
+    header.addEventListener('touchstart', dragStart);
+    document.addEventListener('mousemove', dragging);
+    document.addEventListener('touchmove', dragging, { passive: false });
+    document.addEventListener('mouseup', dragStop);
+    document.addEventListener('touchend', dragStop);
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(sheet);
+
+    requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+        sheet.style.transform = 'translateY(0)';
+    });
+
 }
 
 function setupShareMenuKeyboardNav() {
@@ -2426,7 +2545,7 @@ async function showSectionInfo() {
     });
 }
 
-function showToast(message, type = 'info') {
+function showToast(message, type = 'success') {
     const icons = {
         success: '✓',
         error: '✕',
@@ -2713,7 +2832,7 @@ function showErrorWithHeader(message, sectionId, sectionName) {
         if (result.action === 'rename') await renameSectionById(result.sectionId, result.sectionName);
         else if (result.action === 'delete') await deleteSectionById(result.sectionId, result.sectionName);
     });
-    header.querySelector('.mobile-section-share-btn').addEventListener('click', () => showShareMenu());
+    header.querySelector('.mobile-section-share-btn').addEventListener('click', () => showMobileShareSheet());
 
     // Append error message below header
     const errorDiv = document.createElement('div');
@@ -3005,201 +3124,383 @@ function loadSharedContent(shareCode, isLoadMore = false) {
 }
 
 // Unified loading function for all sections
-function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false, numToLoad = 10) {
+let mobileSortable = null;
+let mobileOrganizeActive = false;
+
+function turnOffMobileOrganize() {
+    if (!mobileOrganizeActive) return;
+    mobileOrganizeActive = false;
+    const btn = document.getElementById('mobileOrganizeBtn');
+    if (btn) {
+        btn.classList.remove('active');
+        const icon = btn.querySelector('.organize-icon');
+        if (icon) icon.src = '../assets/icons8-paint-96.png';
+    }
+    const sectionParam = new URLSearchParams(window.location.search).get('section');
+    if (sectionParam) disableMobileOrganize(parseInt(sectionParam));
+}
+
+function enableMobileOrganize(sectionId) {
+    document.body.setAttribute('data-layout', 'compact');
+    localStorage.setItem('mobile-layout', 'compact');
+
+    document.querySelectorAll('.result-card').forEach(card => {
+        const handle = document.createElement('div');
+        handle.className = 'mobile-drag-handle';
+        handle.innerHTML = `<span></span><span></span>`;
+        card.classList.add('organize-mode');
+        card.prepend(handle);
+
+        handle.addEventListener('touchstart', (e) => mobileDragStart(e, card, sectionId), { passive: false });
+    });
+}
+
+function disableMobileOrganize(sectionId) {
+    document.querySelectorAll('.mobile-drag-handle').forEach(h => h.remove());
+    document.querySelectorAll('.result-card').forEach(card => {
+        card.classList.remove('organize-mode');
+        card.style.transform = '';
+        card.style.zIndex = '';
+        card.style.position = '';
+    });
+}
+
+function mobileDragStart(e, card, sectionId) {
+    e.preventDefault();
+
+    const touch = e.touches[0];
+    const rect = card.getBoundingClientRect();
+    const offsetY = touch.clientY - rect.top;
+
+    // Take card out of flow, pin it to screen
+    card.style.position = 'fixed';
+    card.style.top = `${rect.top}px`;
+    card.style.left = `${rect.left}px`;
+    card.style.width = `${rect.width}px`;
+    card.style.zIndex = '1000';
+    card.style.transition = 'none';
+    card.style.margin = '0';
+
+    // Insert a placeholder to hold the space
+    const placeholder = document.createElement('div');
+    placeholder.className = 'mobile-drag-placeholder';
+    placeholder.style.height = `${rect.height}px`;
+    card.parentNode.insertBefore(placeholder, card);
+
+    let scrollInterval = null;
+
+    function onTouchMove(ev) {
+        ev.preventDefault();
+        const t = ev.touches[0];
+        card.style.top = `${t.clientY - offsetY}px`;
+
+        // Auto-scroll near edges
+        const scrollZone = 125;
+        const scrollSpeed = 6;
+        clearInterval(scrollInterval);
+        if (t.clientY < scrollZone) {
+            scrollInterval = setInterval(() => window.scrollBy(0, -scrollSpeed), 16);
+        } else if (t.clientY > window.innerHeight - scrollZone) {
+            scrollInterval = setInterval(() => window.scrollBy(0, scrollSpeed), 16);
+        }
+
+        const cards = Array.from(document.querySelectorAll('.result-card'));
+        const target = cards.find(c => {
+            if (c === card) return false;
+            const r = c.getBoundingClientRect();
+            return t.clientY >= r.top && t.clientY <= r.bottom;
+        });
+
+        if (target) {
+            const r = target.getBoundingClientRect();
+            if (t.clientY < r.top + r.height / 2) {
+                target.parentNode.insertBefore(placeholder, target);
+            } else {
+                target.parentNode.insertBefore(placeholder, target.nextSibling);
+            }
+        }
+    }
+
+    function cleanup() {
+        clearInterval(scrollInterval);
+        placeholder.remove();
+
+        card.style.position = '';
+        card.style.top = '';
+        card.style.left = '';
+        card.style.width = '';
+        card.style.zIndex = '';
+        card.style.transition = '';
+        card.style.margin = '';
+
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+        document.removeEventListener('touchcancel', onTouchCancel);
+    }
+
+    function onTouchEnd() {
+        placeholder.parentNode.insertBefore(card, placeholder);
+        cleanup();
+
+        const orderedIds = Array.from(document.querySelectorAll('.result-card'))
+            .map(c => c.dataset.bookmarkId)
+            .filter(Boolean);
+
+        sectionBookmarks[sectionId] = orderedIds.map(id =>
+            sectionBookmarks[sectionId].find(b => b.reddit_post_id === id || b.id === id)
+        ).filter(Boolean);
+
+        updateBookmarkOrder(sectionId, orderedIds);
+    }
+
+    function onTouchCancel() {
+        placeholder.parentNode.insertBefore(card, placeholder);
+        cleanup();
+    }
+
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend', onTouchEnd);
+    document.addEventListener('touchcancel', onTouchCancel);
+}
+
+function buildMobileSectionHeader(sectionId, name, totalCount, resultsContainer) {
+    const existingHeader = document.querySelector('.mobile-section-header');
+    if (existingHeader) existingHeader.remove();
+
+    const header = document.createElement('div');
+    header.className = 'mobile-section-header';
+    header.innerHTML = `
+        <div class="mobile-section-header-top">
+            <div class="mobile-section-header-left">
+                <div class="mobile-section-title">${name}</div>
+                <div class="mobile-section-count">${totalCount} ${totalCount === 1 ? 'Save' : 'Saves'}</div>
+            </div>
+            <div class="mobile-section-header-right">
+                <button class="mobile-section-more-btn" title="More">...</button>
+                <button class="mobile-section-share-btn" title="Share">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                        <polyline points="16 6 12 2 8 6"/>
+                        <line x1="12" y1="2" x2="12" y2="15"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="mobile-section-actions">
+            <button class="mobile-section-action-btn" id="mobileOrganizeBtn">
+                <img src="../assets/icons8-paint-96.png" class="organize-icon">
+                Organize
+            </button>
+            <button class="mobile-section-action-btn" id="mobileImportBtn">
+                <svg viewBox="0 0 24 26" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 13 7 8"/>
+                    <line x1="12" y1="1" x2="12" y2="13"/>
+                </svg>
+                Import
+            </button>
+            <button class="mobile-section-action-btn" id="mobileSectionInfoBtn">
+                <img src="../assets/icons8-tag-96.png" class="info-icon">
+                Info
+            </button>
+        </div>
+    `;
+
+    resultsContainer.prepend(header);
+
+    header.querySelector('.mobile-section-share-btn').addEventListener('click', () => showMobileShareSheet());
+    mobileOrganizeActive = false;
+    const organizeBtn = header.querySelector('#mobileOrganizeBtn');
+    organizeBtn.addEventListener('click', () => {
+        mobileOrganizeActive = !mobileOrganizeActive;
+        organizeBtn.classList.toggle('active', mobileOrganizeActive);
+        const organizeIcon = organizeBtn.querySelector('.organize-icon');
+        if (organizeIcon) organizeIcon.src = mobileOrganizeActive ? '../assets/icons8-paint-96_white.png' : '../assets/icons8-paint-96.png';
+        if (mobileOrganizeActive) {
+            enableMobileOrganize(sectionId);
+        } else {
+            disableMobileOrganize(sectionId);
+        }
+    });
+    header.querySelector('#mobileImportBtn').addEventListener('click', () => initiateRedditLogin());
+    header.querySelector('#mobileSectionInfoBtn').addEventListener('click', () => showSectionInfo());
+    header.querySelector('.mobile-section-more-btn').addEventListener('click', async () => {
+        const result = await showSectionMoreMenu(sectionId, name);
+        if (!result) return;
+        if (result.action === 'rename') await renameSectionById(result.sectionId, result.sectionName);
+        else if (result.action === 'delete') await deleteSectionById(result.sectionId, result.sectionName);
+    });
+}
+
+async function fetchSectionData(sectionId, offset) {
+    const response = await fetch(
+        `${API_BASE}/api/bookmarks/section/${sectionId}?offset=${offset}&limit=${BOOKMARKS_PER_PAGE}`,
+        { credentials: 'include' }
+    );
+    const rawText = await response.text();
+    return JSON.parse(rawText);
+}
+
+function normalizeBookmark(bookmark) {
+    return {
+        id: bookmark.reddit_post_id,
+        title: bookmark.title,
+        url: bookmark.url,
+        permalink: bookmark.permalink,
+        subreddit: bookmark.subreddit,
+        score: bookmark.score,
+        is_video: bookmark.is_video,
+        domain: bookmark.domain,
+        author: bookmark.author,
+        created_utc: bookmark.created_utc,
+        num_comments: bookmark.num_comments,
+        over_18: bookmark.over_18,
+        selftext: bookmark.selftext,
+        body: bookmark.body,
+        is_gallery: bookmark.is_gallery,
+        gallery_data: bookmark.gallery_data,
+        media_metadata: bookmark.media_metadata,
+        crosspost_parent_list: bookmark.crosspost_parent_list || [],
+        content_type: bookmark.content_type,
+        icon_url: bookmark.icon_url,
+        locked: bookmark.locked,
+        stickied: bookmark.stickied,
+        preview: bookmark.preview
+    };
+}
+
+async function renderSectionContent(sectionId, bookmarksToRender, sectionMeta, isLoadMore) {
+    const resultsContainer = document.getElementById('bookmarks-results');
+    const { mobileSectionName, totalCount } = sectionMeta;
+
+    const transformedData = {
+        data: {
+            children: bookmarksToRender.map(b => ({ data: normalizeBookmark(b) }))
+        }
+    };
+
+    await displayResults(transformedData, isLoadMore);
+
+    // Mobile: scroll to top + section header on fresh load
+    if (!isLoadMore && isMobile()) {
+        window.scrollTo(0, 0);
+        buildMobileSectionHeader(sectionId, mobileSectionName, totalCount, resultsContainer);
+    }
+
+    // Mobile organize mode: attach drag handles to any newly rendered cards
+    if (mobileOrganizeActive) {
+        setTimeout(() => {
+            document.querySelectorAll('.result-card:not(.organize-mode)').forEach(card => {
+                const handle = document.createElement('div');
+                handle.className = 'mobile-drag-handle';
+                handle.innerHTML = `<span></span><span></span>`;
+                card.classList.add('organize-mode');
+                card.prepend(handle);
+                handle.addEventListener('touchstart', (e) => mobileDragStart(e, card, sectionId), { passive: false });
+            });
+        }, 300);
+    }
+
+    // Sync saved bookmark icon states from session
+    const existingBookmarks = JSON.parse(sessionStorage.getItem('bookmarks') || '{}');
+    document.querySelectorAll('.bookmark-icon').forEach(icon => {
+        const postId = icon.dataset.postId;
+        icon.classList.toggle('saved', !!existingBookmarks[postId]);
+    });
+}
+
+// 4. After-render: desktop wiring + scroll indicator. Runs after DOM has settled.
+function afterSectionRender(sectionId) {
+    if (!isMobile()) {
+        setTimeout(() => {
+            makeBookmarksDraggable(sectionId);
+            addSectionDropdowns().then(() => {
+                setupDropdownEvents();
+            });
+            setupMediaVisibilityOptimization();
+        }, 150);
+    }
+
+    setTimeout(() => {
+        positionScrollIndicator();
+    }, 150);
+}
+
+async function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false, numToLoad = 10) {
     if (isLoading) return;
 
     const resultsContainer = document.getElementById('bookmarks-results');
 
-    // If not loading more, reset the offset for this section
     if (!isLoadMore) {
         sectionOffsets[sectionId] = 0;
         hasMoreBookmarks[sectionId] = false;
         resultsContainer.textContent = '';
-        showLoading(document.getElementById('bookmarks-results'));  
+        showLoading(resultsContainer);
     }
 
     isLoading = true;
 
-    // Fetch bookmarks with pagination using the correct offset for this section
-        fetch(`${API_BASE}/api/bookmarks/section/${sectionId}?offset=${sectionOffsets[sectionId]}&limit=${BOOKMARKS_PER_PAGE}`, {
-        credentials: 'include'
-    })
-        .then(response => response.text())
-        .then(rawText => {
-            const data = JSON.parse(rawText);
-         
-            // Update URL
-            if (!isLoadMore && !fromPopstate) {
-                const url = new URL(window.location);
-                url.searchParams.set('section', sectionId);
-                window.history.pushState({}, '', url);
-            }
+    try {
+        const data = await fetchSectionData(sectionId, sectionOffsets[sectionId]);
 
-            if (!data.bookmarks || data.bookmarks.length === 0) {
-                hasMoreBookmarks[sectionId] = false;
-                if (!isLoadMore) {
-                    if (isMobile()) {
-                        showErrorWithHeader(
-                            "No bookmarks found. Start bookmarking posts or import from Reddit to see them here.",
-                            sectionId,
-                            data.name || 'New Section'
-                        );
-                    } else {
-                        showError("No bookmarks found. Start bookmarking posts or import from Reddit to see them here.");
-                    }
-                }
-                isLoading = false;
-                return;
-            }
+        // Update URL
+        if (!isLoadMore && !fromPopstate) {
+            const url = new URL(window.location);
+            url.searchParams.set('section', sectionId);
+            window.history.pushState({}, '', url);
+        }
 
-            if (data.bookmarks && data.bookmarks.length > 0) { 
-                // Add to our section-specific array
-                if (isLoadMore && sectionBookmarks[sectionId]) {
-                    sectionBookmarks[sectionId] = sectionBookmarks[sectionId].concat(data.bookmarks);
+        const mobileSectionName = data.name || 'Bookmarks';
+        const totalCount = data.total_count || 0;
+
+        // Empty section
+        if (!data.bookmarks || data.bookmarks.length === 0) {
+            hasMoreBookmarks[sectionId] = false;
+            if (!isLoadMore) {
+                if (isMobile()) {
+                    showErrorWithHeader(
+                        "No bookmarks found. Start bookmarking posts or import from Reddit to see them here.",
+                        sectionId,
+                        mobileSectionName
+                    );
+                    buildMobileSectionHeader(sectionId, mobileSectionName, totalCount, resultsContainer);
+                    window.scrollTo(0, 0);
                 } else {
-                    sectionBookmarks[sectionId] = data.bookmarks;
+                    showError("No bookmarks found. Start bookmarking posts or import from Reddit to see them here.");
                 }
-
-                // Only show first 10 bookmarks to user
-                const bookmarksToShow = isLoadMore ? data.bookmarks.slice(0, 10) : sectionBookmarks[sectionId].slice(0, Math.min(sectionBookmarks[sectionId].length, 10));
-
-                const transformedData = {
-                    data: {
-                        children: bookmarksToShow.map(bookmark => ({
-                            data: {
-                                id: bookmark.reddit_post_id,
-                                title: bookmark.title,
-                                url: bookmark.url,
-                                permalink: bookmark.permalink,
-                                subreddit: bookmark.subreddit,
-                                score: bookmark.score,
-                                is_video: bookmark.is_video,
-                                domain: bookmark.domain,
-                                author: bookmark.author,
-                                created_utc: bookmark.created_utc,
-                                num_comments: bookmark.num_comments,
-                                over_18: bookmark.over_18,
-                                selftext: bookmark.selftext,
-                                body: bookmark.body,
-                                is_gallery: bookmark.is_gallery,
-                                gallery_data: bookmark.gallery_data,
-                                media_metadata: bookmark.media_metadata,
-                                crosspost_parent_list: bookmark.crosspost_parent_list || [],
-                                content_type: bookmark.content_type,
-                                icon_url: bookmark.icon_url,
-                                locked: bookmark.locked,
-                                stickied: bookmark.stickied,
-                                preview: bookmark.preview
-                            }
-                        }))
-                    }
-                };
-                
-                displayResults(transformedData, isLoadMore);
-                
-                // Build mobile section header after displayResults
-                if (!isLoadMore && isMobile()) {
-                    setTimeout(() => {
-                        window.scrollTo(0, 0);
-                        const existingHeader = document.querySelector('.mobile-section-header');
-                        if (existingHeader) existingHeader.remove();
-                        const mobileSectionName = data.name || 'Bookmarks';
-                        const totalCount = data.total_count || 0;
-                
-                        const header = document.createElement('div');
-                        header.className = 'mobile-section-header';
-                        header.innerHTML = `
-                            <div class="mobile-section-header-top">
-                                <div class="mobile-section-header-left">
-                                    <div class="mobile-section-title">${mobileSectionName}</div>
-                                <div class="mobile-section-count">${totalCount} ${totalCount === 1 ? 'Save' : 'Saves'}</div>
-                            </div>
-                            <div class="mobile-section-header-right">
-                                <button class="mobile-section-more-btn" title="More">...</button>
-                                <button class="mobile-section-share-btn" title="Share">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
-                                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
-                                        <polyline points="16 6 12 2 8 6"/>
-                                        <line x1="12" y1="2" x2="12" y2="15"/>
-                                    </svg>
-                                </button>
-                            </div>
-                            </button>
-                        </div>
-                                <div class="mobile-section-actions">
-                                    <button class="mobile-section-action-btn" id="mobileOrganizeBtn">
-                                    <img src="../assets/icons8-rook-96.png" class="organize-icon">
-                                    Organize
-                                    </button>
-                                    <button class="mobile-section-action-btn" id="mobileImportBtn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-  <polyline points="17 7 12 12 7 7"/>
-<line x1="12" y1="0" x2="12" y2="12"/>
-</svg>   Import
-                                    </button>
-                                    <button class="mobile-section-action-btn" id="mobileSectionInfoBtn">
-                                    <img src="../assets/icons8-tag-96.png" class="info-icon">
-                                    Info
-                                    </button>
-                                    </div>
-                                    `;
-                                    
-                                    resultsContainer.prepend(header);
-                
-                        header.querySelector('.mobile-section-share-btn').addEventListener('click', () => showShareMenu());
-                        header.querySelector('#mobileOrganizeBtn').addEventListener('click', () => {});
-                        header.querySelector('#mobileImportBtn').addEventListener('click', () => initiateRedditLogin());
-                        header.querySelector('#mobileSectionInfoBtn').addEventListener('click', () => showSectionInfo());
-                        header.querySelector('.mobile-section-more-btn').addEventListener('click', async () => {
-                            const result = await showSectionMoreMenu(sectionId, mobileSectionName);
-                            if (!result) return;
-                            if (result.action === 'rename') await renameSectionById(result.sectionId, result.sectionName);
-                            else if (result.action === 'delete') await deleteSectionById(result.sectionId, result.sectionName);
-                        });
-                        }, 0);
-                }
-                if (!isMobile){
-                    setTimeout(() => {
-                        makeBookmarksDraggable(sectionId);
-                        addSectionDropdowns().then(() => {
-                            setupDropdownEvents();
-                        });
-                        setupMediaVisibilityOptimization();
-                    }, 150);
-                }
-                // Apply bookmarks to newly rendered posts
-                const existingBookmarks = JSON.parse(sessionStorage.getItem('bookmarks') || '{}');
-                document.querySelectorAll('.bookmark-icon').forEach(icon => {
-                    const postId = icon.dataset.postId;
-                    if (existingBookmarks[postId]) {
-                        icon.classList.add('saved');
-                    } else {
-                        icon.classList.remove('saved');
-                    }
-                });
-
-                if (data.bookmarks.length < 11) {
-                    hasMoreBookmarks[sectionId] = false;
-                } else {
-                    sectionOffsets[sectionId] += 10;
-                    hasMoreBookmarks[sectionId] = true;
-                }
-                setTimeout(() => {
-                    positionScrollIndicator();
-                }, 150);
-
-            } else if (!isLoadMore) {
-                showError("No bookmarks found. Start bookmarking posts to see them here.")
             }
+            isLoading = false;
+            return;
+        }
 
-            isLoading = false;
-        })
-        .catch(error => {
-            console.error('Bookmark fetch failed:', error);
-            isLoading = false;
-            showError("Failed to load bookmarks");
-        });
+        let bookmarksToRender;
+        if (isLoadMore && sectionBookmarks[sectionId]) {
+            const existingIds = new Set(sectionBookmarks[sectionId].map(b => b.reddit_post_id));
+            const newBookmarks = data.bookmarks.filter(b => !existingIds.has(b.reddit_post_id));
+            sectionBookmarks[sectionId] = sectionBookmarks[sectionId].concat(newBookmarks);
+            bookmarksToRender = newBookmarks.slice(0, 10);
+        } else {
+            sectionBookmarks[sectionId] = data.bookmarks;
+            bookmarksToRender = sectionBookmarks[sectionId].slice(0, Math.min(sectionBookmarks[sectionId].length, 10));
+        }
+
+        await renderSectionContent(sectionId, bookmarksToRender, { mobileSectionName, totalCount }, isLoadMore);
+        afterSectionRender(sectionId);
+
+        // Update pagination state
+        if (data.bookmarks.length < 11) {
+            hasMoreBookmarks[sectionId] = false;
+        } else {
+            sectionOffsets[sectionId] += 10;
+            hasMoreBookmarks[sectionId] = true;
+        }
+
+        isLoading = false;
+    } catch (error) {
+        console.error('Bookmark fetch failed:', error);
+        isLoading = false;
+        showError("Failed to load bookmarks");
+    }
 }
 
 // Initialize when switching to bookmarks tab on mobile
