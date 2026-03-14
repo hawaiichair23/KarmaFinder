@@ -995,8 +995,8 @@ app.get('/reddit', async (req, res) => {
                 postId = pathParts[4];
             }
 
-            // Extract sort from path or default to 'hot'
-            let sort = pathParts[3] || 'hot';
+            // Extract sort from path or query params (search URLs use ?sort=)
+            let sort = urlObj.searchParams.get('sort') || pathParts[3] || 'hot';
 
             // Get query parameters
             const query = urlObj.searchParams.get('q') || '';
@@ -1105,7 +1105,7 @@ app.get('/reddit', async (req, res) => {
                     subreddit = pathParts[2];
                 }
 
-                let sort = pathParts[3] || 'hot';
+                let sort = urlObj.searchParams.get('sort') || pathParts[3] || 'hot';
                 const query = urlObj.searchParams.get('q') || '';
                 const time = urlObj.searchParams.get('t') || 'all';
                 const after = urlObj.searchParams.get('after') || null;
