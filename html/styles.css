@@ -58,6 +58,7 @@ body.dark-mode {
     --input-bg: #1c1c1f;
     --comments-bg: #2e2e32;
     --suggestions-bg: #232326;
+    --secondary-color: #0079d3;
 
     --text-color: #f5f5f5;
     --text-primary: #ffffff;
@@ -301,9 +302,27 @@ body.bluebird-theme .search-input::placeholder {
     cursor: pointer;
 }
 
-.search-input:focus {
+.search-input-container:focus-within {
     border-color: var(--secondary-color);
+    border-width: 2px;
+    transition: border-color 0.15s ease-in-out;
 }
+body.dark-mode .search-input-container:focus-within {
+    border-color: var(--secondary-color);
+    border-width: 2px;
+    transition: border-color 0.15s ease-in-out;
+}
+body.forest-theme .search-input-container:focus-within {
+    border-color: var(--secondary-color);
+    border-width: 2px;
+    transition: border-color 0.15s ease-in-out;
+}
+body.bluebird-theme .search-input-container:focus-within {
+    border-color: var(--secondary-color);
+    border-width: 2px;
+    transition: border-color 0.15s ease-in-out;
+}
+
 
 .search-button {
     position: absolute;
@@ -527,6 +546,46 @@ input:checked+.slider:before {
 /* =================================
    SUGGESTIONS & DROPDOWNS
    ================================= */
+.suggestions-subreddit-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 15px 16px;
+    padding-top: 4px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.ssb-label {
+    white-space: nowrap;
+}
+
+.ssb-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--pill-bg, rgba(128,128,128,0.15));
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 3px 10px 3px 10px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.ssb-remove {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-left: 2px;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+
 .suggestion-item {
     display: flex;
     align-items: center;
@@ -1201,7 +1260,20 @@ body.dark-mode .news-icon-fallback {
     font-size: 23px;
 }
 
-/* Shimmer Animation */
+.subreddit-banner.shimmer {
+    background-color: var(--hover-bg-lite);
+    overflow: hidden;
+}
+
+body.dark-mode .subreddit-banner.shimmer {
+    background-color: var(--hover-bg);
+}
+body.bluebird-theme .subreddit-banner.shimmer {
+    background-color: var(--hover-bg);
+}
+body.forest-theme .subreddit-banner.shimmer {
+    background-color: var(--comments-bg-mobile);
+}
 .shimmer::before {
     content: "";
     position: absolute;
@@ -2164,9 +2236,15 @@ body.dark-mode .footie {
 body.safe-search-enabled .nsfw .image-wrapper img,
 body.safe-search-enabled .nsfw .image-wrapper video,
 body.safe-search-enabled .nsfw .image-wrapper .thumbnail {
-    filter: blur(12px);
+    filter: blur(58px);
     pointer-events: none;
     transition: filter 0.2s ease;
+}
+
+body[data-layout="compact"].safe-search-enabled .nsfw .image-wrapper img,
+body[data-layout="compact"].safe-search-enabled .nsfw .image-wrapper video,
+body[data-layout="compact"].safe-search-enabled .nsfw .image-wrapper .thumbnail {
+    filter: blur(10px);
 }
 
 /* =================================
@@ -3134,12 +3212,6 @@ body.forest-theme .link-preview-btn:hover {
         color: var(--medium-text);
     }
 
-    body.safe-search-enabled .nsfw .image-wrapper img,
-    body.safe-search-enabled .nsfw .image-wrapper video,
-    body.safe-search-enabled .nsfw .image-wrapper .thumbnail {
-        filter: none;
-    }
-
     .results-error {
         padding: 13px;
         margin: 0 8px;
@@ -3946,6 +4018,7 @@ body.forest-theme .link-preview-btn:hover {
         position: relative;
         margin-bottom: 13px;
         padding: 1px;
+        padding-top: 10px;
         background-color: var(--background-color);
         border: none;
         flex-direction: column;
@@ -4357,7 +4430,7 @@ body.forest-theme .link-preview-btn:hover {
         width: auto !important;
     }
 
-    [data-layout="compact"] .result-card:not(.is-gallery) .img-container {
+    [data-layout="compact"] .result-card .img-container {
         order: 1 !important;
         width: 70px !important;
         min-width: 70px !important;
@@ -4383,7 +4456,7 @@ body.forest-theme .link-preview-btn:hover {
         padding: 3px 6px !important;
     }
 
-    [data-layout="compact"] .result-card:not(.is-gallery) .result-image {
+    [data-layout="compact"] .result-card .result-image {
         width: 70px !important;
         height: 64px !important;
         object-fit: cover !important;
@@ -4433,6 +4506,7 @@ body.dark-mode .search-input-container {
     border: 1px solid var(--border-color);
     background-color: var(--background-color);
 }
+
 
 .result-title {
     -webkit-line-clamp: 7;
@@ -4568,9 +4642,9 @@ body.dark-mode #subreddit-header {
     flex-direction: row;
     gap: 8px;
     padding: 10px 12px;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: none;
     padding-left: 0px;
-    margin-bottom: 15px;
+    margin-bottom: 0px;
     padding-bottom: 15px;
     padding-right: 0px;
     overflow-x: auto;
@@ -4588,8 +4662,8 @@ body.has-results #search-filter-pills {
 
 .filter-pill {
     flex-shrink: 0;
-    background: var(--topbar-mobile);
-    border: 1px solid var(--border-color);
+    background: transparent;
+    border: none;
     border-radius: 12px;
     padding: 6px 14px;
     margin-left: 0px;
@@ -4597,6 +4671,7 @@ body.has-results #search-filter-pills {
     margin-top: 10px;
     font-size: 0.95rem;
     color: var(--text-color);
+    font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
     font-family: 'Lato', 'sans-serif';
@@ -4607,16 +4682,21 @@ body.has-results #search-filter-pills {
 }
 
 .pill-arrow {
-    width: 14px;
+    width: 9px;
     height: 14px;
     vertical-align: middle;
-    margin-left: 2px;
+    margin-left: 4px;
 }
 
 body.dark-mode .pill-arrow {
-    content: url('/assets/icons8-sorting-arrowheads-90_white.png');
+    content: url('/assets/chevron_sort_white.png');
 }
-
+body.bluebird-theme .pill-arrow {
+    content: url('/assets/chevron_sort_blue.png');
+}
+body.forest-theme .pill-arrow {
+    content: url('/assets/chevron_sort_green.png');
+}
 
 /* Explore Grid */
 @keyframes vt-slide-in-left {
@@ -4634,7 +4714,7 @@ body.dark-mode .pill-arrow {
 }
 
 ::view-transition-new(root) {
-    animation: vt-slide-in-left 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    animation: vt-slide-in-left 320ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .explore-grid {

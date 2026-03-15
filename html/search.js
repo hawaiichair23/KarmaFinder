@@ -41,10 +41,14 @@ if (mobileSearchInput) {
     document.addEventListener('click', (e) => {
         if (e.target.closest('#suggestions-back-btn')) {
             e.stopPropagation();
+            if (window.KF && KF.isSubredditSearchMode()) {
+                KF.closeSubredditSearch();
+                return;
+            }
             if (document.body.classList.contains('suggestions-active')) {
                 if (window.closeMobileSuggestions) window.closeMobileSuggestions();
             } else {
-                window.history.back();
+                handleBackButton();
             }
         }
     });
@@ -55,6 +59,10 @@ if (mobileSearchInput) {
             e.preventDefault();
             const query = mobileSearchInput.value.trim();
             if (query) {
+                if (window.KF && KF.isSubredditSearchMode()) {
+                    KF.submitSubredditSearch(query);
+                    return;
+                }
                 window.searchJustSubmitted = true;
                 mobileSearchInput.blur();
                 if (window.closeMobileSuggestions) window.closeMobileSuggestions();
@@ -65,6 +73,8 @@ if (mobileSearchInput) {
     });
 
     mobileSearchInput.addEventListener('blur', () => {
+        if (window.searchJustSubmitted) { window.searchJustSubmitted = false; return; }
+        if (window.KF && KF.isSubredditSearchMode()) return;
         if (window.closeMobileSuggestions) window.closeMobileSuggestions();
     });
 }
@@ -81,7 +91,13 @@ window.toggleSafeSearchPill = function() {
     // TODO: toggle safe search
 };
 
-// Init search tab on first switch
+// Wire subreddit search button
+const subredditSearchBtn = document.getElementById('subreddit-search-btn');
+if (subredditSearchBtn) {
+    subredditSearchBtn.addEventListener('click', () => {
+        if (window.KF) KF.openSubredditSearch(currentFilters.subreddit);
+    });
+}
 window.addEventListener('search-tab-init', () => {
     if (typeof window.englishWords !== 'undefined' && mobileSearchInput) {
         setupSearchSuggestions('mobile-search-input', 'mobile-suggestions', window.englishWords);

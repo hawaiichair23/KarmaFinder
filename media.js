@@ -16,8 +16,6 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
         return;
     }
 
-    resultCard.classList.add('is-gallery');
-
     // Send gallery data to modal
     imgWrapper.galleryData = galleryData;
     imgWrapper.mediaMetadata = mediaMetadata;
@@ -303,7 +301,8 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
                         newImg.style.transition = '';
 
                         const isMobile = window.innerWidth <= 1024;
-                        if (useSameSize && isMobile && imgWrapper.comfyFirstWidth && imgWrapper.comfyFirstHeight) {
+                        const isCompact = document.body.getAttribute('data-layout') === 'compact';
+                        if (!isCompact && useSameSize && isMobile && imgWrapper.comfyFirstWidth && imgWrapper.comfyFirstHeight) {
                             newImg.style.width = imgWrapper.comfyFirstWidth + 'px';
                             newImg.style.height = imgWrapper.comfyFirstHeight + 'px';
                             newImg.style.objectFit = 'cover';
@@ -526,7 +525,8 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
 
                 // Capture first thumbnail size for comfy mode fixed sizing
                 const isMobile = window.innerWidth <= 1024;
-                if (useSameSize && !imgWrapper.comfyFirstWidth && (document.body.classList.contains('comfy-mode') || isMobile)) {
+                const isCompact = document.body.getAttribute('data-layout') === 'compact';
+                if (!isCompact && useSameSize && !imgWrapper.comfyFirstWidth && (document.body.classList.contains('comfy-mode') || isMobile)) {
                     setTimeout(() => {
                         imgWrapper.comfyFirstWidth = img.offsetWidth;
                         imgWrapper.comfyFirstHeight = img.offsetHeight;
