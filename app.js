@@ -102,6 +102,7 @@
         let currentTab = 'home';
         let lastSearchAreaTab = 'search';
         let lastSubredditState = null;
+        let lastHomeState = null;
         let lastBookmarksAreaTab = 'bookmarks';
         let lastSubredditBmState = null;
         let lastBookmarksSectionUrl = null;
@@ -175,14 +176,22 @@
         }
 
         function navigate(partial) {
-            appState = { ...appState, ...partial };
+            Object.assign(appState, partial);
             activeQueryToken++;
             history.pushState({}, '', urlFromState(appState));
             renderForState(appState, false);
         }
 
+        function navigateReplace(partial) {
+            Object.assign(appState, partial);
+            activeQueryToken++;
+            history.replaceState({}, '', urlFromState(appState));
+            renderForState(appState, false);
+        }
+        window.navigateReplace = navigateReplace;
+
         function renderForState(state, isBack = true) {
-            appState = { ...appState, ...state };
+            Object.assign(appState, state);
             currentTab = state.tab;
             currentPageIndex = state.pageIndex;
             currentAfter = state.after;
@@ -226,6 +235,7 @@
                 const resultsContainer = document.getElementById('search-results');
                 const hasResults = resultsContainer && resultsContainer.children.length > 0;
                 if (!hasResults && resultsContainer) resultsContainer.innerHTML = '';
+                setSubredditChip('');
                 initExploreGrid();
                 return;
             }
@@ -235,6 +245,14 @@
                 setSubredditChip('');
                 const searchInput = document.getElementById('search-input');
                 if (searchInput) searchInput.value = '';
+                const mobileSearchInput = document.getElementById('mobile-search-input');
+                if (mobileSearchInput) mobileSearchInput.value = '';
+                const subredditInput = document.getElementById('subreddit-input');
+                if (subredditInput) subredditInput.value = '';
+            }
+
+            if (state.tab === 'home') {
+                lastHomeState = { ...state };
             }
 
             if (state.tab === 'home' && getAuthStatus()) {
@@ -369,7 +387,7 @@
         }
 
         window.addEventListener('popstate', () => {
-            appState = stateFromURL();
+            Object.assign(appState, stateFromURL());
             activeQueryToken++;
             renderForState(appState, true);
         });
@@ -379,7 +397,8 @@
         searchButton.addEventListener('click', async () => {
             // Pressing button too fast
             if (scrambleYeller()) return;
-            isSearchInProgress = true;  
+            isSearchInProgress = true;
+            resetSortToHot();  
             pendingCatReaction = null;
             // Reset search button
             setTimeout(() => {
@@ -1227,9 +1246,45 @@
 
         function showLayoutSheet() {
             const current = localStorage.getItem('mobile-layout') || 'comfy';
+
+            function getAnchor() {
+                const viewportMid = window.innerHeight / 2;
+                return Array.from(document.querySelectorAll('.result-card')).reduce((closest, card) => {
+                    const rect = card.getBoundingClientRect();
+                    const cardMid = rect.top + rect.height / 2;
+                    const dist = Math.abs(cardMid - viewportMid);
+                    return dist < closest.dist ? { card, dist } : closest;
+                }, { card: null, dist: Infinity }).card;
+            }
+
+            function restoreAnchor(anchor, anchorAbsTop) {
+                if (!anchor) return;
+                requestAnimationFrame(() => {
+                    const newAbsTop = anchor.getBoundingClientRect().top + document.documentElement.scrollTop;
+                    document.documentElement.scrollTop += newAbsTop - anchorAbsTop;
+                });
+            }
+
             showBottomSheet('Layout', [
-                { label: 'Comfy',   callback: () => { document.body.setAttribute('data-layout', 'comfy');   localStorage.setItem('mobile-layout', 'comfy');   if (typeof turnOffMobileOrganize === 'function') turnOffMobileOrganize(); }, active: current === 'comfy'   },
-                { label: 'Compact', callback: () => { document.body.setAttribute('data-layout', 'compact'); localStorage.setItem('mobile-layout', 'compact'); }, active: current === 'compact' }
+                { label: 'Comfy', callback: () => {
+                    const anchor = getAnchor();
+                    const anchorAbsTop = anchor ? anchor.getBoundingClientRect().top + document.documentElement.scrollTop : 0;
+                    document.body.setAttribute('data-layout', 'comfy');
+                    localStorage.setItem('mobile-layout', 'comfy');
+                    if (typeof turnOffMobileOrganize === 'function') turnOffMobileOrganize();
+                    restoreAnchor(anchor, anchorAbsTop);
+                }, active: current === 'comfy' },
+                { label: 'Compact', callback: () => {
+                    const anchor = getAnchor();
+                    const anchorViewportBefore = anchor ? anchor.getBoundingClientRect().top : 0;
+                    document.body.setAttribute('data-layout', 'compact');
+                    localStorage.setItem('mobile-layout', 'compact');
+                    if (anchor) {
+                        const anchorViewportAfter = anchor.getBoundingClientRect().top;
+                        const scrollAfter = document.documentElement.scrollTop;
+                        document.documentElement.scrollTop = scrollAfter - (anchorViewportBefore - anchorViewportAfter) - 300;
+                    }
+                }, active: current === 'compact' }
             ]);
         }
 
@@ -1252,6 +1307,14 @@
             ]);
         }
         window.toggleSafeSearchPill = toggleSafeSearchPill;
+
+        function resetSortToHot() {
+            currentFilters.sort = 'hot';
+            const pillBtn = document.getElementById('pill-sort');
+            if (pillBtn) pillBtn.childNodes[0].textContent = 'Hot ';
+            const sortSelect = document.getElementById('sort-select');
+            if (sortSelect) sortSelect.value = 'hot';
+        }
 
         function openSortSheet() {
             const select = document.getElementById('sort-select');
@@ -1600,6 +1663,20 @@
             history.pushState({}, '', urlFromState(appState));
         });
 
+        document.querySelectorAll('.content-type-tab').forEach(tab => {
+            tab.addEventListener('click', function () {
+                const value = this.dataset.value;
+                document.querySelectorAll('.content-type-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                if (contentSelect) {
+                    contentSelect.value = value;
+                    contentSelect.dispatchEvent(new Event('change'));
+                }
+                currentFilters.contentType = value;
+                handleSearchRequest(null, null, false, true);
+            });
+        });
+
         async function handleSubredditSuggestions(query) {
             if (!query || query.trim() === '') {
                 subredditSuggestions.innerHTML = '';
@@ -1828,6 +1905,8 @@
             const contentSelect = document.querySelector('#content-select');
 
             if (searchInput) searchInput.value = filters.query || '';
+            const mobileSearchInput = document.querySelector('#mobile-search-input');
+            if (mobileSearchInput) mobileSearchInput.value = filters.query || '';
             if (subredditInput) subredditInput.value = (filters.subreddit && filters.subreddit !== 'all') ? filters.subreddit : '';
             const sortInURL = new URLSearchParams(window.location.search).get('sort');
             if (sortSelect) sortSelect.value = sortInURL ? filters.sort : (sortSelect.value || 'hot');
@@ -2247,6 +2326,7 @@
 
             // Reset page index and history for new search
             currentPageIndex = 0;
+            resetSortToHot();
             window.dispatchEvent(new Event('search-started'));
             handleSearchRequest();
         }
@@ -2378,7 +2458,7 @@
                     handleSearchResults(initialResults);
                     getPaginationContainer().innerHTML = '';
                     if (!navigateBack) {
-                        appState = { ...appState, after: currentAfter, before: currentBefore, pageIndex: currentPageIndex };
+                        Object.assign(appState, { after: currentAfter, before: currentBefore, pageIndex: currentPageIndex });
                         history.replaceState({}, '', urlFromState(appState));
                     }
                     // Create vector scroll indicator 
@@ -2762,7 +2842,7 @@
                     const filtered = filterPostsByTime(trimmedData, currentFilters.time);
                     handleSearchResults(filtered);
                     if (!navigateBack) {
-                        appState = { ...appState, after: currentAfter, before: currentBefore, pageIndex: currentPageIndex };
+                        Object.assign(appState, { after: currentAfter, before: currentBefore, pageIndex: currentPageIndex });
                         history.replaceState({}, '', urlFromState(appState));
                     }
                     return;
@@ -2792,7 +2872,7 @@
 
                         handleSearchResults(filtered);
                         if (!navigateBack) {
-                            appState = { ...appState, after: currentAfter, before: currentBefore, pageIndex: currentPageIndex };
+                            Object.assign(appState, { after: currentAfter, before: currentBefore, pageIndex: currentPageIndex });
                             history.replaceState({}, '', urlFromState(appState));
                         }
                     });
@@ -3330,7 +3410,7 @@
             if (currentTab === 'search') document.body.classList.add('has-results');
             updatePagination();
 
-            const allCards = document.querySelectorAll('.result-card');
+            const allCards = resultsContainer.querySelectorAll('.result-card');
             const visibleCards = Array.from(allCards).filter(card =>
                 window.getComputedStyle(card).display !== 'none'
             );
@@ -3340,6 +3420,28 @@
                     getPaginationContainer().innerHTML = '';
                 return;
             }
+        }
+
+        function flattenComments(items) {
+            let allComments = [];
+            items.forEach(item => {
+                if (item.kind === 't1' && item.data && item.data.author && item.data.body) {
+                    allComments.push(item);
+                }
+                if (item.data && item.data.replies && item.data.replies.data && item.data.replies.data.children) {
+                    allComments = allComments.concat(flattenComments(item.data.replies.data.children));
+                }
+            });
+            return allComments;
+        }
+
+        function staggerComments(commentsContainer) {
+            requestAnimationFrame(() => {
+                commentsContainer.querySelectorAll('.comment').forEach((el, i) => {
+                    el.classList.remove('visible');
+                    setTimeout(() => el.classList.add('visible'), i * 60);
+                });
+            });
         }
 
         // Function to fetch and cache comments for a post
@@ -3375,17 +3477,7 @@
                         }
                     }, commentsContainer, permalink, false, post, cacheData.post_total_comments);
 
-                    // Apply the stagger animation
-                    requestAnimationFrame(() => {
-                        const comments = commentsContainer.querySelectorAll('.comment');
-                        comments.forEach((el, i) => {
-                            el.classList.remove('visible');
-                            setTimeout(() => {
-                                el.classList.add('visible');
-                            }, i * 60);
-                        });
-                    });
-
+                    staggerComments(commentsContainer);
                     return;
                 }
             } catch (error) {
@@ -3422,23 +3514,10 @@
 
                 const commentsData = data[1].data.children;
 
-                function flattenComments(items) {
-                    let allComments = [];
-                    items.forEach(item => {
-                        if (item.kind === 't1' && item.data && item.data.author && item.data.body) {
-                            allComments.push(item);
-                        }
-                        if (item.data && item.data.replies && item.data.replies.data && item.data.replies.data.children) {
-                            const nestedComments = flattenComments(item.data.replies.data.children);
-                            allComments = allComments.concat(nestedComments);
-                        }
-                    });
-                    return allComments;
-                }
 
                 const flattenedComments = flattenComments(commentsData);
                 const allComments = flattenedComments
-                    .slice(0, 8)  // 8 comments for THIS post
+                    .slice(0, 8)
                     .map(c => ({
                         id: c.data.id,
                         author: c.data.author,
@@ -3446,7 +3525,6 @@
                         score: c.data.score,
                         created_utc: c.data.created_utc
                     }));
-                const reduced = allComments.slice(0, 8);
 
                 // Validate post id to avoid empty strings
                 if (!postId || postId.trim() === '') {
@@ -3456,7 +3534,7 @@
 
                 renderComments({
                     data: {
-                        children: reduced,
+                        children: allComments,
                         totalCount: commentsData.length
                     }
                 }, commentsContainer, permalink, fullPost?.locked || false, fullPost, null);
@@ -3466,17 +3544,7 @@
                     saveCommentsToDatabase(permalink, allComments, fullPost?.num_comments, fullPost?.stickied);
                 }
 
-                // Force a paint first — delay after .comment elements exist
-                requestAnimationFrame(() => {
-                    const comments = commentsContainer.querySelectorAll('.comment');
-                    comments.forEach((el, i) => {
-                        // Just to be safe, reset first
-                        el.classList.remove('visible');
-                        setTimeout(() => {
-                            el.classList.add('visible');
-                        }, i * 60); // stagger
-                    });
-                });
+                staggerComments(commentsContainer);
 
             } catch (error) {
                 console.error('❌ Fetch error for', permalink, error);
@@ -3501,16 +3569,29 @@
         function showError(message) {
             const resultsContainer = getResultsContainer();
             const paginationContainer = getPaginationContainer();
-            resultsContainer.innerHTML = `
-        <div class='results-error'>
-            <p>${message}</p>
-        </div>
-        `;
+            resultsContainer.innerHTML = '';
+
+            if (currentTab === 'search' && currentFilters.subreddit) {
+                const banner = document.createElement('div');
+                banner.className = 'suggestions-subreddit-banner';
+                banner.innerHTML = `
+                    <span class="ssb-label">Searching in</span>
+                    <span class="ssb-chip">r/${currentFilters.subreddit}<button class="ssb-remove" aria-label="Remove subreddit filter">×</button></span>
+                `;
+                banner.querySelector('.ssb-remove').addEventListener('click', () => {
+                    appState.subreddit = '';
+                    currentFilters.subreddit = '';
+                    setSubredditChip('');
+                    handleSearchRequest(null, null, false, true);
+                });
+                resultsContainer.appendChild(banner);
+            }
+
+            resultsContainer.insertAdjacentHTML('beforeend', `<div class='results-error'><p>${message}</p></div>`);
             resultsContainer.style.opacity = 0;
             applyStaggeredAnimation('.results-error', 'visible', 60);
             paginationContainer.innerHTML = '';
 
-            // Fade in the results container
             setTimeout(() => {
                 resultsContainer.style.transition = 'opacity 0.3s ease';
                 resultsContainer.style.opacity = 1;
@@ -3679,7 +3760,11 @@
                 const prevButton = document.createElement('button');
                 prevButton.className = 'pagination-button prev-button';
                 prevButton.textContent = 'Back';
-                prevButton.addEventListener('click', () => history.back());
+                prevButton.addEventListener('click', () => {
+                    currentPageIndex--;
+                    appState.pageIndex = currentPageIndex;
+                    handleSearchRequest(null, null, true, true);
+                });
                 container.appendChild(prevButton);
             }
 
@@ -4202,6 +4287,14 @@
             }
         });
 
+        document.getElementById('createSectionBtn').addEventListener('click', function () {
+            if (!isLoggedIn) {
+                window.location.href = `html/login.html?redirect=${encodeURIComponent(window.location.href)}`;
+                return;
+            }
+            showCreateSheet();
+        });
+
         document.getElementById('getPremiumContainer').onclick = () => {
             if (isLoggedIn) {
                 window.open('/', '_blank');
@@ -4499,7 +4592,7 @@
         }
 
         const TOP_SUBREDDITS = [
-            'askreddit', 'funny', 'gaming', 'worldnews', 'todayilearned',
+            'funny', 'askreddit', 'gaming', 'worldnews', 'todayilearned',
             'music', 'aww', 'movies', 'memes', 'showerthoughts'
         ];
 
@@ -4648,26 +4741,87 @@
             if (activeItem) activeItem.classList.add('active');
         }
 
+        function restoreLastHomeArea() {
+            navigateReplace({ tab: 'home', subreddit: '', query: '', sort: 'hot', pageIndex: 0, after: null, before: null, sectionId: null });
+        }
+        window.restoreLastHomeArea = restoreLastHomeArea;
+
+        async function createNewSection() {
+            const { value: newName } = await Swal.fire({
+                title: 'New Section',
+                input: 'text',
+                inputPlaceholder: 'Section name',
+                showCancelButton: true,
+                confirmButtonText: 'Create Section',
+                cancelButtonText: 'Cancel'
+            });
+            if (!newName || !newName.trim()) return null;
+            try {
+                const response = await fetch(`${API_BASE}/api/sections`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ name: newName.trim() })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    showToast(`Created "${newName.trim()}"`, 'success');
+                    if (typeof showSectionsAntepage === 'function') showSectionsAntepage(true);
+                    return data.section.id;
+                }
+            } catch (err) {
+                console.error('❌ Failed to create section:', err);
+            }
+            return null;
+        }
+        window.createNewSection = createNewSection;
+
+        function showCreateSheet() {
+            showBottomSheet('Create', [
+                { label: 'Create New Section', callback: () => createNewSection(), active: false }
+            ]);
+        }
+        window.showCreateSheet = showCreateSheet;
+
+        function restoreLastSearchArea() {
+            if (lastSearchAreaTab === 'subreddit' && lastSubredditState) {
+                navigateReplace(lastSubredditState);
+            } else {
+                navigateReplace({ tab: 'search', subreddit: '', query: '', pageIndex: 0, after: null, before: null, sectionId: null });
+            }
+        }
+        window.restoreLastSearchArea = restoreLastSearchArea;
+
         function handleBackButton() {
             if (currentTab === 'subreddit') {
                 lastSearchAreaTab = 'search';
-                switchTab('search');
-                // Restore search results if they exist
-                const searchResults = document.getElementById('search-results');
-                const hasResults = searchResults && searchResults.children.length > 0;
-                if (hasResults) {
-                    document.body.classList.add('has-results');
-                    const grid = document.getElementById('explore-grid');
-                    if (grid) grid.style.display = 'none';
+                appState.subreddit = '';
+                const doSwitch = () => {
+                    switchTab('search');
+                    history.replaceState({}, '', '/?page=search');
+                    const searchResults = document.getElementById('search-results');
+                    const hasResults = searchResults && searchResults.children.length > 0;
+                    if (hasResults) {
+                        document.body.classList.add('has-results');
+                        const grid = document.getElementById('explore-grid');
+                        if (grid) grid.style.display = 'none';
+                    }
+                };
+                if (document.startViewTransition) {
+                    document.startViewTransition(doSwitch);
+                } else {
+                    doSwitch();
                 }
             } else if (currentTab === 'search') {
                 // Search flow: search results → explore grid
                 const searchResults = document.getElementById('search-results');
                 const hasResults = searchResults && searchResults.children.length > 0;
+                setSubredditChip('');
+                currentFilters.subreddit = '';
+                appState.subreddit = '';
                 if (hasResults) {
                     searchResults.innerHTML = '';
                     document.body.classList.remove('has-results');
-                    setSubredditChip('');
                     const searchInput = document.getElementById('search-input');
                     if (searchInput) searchInput.value = '';
                     const mobileSearchInput = document.getElementById('mobile-search-input');
@@ -4787,7 +4941,7 @@
         }
 
         function initPage() {
-            appState = stateFromURL();
+            Object.assign(appState, stateFromURL());
             if (appState.tab === 'search' && !new URLSearchParams(window.location.search).get('sort')) {
                 appState.sort = 'hot';
             }
@@ -5001,32 +5155,10 @@
                     createBtn.className = 'section-picker-create-btn';
                     createBtn.textContent = 'Create new section';
                     createBtn.addEventListener('click', async () => {
-                        const { value: newName } = await Swal.fire({
-                            title: 'New Section',
-                            input: 'text',
-                            inputPlaceholder: 'Section name',
-                            showCancelButton: true,
-                            confirmButtonText: 'Create Section',
-                            cancelButtonText: 'Cancel'
-                        });
-
-                        if (!newName || !newName.trim()) return;
-
-                        try {
-                            const response = await fetch(`${API_BASE}/api/sections`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                credentials: 'include',
-                                body: JSON.stringify({ name: newName.trim() })
-                            });
-                            const data = await response.json();
-                            if (response.ok) {
-                                closeMenu();
-                                resolve(data.section.id);
-                                showToast(`Saved to ${newName.trim()}`, 'success');
-                            }
-                        } catch (err) {
-                            console.error('❌ Failed to create section:', err);
+                        const sectionId = await createNewSection();
+                        if (sectionId) {
+                            closeMenu();
+                            resolve(sectionId);
                         }
                     });
                     const footer = document.createElement('div');
@@ -5927,7 +6059,8 @@ ${label}`;
                 if (window.abortSearchSuggestionsRequest) window.abortSearchSuggestionsRequest();
                 currentFilters.query = query;
                 currentFilters.subreddit = subredditSearchContext;
-                appState = { ...appState, tab: 'search', query, subreddit: subredditSearchContext, pageIndex: 0, after: null, before: null };
+                Object.assign(appState, { tab: 'search', query, subreddit: subredditSearchContext, pageIndex: 0, after: null, before: null });
+                resetSortToHot();
                 KF.closeSubredditSearch();
                 switchTab('search');
                 const input = document.getElementById('mobile-search-input');

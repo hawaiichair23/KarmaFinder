@@ -13,10 +13,11 @@
     --input-bg: #eeedf3;
     --comments-bg: #ececf4;
     --suggestions-bg: #f2f1f7;
+    --pill-bg: rgba(149, 149, 151, 0.15);
 
     --comments-bg-mobile: #ececf4f7;
     --button-bg-mobile: #ececf5;
-    --topbar-mobile: #f2f4f8;
+    --topbar-mobile: #f1f3f7fa;
 
     /* Text Colors */
     --text-color: #1a1a1b;
@@ -552,37 +553,43 @@ input:checked+.slider:before {
     gap: 8px;
     padding: 15px 16px;
     padding-top: 4px;
+    padding-left: 14px;
     border-bottom: 1px solid var(--border-color);
-    font-size: 0.95rem;
     color: var(--text-secondary);
 }
 
 .ssb-label {
     white-space: nowrap;
+    font-size: 0.95rem;
+    margin-bottom: -1px;
 }
 
 .ssb-chip {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 3px;
     background: var(--pill-bg, rgba(128,128,128,0.15));
     border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 3px 10px 3px 10px;
+    padding-right: 9px;
     font-size: 0.9rem;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-color);
+    font-family: 'Lato', 'sans-serif';
 }
 
 .ssb-remove {
     background: none;
     border: none;
     padding: 0;
+    font-weight: 500;
     margin-left: 2px;
     font-size: 1.1rem;
     line-height: 1;
     cursor: pointer;
     color: var(--text-secondary);
+    margin-bottom: 1px;
 }
 
 
@@ -1438,10 +1445,11 @@ body.forest-theme .comment-author a {
 .see-more-comments {
     text-align: center;
     padding-top: 5px;
-    font-size: 11px;
+    font-size: 0.85rem;
+    font-family: 'Lato', 'sans-serif';
     color: var(--secondary-color);
     cursor: pointer;
-    font-weight: bold;
+    font-weight: 800;
     box-sizing: border-box;
 }
 
@@ -3441,6 +3449,10 @@ body.forest-theme .link-preview-btn:hover {
         border-bottom: 1px solid var(--border-color);
     }
 
+    body.has-results .mobile-top-bar {
+        border-bottom: none;
+    }
+
     .mobile-top-bar.hidden {
         transform: translateY(-100%);
     }
@@ -3566,6 +3578,29 @@ body.forest-theme .link-preview-btn:hover {
         display: none;
     }
 
+    #createSectionBtn {
+        display: none;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--text-color);
+        padding: 4px;
+    }
+
+    #createSectionBtn img {
+        width: 26px;
+        height: 26px;
+        margin-right: 1rem;
+    }
+
+    #createSectionBtn:active {
+        opacity: 0.5;
+    }
+
+    body:not([data-page]) #createSectionBtn {
+        display: flex;
+    }
+
     .mobile-search-row .mobile-hamburger {
         position: relative !important;
         top: auto !important;
@@ -3641,6 +3676,18 @@ body.forest-theme .link-preview-btn:hover {
     /* Forest theme - teal hamburger */
     body.bluebird-theme .mobile-hamburger img {
         content: url('/assets/icons8-hamburger-menu-500_blue.png');
+    }
+
+    body.dark-mode #createSectionBtn img {
+        content: url('/assets/plus_white.svg');
+    }
+
+    body.forest-theme #createSectionBtn img {
+        content: url('/assets/plus_green.svg');
+    }
+
+    body.bluebird-theme #createSectionBtn img {
+        content: url('/assets/plus_blue.svg');
     }
 
     /* ================================= */
@@ -4153,7 +4200,7 @@ body.forest-theme .link-preview-btn:hover {
         height: 86%;
         margin: 0;
         border-radius: 15px;
-        margin-top: 12px;
+        margin-top: 0.1rem;
         background-color: var(--comments-bg-mobile);
     }
 
@@ -4510,8 +4557,8 @@ body.dark-mode .search-input-container {
 
 .result-title {
     -webkit-line-clamp: 7;
-    font-size: 1.2rem;
-    padding-bottom: 0.2rem;
+    font-size: 1.15rem;
+    padding-bottom: 0rem;
     font-family: 'Lato', 'sans-serif';
 }
 
@@ -4637,11 +4684,50 @@ body.dark-mode #subreddit-header {
     display: inline;
 }
 
+.content-type-tabs {
+    display: none;
+    flex-direction: row;
+    background: var(--topbar-mobile);
+    width: calc(100% + 20px);
+    margin-left: -10px;
+    margin-right: -10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.content-type-tab {
+    flex: 0 0 auto;
+    background: none;
+    border: none;
+    padding: 10px 18px;
+    padding-top: 12px;
+    font-size: 1rem;
+    font-family: 'Lato', sans-serif;
+    font-weight: 600;
+    color: var(--light-text);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.content-type-tab.active {
+    color: var(--text-color);
+    border-bottom: 2px solid var(--primary-color);
+    font-weight: 700;
+}
+
+.content-type-tab:active {
+    opacity: 0.7;
+}
+
+body.has-results .content-type-tabs {
+    display: flex;
+}
+
 #search-filter-pills {
     display: none;
     flex-direction: row;
     gap: 8px;
-    padding: 10px 12px;
+    padding: 5px 6px;
     border-bottom: none;
     padding-left: 0px;
     margin-bottom: 0px;
@@ -4671,7 +4757,7 @@ body.has-results #search-filter-pills {
     margin-top: 10px;
     font-size: 0.95rem;
     color: var(--text-color);
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
     font-family: 'Lato', 'sans-serif';

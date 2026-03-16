@@ -27,7 +27,7 @@ if (isBookmarksPage || isSharePage) {
     // Update description meta tag
     const descriptionMeta = document.querySelector('meta[name="description"]');
     if (descriptionMeta) {
-        descriptionMeta.content = "Organize your saved Reddit posts with Pinterest-style bookmarking. Drag-and-drop organization, custom categories, and emoji tags.";
+        descriptionMeta.content = "Organize your saved Reddit posts with Pinterest-style saving. Drag-and-drop organization, custom categories, and emoji tags.";
     }
 
     // Update OG title
@@ -39,7 +39,7 @@ if (isBookmarksPage || isSharePage) {
     // Update OG description  
     const ogDescMeta = document.querySelector('meta[property="og:description"]');
     if (ogDescMeta) {
-        ogDescMeta.content = "Save and organize Reddit content with drag-and-drop bookmarking, custom categories, and visual organization.";
+        ogDescMeta.content = "Save and organize Reddit content with drag-and-drop saving, custom categories, and visual organization.";
     }
     
     if (!isSharePage) {
@@ -525,8 +525,12 @@ async function createNewSection() {
             const urlParams = new URLSearchParams(window.location.search);
             const sectionParam = urlParams.get('section');
 
-            initializeTabs();
-            loadSectionContent(parseInt(sectionParam));
+            if (isMobile() && !sectionParam) {
+                showSectionsAntepage(true);
+            } else {
+                initializeTabs();
+                loadSectionContent(parseInt(sectionParam));
+            }
         } else {
             console.error('Failed to create section');
         }
@@ -1461,7 +1465,7 @@ function setupDropdownEvents() {
                             if (remainingCards.length === 0) {
                                 // Only show error if there are truly no more bookmarks to load
                                 if (!hasMoreBookmarks[currentSectionId]) {
-                                    showError("No bookmarks found. Start bookmarking posts to see them here.");
+                                    showError("No bookmarks found. Start saving posts to see them here.");
                                 } else {
                                     // There are more to load, so trigger loading
                                     loadSectionContent(currentSectionId, true);
@@ -3459,14 +3463,14 @@ async function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = 
             if (!isLoadMore) {
                 if (isMobile()) {
                     showErrorWithHeader(
-                        "No bookmarks found. Start bookmarking posts or import from Reddit to see them here.",
+                        "No bookmarks found. Start saving posts or import from Reddit to see them here.",
                         sectionId,
                         mobileSectionName
                     );
                     buildMobileSectionHeader(sectionId, mobileSectionName, totalCount, resultsContainer);
                     window.scrollTo(0, 0);
                 } else {
-                    showError("No bookmarks found. Start bookmarking posts or import from Reddit to see them here.");
+                    showError("No bookmarks found. Start saving posts or import from Reddit to see them here.");
                 }
             }
             isLoading = false;

@@ -1382,7 +1382,7 @@ body.dark-mode #mobileOrganizeBtn.active {
         }
 
         .section-more-title {
-            font-size: 0.95rem;
+            font-size: 1rem;
             color: var(--text-color);
             font-weight: 400;
             font-family: "Lato";
@@ -1390,7 +1390,7 @@ body.dark-mode #mobileOrganizeBtn.active {
 
         .section-more-item {
             padding-left: 0.2rem;
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             font-weight: 500;
             font-family: "Lato";
             color: var(--text-color);
