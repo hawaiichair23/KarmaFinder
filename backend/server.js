@@ -1359,10 +1359,6 @@ app.get('/image', async (req, res) => {
         res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Length', mediaBuffer.byteLength);
         res.setHeader('Cache-Control', 'public, max-age=86400');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-        res.setHeader('Surrogate-Control', 'no-store');
-        res.setHeader('ETag', `"${Date.now()}"`);
 
         res.send(Buffer.from(mediaBuffer));
     } catch (err) {
@@ -1786,23 +1782,32 @@ app.post('/api/save-comments', async (req, res) => {
     }
 });
 
+
+// Auth middleware for bookmark endpoints
+async function requireAuth(req, res, next) {
+    const authToken = req.cookies.authToken;
+    if (!authToken) {
+        return res.status(401).json({ error: 'No auth token provided' });
+    }
+    try {
+        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid auth token' });
+        }
+        req.userId = userResult.rows[0].user_id;
+        next();
+    } catch (err) {
+        return res.status(500).json({ error: 'Auth check failed' });
+    }
+}
+
+app.use('/api/bookmarks', requireAuth);
+app.use('/api/sections', requireAuth);
+
 // 1. Add a bookmark
 app.post('/api/bookmarks', async (req, res) => {
     try {
-        // Get auth token from headers
-        const authToken = req.cookies.authToken;
-
-        if (!authToken) {
-            return res.status(401).json({ success: false, error: 'No auth token provided' });
-        }
-
-        // Get user ID from token
-        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
-        if (userResult.rows.length === 0) {
-            return res.status(401).json({ success: false, error: 'Invalid auth token' });
-        }
-
-        const stripeCustomerId = userResult.rows[0].user_id;
+        const stripeCustomerId = req.userId;
 
         const {
             postId,
@@ -1903,20 +1908,8 @@ app.post('/api/bookmarks', async (req, res) => {
 // 2. Remove a bookmark
 app.delete('/api/bookmarks/:reddit_post_id', async (req, res) => {
     try {
-        const authToken = req.cookies.authToken;
         const { reddit_post_id } = req.params;
-
-        if (!authToken) {
-            return res.status(401).json({ success: false, error: 'No auth token provided' });
-        }
-
-        // Get user ID from token
-        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
-        if (userResult.rows.length === 0) {
-            return res.status(401).json({ success: false, error: 'Invalid auth token' });
-        }
-
-        const stripeCustomerId = userResult.rows[0].user_id;
+        const stripeCustomerId = req.userId;
 
         if (!reddit_post_id) {
             return res.status(400).json({ success: false, error: 'Missing post ID' });
@@ -1959,19 +1952,8 @@ app.delete('/api/bookmarks/:reddit_post_id', async (req, res) => {
 // 4a. Get bookmarks for a user by section  
 app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
     try {
-        const authToken = req.cookies.authToken;
         const { sectionId } = req.params;
-
-        if (!authToken) {
-            return res.status(401).json({ error: 'No auth token provided' });
-        }
-
-        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
-        if (userResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid auth token' });
-        }
-
-        const stripeCustomerId = userResult.rows[0].user_id;
+        const stripeCustomerId = req.userId;
         const { offset = 0, limit = 10, order = 'asc' } = req.query;
 
         console.log('userId:', stripeCustomerId, 'sectionId:', sectionId, 'limit:', limit, 'offset:', offset);
@@ -2041,18 +2023,7 @@ app.get('/api/bookmarks/section/:sectionId', async (req, res) => {
 // 3. Get all bookmarks for a user
 app.get('/api/sections/with-previews', async (req, res) => {
     try {
-        const authToken = req.cookies.authToken;
-
-        if (!authToken) {
-            return res.status(401).json({ error: 'No auth token provided' });
-        }
-
-        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
-        if (userResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid auth token' });
-        }
-
-        const stripeCustomerId = userResult.rows[0].user_id;
+        const stripeCustomerId = req.userId;
 
         const result = await pool.query(`
             SELECT DISTINCT ON (s.sort_order, s.id)
@@ -2114,20 +2085,8 @@ app.get('/api/sections/with-previews', async (req, res) => {
 // 4. Get all bookmarks for a user
 app.get('/api/bookmarks', async (req, res) => {
     try {
-        const authToken = req.cookies.authToken;
         const { offset = 0, limit = 10 } = req.query;
-
-        if (!authToken) {
-            return res.status(401).json({ error: 'No auth token provided' });
-        }
-
-        // Get user ID from token
-        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
-        if (userResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid auth token' });
-        }
-
-        const stripeCustomerId = userResult.rows[0].user_id;
+        const stripeCustomerId = req.userId;
 
         const result = await pool.query(`
             SELECT id, reddit_post_id, title, url, permalink, subreddit, score,
@@ -2154,31 +2113,23 @@ app.get('/api/bookmarks', async (req, res) => {
 // 5. Reorder bookmarks
 app.post('/api/bookmarks/reorder', async (req, res) => {
     try {
-        const authToken = req.cookies.authToken;
         const { orderedIds, sectionId } = req.body;
-
-        if (!authToken) {
-            return res.status(401).json({ success: false, error: 'No auth token provided' });
-        }
-
-        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
-        if (userResult.rows.length === 0) {
-            return res.status(401).json({ success: false, error: 'Invalid auth token' });
-        }
-
-        const stripeCustomerId = userResult.rows[0].user_id;
+        const stripeCustomerId = req.userId;
 
         if (!orderedIds || !Array.isArray(orderedIds)) {
             return res.status(400).json({ success: false, error: 'Invalid ordered IDs' });
         }
 
-        // Update each bookmark with its new position WITHIN THE SECTION
-        for (let i = 0; i < orderedIds.length; i++) {
-            await pool.query(
-                'UPDATE bookmarks SET sort_order = $1 WHERE user_id = $2 AND reddit_post_id = $3 AND section_id = $4',
-                [i, stripeCustomerId, orderedIds[i], sectionId]  
-            );
-        }
+        // Bulk update all sort orders in a single query
+        const positions = orderedIds.map((_, i) => i);
+        await pool.query(
+            `UPDATE bookmarks SET sort_order = data.sort_order
+             FROM unnest($1::text[], $2::int[]) AS data(reddit_post_id, sort_order)
+             WHERE bookmarks.reddit_post_id = data.reddit_post_id
+             AND bookmarks.user_id = $3
+             AND bookmarks.section_id = $4`,
+            [orderedIds, positions, stripeCustomerId, sectionId]
+        );
 
         console.log(`Updated sort order for section ${sectionId}:`, orderedIds.map((id, i) => `${id}=${i}`));
 
@@ -2196,25 +2147,16 @@ app.post('/api/bookmarks/reorder', async (req, res) => {
 // 6. Get all sections for a user
 app.get('/api/bookmarks/sections', async (req, res) => {
     try {
-        const authToken = req.cookies.authToken;
-
-        if (!authToken) {
-            return res.status(401).json({ error: 'No auth token provided' });
-        }
-
-        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
-        if (userResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid auth token' });
-        }
-
-        const userId = userResult.rows[0].user_id;
+        const userId = req.userId;
 
         const result = await pool.query(`
-            SELECT id, name, sort_order, 
-                   (SELECT COUNT(*) FROM bookmarks WHERE section_id = sections.id) as count
-            FROM sections 
-            WHERE user_id = $1
-            ORDER BY sort_order
+            SELECT s.id, s.name, s.sort_order,
+                   COUNT(b.id) as count
+            FROM sections s
+            LEFT JOIN bookmarks b ON b.section_id = s.id
+            WHERE s.user_id = $1
+            GROUP BY s.id, s.name, s.sort_order
+            ORDER BY s.sort_order
         `, [userId]);
 
         res.json({ sections: result.rows });
@@ -2231,20 +2173,9 @@ app.get('/api/bookmarks/sections', async (req, res) => {
 // 7. Move bookmark to different section
 app.put('/api/bookmarks/:bookmarkId/section', async (req, res) => {
     try {
-        const authToken = req.cookies.authToken;
         const { bookmarkId } = req.params;
         const { sectionId } = req.body;
-
-        if (!authToken) {
-            return res.status(401).json({ error: 'No auth token provided' });
-        }
-
-        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
-        if (userResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid auth token' });
-        }
-
-        const userId = userResult.rows[0].user_id;
+        const userId = req.userId;
 
         // Get the current section_id before updating
         const currentSectionResult = await pool.query(
@@ -2305,15 +2236,8 @@ app.put('/api/bookmarks/:reddit_post_id/score', async (req, res) => {
 // Copy bookmark from shared content
 app.post('/api/bookmarks/copy', async (req, res) => {
     try {
-        const authToken = req.cookies.authToken;
         const { redditPostId, sectionId } = req.body;
-
-        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
-        if (userResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid auth token' });
-        }
-
-        const userId = userResult.rows[0].user_id;
+        const userId = req.userId;
 
         // Check if user already has this bookmark
         const existingBookmark = await pool.query(
@@ -2369,18 +2293,7 @@ app.post('/api/bookmarks/copy', async (req, res) => {
 // Get all sections for a user
 app.get('/api/sections', async (req, res) => {
     try {
-        const authToken = req.cookies.authToken;
-
-        if (!authToken) {
-            return res.status(401).json({ error: 'No auth token provided' });
-        }
-
-        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
-        if (userResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid auth token' });
-        }
-
-        const stripeCustomerId = userResult.rows[0].user_id;
+        const stripeCustomerId = req.userId;
 
         const result = await pool.query(`
             SELECT id, name, emoji, sort_order, created_at
@@ -2403,19 +2316,8 @@ app.get('/api/sections', async (req, res) => {
 // 1. Create new section
 app.post('/api/sections', async (req, res) => {
     try {
-        const authToken = req.cookies.authToken;
         const { name = 'New Section' } = req.body;
-
-        if (!authToken) {
-            return res.status(401).json({ error: 'No auth token provided' });
-        }
-
-        const userResult = await pool.query('SELECT user_id FROM subscriptions WHERE auth_token = $1', [authToken]);
-        if (userResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid auth token' });
-        }
-
-        const stripeCustomerId = userResult.rows[0].user_id;
+        const stripeCustomerId = req.userId;
 
         // Get the next sort_order
         const maxSortResult = await pool.query(`
