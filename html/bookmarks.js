@@ -169,17 +169,7 @@ async function initBookmarks() {
             showSectionsAntepage();
         }
     } else {
-        initializeTabs();
-        const urlParams = new URLSearchParams(window.location.search);
-        const sectionIdFromUrl = urlParams.get('section');
-        if (sectionIdFromUrl) {
-            loadSectionContent(parseInt(sectionIdFromUrl));
-        } else {
-            const firstTab = document.querySelector('.tab[data-section-id]');
-            if (firstTab) {
-                loadSectionContent(parseInt(firstTab.dataset.sectionId));
-            }
-        }
+        await initializeTabs();
     }
 }
 
@@ -498,6 +488,8 @@ async function initializeTabs() {
             url.searchParams.set('section', data.sections[0].id);
             window.history.replaceState({}, '', url);
             loadSectionContent(data.sections[0].id);
+        } else {
+            loadSectionContent(parseInt(urlParams.get('section')));
         }
 
         await insertTabsUI(data.sections);
@@ -1052,9 +1044,8 @@ function positionScrollIndicator() {
 function makeBookmarksDraggable(sectionId) {
     const bookmarkCards = document.querySelectorAll('.result-card');
 
-    bookmarkCards.forEach((card, index) => {
+    bookmarkCards.forEach((card) => {
         card.draggable = true;
-        card.dataset.originalIndex = index;
         card.dataset.sectionId = sectionId;
         card.style.cursor = 'grab';
 
@@ -1066,11 +1057,14 @@ function makeBookmarksDraggable(sectionId) {
 }
 
 let draggedElement = null;
-let draggedIndex = null;
+let draggedBookmarkId = null;
+let draggedSectionId = null;
+let dragAfterBookmarkId = undefined;
 
 function handleDragStart(e) {
     draggedElement = this;
-    draggedIndex = parseInt(this.dataset.originalIndex);
+    draggedBookmarkId = this.dataset.bookmarkId;
+    draggedSectionId = parseInt(this.dataset.sectionId);
     this.style.opacity = '0.5';
     this.style.cursor = 'grabbing !important';
     this.classList.add('dragging');
@@ -1086,17 +1080,18 @@ function handleDrop(e) {
 
     if (!draggedElement) return;
 
-    const sectionId = parseInt(draggedElement.dataset.sectionId);
+    const sectionId = draggedSectionId;
+    const arr = sectionBookmarks[sectionId];
+    const fromIndex = arr.findIndex(b => b.reddit_post_id === draggedBookmarkId);
+    if (fromIndex === -1) return;
 
-    const orderedIds = Array.from(document.querySelectorAll('.result-card'))
-        .map(card => card.dataset.bookmarkId)
-        .filter(Boolean);
+    const item = arr.splice(fromIndex, 1)[0];
+    const toIndex = dragAfterBookmarkId === null
+        ? arr.length
+        : arr.findIndex(b => b.reddit_post_id === dragAfterBookmarkId);
+    arr.splice(toIndex === -1 ? arr.length : toIndex, 0, item);
 
-    sectionBookmarks[sectionId] = orderedIds.map(id =>
-        sectionBookmarks[sectionId].find(bookmark => bookmark.reddit_post_id === id)
-    ).filter(Boolean);
-
-    updateBookmarkOrder(sectionId, orderedIds);
+    updateBookmarkOrder(sectionId, arr.map(b => b.reddit_post_id));
 }
 
 function getDragAfterElement(y) {
@@ -2667,6 +2662,8 @@ function handleDragOver(e) {
     const dragging = document.querySelector('.dragging');
     const resultsContainer = document.getElementById('bookmarks-results');
 
+    dragAfterBookmarkId = afterElement ? afterElement.dataset.bookmarkId : null;
+
     if (afterElement == null) {
         resultsContainer.appendChild(dragging);
     } else {
@@ -2689,12 +2686,10 @@ function handleDragEnd(e) {
     this.style.zIndex = '';
     this.classList.remove('dragging');
 
-    document.querySelectorAll('.result-card').forEach((card, index) => {
-        card.dataset.originalIndex = index;
-    });
-
     draggedElement = null;
-    draggedIndex = null;
+    draggedBookmarkId = null;
+    draggedSectionId = null;
+    dragAfterBookmarkId = undefined;
 }
 
 function cleanupEventListeners() {
@@ -2711,7 +2706,9 @@ function cleanupEventListeners() {
 
     // Reset drag state
     draggedElement = null;
-    draggedIndex = null;
+    draggedBookmarkId = null;
+    draggedSectionId = null;
+    dragAfterBookmarkId = undefined;
     currentEmojiTarget = null;
 
     // Hide any open UI elements
@@ -3192,6 +3189,7 @@ function mobileDragStart(e, card, sectionId) {
     card.parentNode.insertBefore(placeholder, card);
 
     let scrollInterval = null;
+    let touchInsertBeforeId = undefined;
 
     function onTouchMove(ev) {
         ev.preventDefault();
@@ -3219,8 +3217,12 @@ function mobileDragStart(e, card, sectionId) {
             const r = target.getBoundingClientRect();
             if (t.clientY < r.top + r.height / 2) {
                 target.parentNode.insertBefore(placeholder, target);
+                touchInsertBeforeId = target.dataset.bookmarkId;
             } else {
                 target.parentNode.insertBefore(placeholder, target.nextSibling);
+                let next = target.nextElementSibling;
+                while (next && next.classList.contains('mobile-drag-placeholder')) next = next.nextElementSibling;
+                touchInsertBeforeId = next ? next.dataset.bookmarkId : null;
             }
         }
     }
@@ -3246,15 +3248,19 @@ function mobileDragStart(e, card, sectionId) {
         placeholder.parentNode.insertBefore(card, placeholder);
         cleanup();
 
-        const orderedIds = Array.from(document.querySelectorAll('.result-card'))
-            .map(c => c.dataset.bookmarkId)
-            .filter(Boolean);
+        if (touchInsertBeforeId === undefined) return;
 
-        sectionBookmarks[sectionId] = orderedIds.map(id =>
-            sectionBookmarks[sectionId].find(b => b.reddit_post_id === id || b.id === id)
-        ).filter(Boolean);
+        const arr = sectionBookmarks[sectionId];
+        const fromIndex = arr.findIndex(b => b.reddit_post_id === card.dataset.bookmarkId);
+        if (fromIndex === -1) return;
 
-        updateBookmarkOrder(sectionId, orderedIds);
+        const item = arr.splice(fromIndex, 1)[0];
+        const toIndex = touchInsertBeforeId === null
+            ? arr.length
+            : arr.findIndex(b => b.reddit_post_id === touchInsertBeforeId);
+        arr.splice(toIndex === -1 ? arr.length : toIndex, 0, item);
+
+        updateBookmarkOrder(sectionId, arr.map(b => b.reddit_post_id));
     }
 
     function onTouchCancel() {
@@ -3385,7 +3391,10 @@ async function renderSectionContent(sectionId, bookmarksToRender, sectionMeta, i
 
     await displayResults(transformedData, isLoadMore);
 
-    // Mobile: scroll to top + section header on fresh load
+    // Scroll to top on fresh load (all devices)
+    if (!isLoadMore) window.scrollTo(0, 0);
+
+    // Mobile: section header
     if (!isLoadMore && isMobile()) {
         window.scrollTo(0, 0);
         buildMobileSectionHeader(sectionId, mobileSectionName, totalCount, resultsContainer);
@@ -3430,7 +3439,7 @@ function afterSectionRender(sectionId) {
     }, 150);
 }
 
-async function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false, numToLoad = 10) {
+async function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false) {
     if (isLoading) return;
 
     const resultsContainer = document.getElementById('bookmarks-results');

@@ -111,7 +111,7 @@
                 <div style="text-align: center;">
                     <div class="tagline" tabindex="0">Find exactly what you're looking for on Reddit 🔎</div>
                 </div>
-                <img src="/assets/hermes.png" alt="Hermes" tabindex="0" class="hermes-cat">
+                <img alt="Hermes" tabindex="0" class="hermes-cat">
                 <div id="hermes-speech" class="speech-bubble hidden">
                     <div class="speech-tail speech-tail-outline"></div>
                     <div class="speech-tail speech-tail-inner"></div>
@@ -197,7 +197,7 @@
                 </svg>
                 <span>Search</span>
             </a>
-            <a href="javascript:void(0)" class="bottom-bar-item" data-tab="bookmarks" onclick="lastBookmarksAreaTab = 'bookmarks'; lastSubredditBmState = null; navigateReplace({tab:'bookmarks', subreddit:'', query:'', pageIndex:0, after:null, before:null, sectionId:null})">
+            <a href="javascript:void(0)" class="bottom-bar-item" data-tab="bookmarks" onclick="lastBookmarksAreaTab = 'bookmarks'; lastSubredditBmState = null; navigateReplace({tab:'bookmarks', subreddit:'', query:'', pageIndex:0, after:null, before:null, sectionId:null, contentType:'all'})">
                 <svg width="24" height="24" viewBox="0 0 29 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
                     <path d="M23 23l-8.5-5.5-8.5 5.5V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z" />
                 </svg>
@@ -247,12 +247,13 @@
                     <div id="suggestions"></div>
                     <button id="search-button" class="search-button"></button>
                 </div>
-                <img src="/assets/iconny thingy.png" alt="filter icon" id="filter-icon" />
+                <img alt="filter icon" id="filter-icon" />
                 <button id="comfy-toggle" aria-label="Toggle Comfy Mode" tabindex="0">
-                    <img src="/assets/comfy-default.png" alt="Toggle comfy layout" />
+                    <img alt="Toggle comfy layout" />
                 </button>
                 <button id="compact-toggle" aria-label="Toggle Compact Mode" tabindex="0">
-                    <img src="/assets/compact-default.png" alt="Toggle compact layout" />
+                    <img alt="Toggle compact layout" />
+
                 </button>
             </div>
 
@@ -330,10 +331,11 @@
 
         <div id="screen-search" class="screen">
         <div id="content-type-tabs" class="content-type-tabs">
-            <button class="content-type-tab active" data-value="all">All</button>
-            <button class="content-type-tab" data-value="text">Text</button>
-            <button class="content-type-tab" data-value="image">Images</button>
-            <button class="content-type-tab" data-value="video">Video</button>
+            <button class="content-type-tab active" data-value="all"><span>All</span></button>
+            <button class="content-type-tab" data-value="text"><span>Text</span></button>
+            <button class="content-type-tab" data-value="image"><span>Images</span></button>
+            <button class="content-type-tab" data-value="video"><span>Video</span></button>
+            <div class="tab-indicator"></div>
         </div>
         <div id="search-filter-pills" class="filter-pills-row">
             <button class="filter-pill" id="pill-sort" onclick="openSortSheet()">Hot <img class="pill-arrow" src="/assets/chevron_sort.png" alt=""></button>
@@ -630,7 +632,7 @@
         
         // Update icon
         const themeIcon = document.getElementById('themeIcon');
-        if (themeIcon) {
+        if (themeIcon && window.innerWidth > 1024) {
         const nowDark = localStorage.getItem('selectedTheme') === 'dark';
         themeIcon.src = nowDark ? '/assets/sun.png' : '/assets/moon.png';
         themeIcon.alt = nowDark ? 'Switch to light mode' : 'Switch to dark mode';
@@ -650,7 +652,7 @@
 
         // Update icon
         const themeIcon = document.getElementById('themeIcon');
-        if (themeIcon) {
+        if (themeIcon && window.innerWidth > 1024) {
         const nowDark = localStorage.getItem('selectedTheme') === 'dark';
         themeIcon.src = nowDark ? '/assets/sun.png' : '/assets/moon.png';
         themeIcon.alt = nowDark ? 'Switch to light mode' : 'Switch to dark mode';
@@ -667,7 +669,7 @@
         themeToggle.addEventListener('click', toggleDarkMode);
         }
         
-        if (themeIcon) {
+        if (themeIcon && window.innerWidth > 1024) {
         const isDark = document.body.classList.contains('dark-mode');
         themeIcon.src = isDark ? '/assets/sun.png' : '/assets/moon.png';
         themeIcon.alt = isDark ? 'Switch to light mode' : 'Switch to dark mode';

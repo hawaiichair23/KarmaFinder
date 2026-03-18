@@ -95,6 +95,7 @@ body.dark-mode {
 
 body.bluebird-theme {
     --topbar-mobile: #d1e9ff;
+    --pill-bg: #bbddfa;
     --comments-bg-mobile: #c7e1ff;
     --medium-text: #1e5492;
     --text-color: rgb(2, 12, 111);
@@ -193,6 +194,7 @@ header a {
     text-align: center;
     margin: 20px 0 10px;
     display: inline-block;
+    font-family: 'Lato', 'sans-serif';
 }
 
 body.forest-theme .tagline {
@@ -303,25 +305,27 @@ body.bluebird-theme .search-input::placeholder {
     cursor: pointer;
 }
 
+body.dark-mode .search-input-container{
+border: 2px solid var(--border-color);
+}
+.search-input-container{
+border: 2px solid var(--border-color);
+}
 .search-input-container:focus-within {
     border-color: var(--secondary-color);
     border-width: 2px;
-    transition: border-color 0.15s ease-in-out;
 }
 body.dark-mode .search-input-container:focus-within {
     border-color: var(--secondary-color);
     border-width: 2px;
-    transition: border-color 0.15s ease-in-out;
 }
 body.forest-theme .search-input-container:focus-within {
     border-color: var(--secondary-color);
     border-width: 2px;
-    transition: border-color 0.15s ease-in-out;
 }
 body.bluebird-theme .search-input-container:focus-within {
     border-color: var(--secondary-color);
     border-width: 2px;
-    transition: border-color 0.15s ease-in-out;
 }
 
 
@@ -542,6 +546,7 @@ input:checked+.slider:before {
     margin-top: 8px;
     font-size: 13px;
     white-space: nowrap;
+    font-family: 'Lato', 'sans-serif';
 }
 
 /* =================================
@@ -571,7 +576,7 @@ input:checked+.slider:before {
     background: var(--pill-bg, rgba(128,128,128,0.15));
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    padding: 3px 10px 3px 10px;
+    padding: 2px 10px 3px 10px;
     padding-right: 9px;
     font-size: 0.9rem;
     font-weight: 600;
@@ -589,7 +594,6 @@ input:checked+.slider:before {
     line-height: 1;
     cursor: pointer;
     color: var(--text-secondary);
-    margin-bottom: 1px;
 }
 
 
@@ -1131,6 +1135,7 @@ body.forest-theme .result-subreddit {
     text-overflow: ellipsis;
     overflow: hidden;
     transform: translateY(-25%);
+    font-family: 'Lato', 'sans-serif';
 }
 
 .result-content a {
@@ -1396,6 +1401,7 @@ body.forest-theme .comment-author a {
 .comment-text {
     line-height: 1.3;
     word-break: break-word;
+    font-family: 'Lato', 'sans-serif';
 }
 
 .comment-meta {
@@ -1603,6 +1609,7 @@ body.forest-theme .bookmark-icon:focus-visible {
     transform: translate(21px, 45px);
     display: inline-block;
     transition: filter 200ms linear;
+    font-family: 'Lato', 'sans-serif';
 }
 
 .bookmark-link:hover {
@@ -2065,6 +2072,7 @@ body.dark-mode .link-preview-btn {
     background-color: var(--button-bg);
     border-color: var(--darkborder);
     color: var(--light-text);
+    font-family: 'Lato', 'sans-serif';
 }
 
 /* =================================
@@ -2159,7 +2167,6 @@ body.dark-mode .hermes-context-menu {
     align-items: center;
     gap: 10px;
     box-shadow: inset 0 0 1px var(--border-color);
-    border-radius: 8px;
     left: 0;
     margin-left: 0;
 }
@@ -2273,7 +2280,6 @@ body[data-layout="compact"].safe-search-enabled .nsfw .image-wrapper .thumbnail 
     position: absolute;
     color: var(--text-color);
     left: 246px;
-    top: 38px;
     margin-right: 2px;
 }
 
@@ -2647,7 +2653,7 @@ body.dark-mode .filter-chip-container {
 }
 
 .login-link {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Lato', 'sans-serif';
     font-weight: 600;
     cursor: pointer;
     background: var(--card-color);
@@ -2736,10 +2742,11 @@ body.dark-mode .login-link:hover {
 
 .plan-display.plan-premium {
     color: var(--light-text);
-    font-size: 10px;
+    font-size: 0.72rem;
     text-align: center;
-    font-weight: bold;
+    font-weight: 800;
     width: 135px;
+    font-family: 'Lato', 'sans-serif';
 }
 
 .plan-display.plan-pro {
@@ -3984,6 +3991,7 @@ body.forest-theme .link-preview-btn:hover {
         position: fixed;
         bottom: 0;
         left: 0;
+        view-transition-name: bottom-bar;
         right: 0;
         width: 100%;
         background: var(--card-color);
@@ -4104,6 +4112,7 @@ body.forest-theme .link-preview-btn:hover {
 
     .result-content {
         font-size: 1rem;
+        font-family: 'Lato', 'sans-serif';
     }
 
     .result-subreddit {
@@ -4292,8 +4301,9 @@ body.forest-theme .link-preview-btn:hover {
         width: auto;
         margin-top: -6px;
         margin-right: auto;
-        margin-bottom: 7px;
+        margin-bottom: 0.7rem;
         background-color: var(--comments-bg-mobile);
+        margin-top: 0.15rem;
     }
 
     .link-preview-container {
@@ -4557,7 +4567,7 @@ body.dark-mode .search-input-container {
 
 .result-title {
     -webkit-line-clamp: 7;
-    font-size: 1.15rem;
+    font-size: 1.2rem;
     padding-bottom: 0rem;
     font-family: 'Lato', 'sans-serif';
 }
@@ -4673,7 +4683,7 @@ body.dark-mode #subreddit-header {
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    max-height: calc(1.2em * 3);
+    max-height: calc(1.17em * 3);
 }
 
 .subreddit-description a {
@@ -4687,11 +4697,13 @@ body.dark-mode #subreddit-header {
 .content-type-tabs {
     display: none;
     flex-direction: row;
+    position: relative;
     background: var(--topbar-mobile);
     width: calc(100% + 20px);
     margin-left: -10px;
     margin-right: -10px;
     border-bottom: 1px solid var(--border-color);
+    font-family: 'Lato', sans-serif;
 }
 
 .content-type-tab {
@@ -4705,18 +4717,27 @@ body.dark-mode #subreddit-header {
     font-weight: 600;
     color: var(--light-text);
     cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: color 0.15s ease, border-color 0.15s ease;
+    border-bottom: none;
+    transition: color 0.15s ease;
 }
 
 .content-type-tab.active {
     color: var(--text-color);
-    border-bottom: 2px solid var(--primary-color);
     font-weight: 700;
 }
 
 .content-type-tab:active {
     opacity: 0.7;
+}
+
+.tab-indicator {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    background: var(--text-color);
+    transition: transform 0.2s cubic-bezier(0.25, 0.1, 0.25, 1), width 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+    pointer-events: none;
 }
 
 body.has-results .content-type-tabs {
@@ -4801,6 +4822,11 @@ body.forest-theme .pill-arrow {
 
 ::view-transition-new(root) {
     animation: vt-slide-in-left 320ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+::view-transition-old(bottom-bar),
+::view-transition-new(bottom-bar) {
+    animation: none;
 }
 
 .explore-grid {

@@ -13,6 +13,7 @@ let isBlocked = false;
 
 // Single blink (e.g., on mouseover)
 function singleBlink() {
+    if (isMobile()) return;
     if (!animationsEnabled || isSleeping) return;
 
     const img = document.querySelector('.hermes-cat');
@@ -24,6 +25,7 @@ function singleBlink() {
 
 // Random automatic blinking
 function randomBlink() {
+    if (isMobile()) return;
     if (!animationsEnabled || isSleeping) return;
     const img = document.querySelector('.hermes-cat');
     if (!img) return; // ADD THIS LINE
@@ -94,6 +96,7 @@ function loopZzz() {
 
 // Wake up
 function wakeUp() {
+    if (isMobile()) return;
     isSleeping = false;
     const img = document.querySelector('.hermes-cat');
     img.src = '/assets/hermes.png';
@@ -108,6 +111,7 @@ function wakeUp() {
 
 
 function sleepAnimation() {
+    if (isMobile()) return;
     if (!animationsEnabled || !isSleeping) return;
     const img = document.querySelector('.hermes-cat');
     if (!img) return;
@@ -524,6 +528,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Apply saved settings on page load
     function applySavedSettings() {
+        if (isMobile()) return;
         // Apply hermes/bell setting
         const bellElement = muteBtn.querySelector('.bell, .bell-unmute');
         if (bellElement) {
@@ -590,6 +595,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function handleRandomResponse(responses, nothingChance = 0.5, dotsChance = 0.08) {
+    if (isMobile()) return;
     const randomChance = Math.random();
     const dotsThreshold = nothingChance + dotsChance;
     if (randomChance < nothingChance) {

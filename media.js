@@ -133,22 +133,19 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
                 const imageUrl = original || resolutionFallback;
 
                 if (imageUrl) {
-                    const img = new Image();
-                    const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
-                    img.onload = () => {
-                        preloadedImages[index] = img;
-                    };
-                    img.src = proxyUrl;
+                    const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
+                    preloadedImages[index] = fetch(proxyUrl)
+                        .then(r => r.blob())
+                        .then(blob => createImageBitmap(blob))
+                        .catch(() => null);
                 }
             }
         };
 
         const preloadAllImages = () => {
-
-            // Preload 2 back, current, and 5 forward 
+            // Preload 2 back, current, and 5 forward
             for (let i = -2; i <= 5; i++) {
                 const index = (currentIndex + i + totalImages) % totalImages;
-
                 if (!preloadedImages[index]) {
                     const item = galleryData[index];
                     const mediaId = item.media_id;
@@ -161,38 +158,11 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
                     const imageUrl = original || resolutionFallback;
 
                     if (imageUrl) {
-                        const img = new Image();
-                        const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
-
-                        img.onerror = () => {
-
-                            // First retry after 500ms
-                            setTimeout(() => {
-                                const retryImg1 = new Image();
-                                retryImg1.src = proxyUrl;
-                                retryImg1.onload = () => {
-                                    preloadedImages[index] = retryImg1;
-                                };
-                                retryImg1.onerror = () => {
-
-                                    // Second retry after additional 1000ms
-                                    setTimeout(() => {
-                                        const retryImg2 = new Image();
-                                        retryImg2.src = proxyUrl;
-                                        retryImg2.onload = () => {
-                                            preloadedImages[index] = retryImg2;
-                                        };
-                                        retryImg2.onerror = () => {
-                                        };
-                                    }, 1000);
-                                };
-                            }, 500);
-                        };
-
-                        img.onload = () => {
-                            preloadedImages[index] = img;
-                        };
-                        img.src = proxyUrl;
+                        const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
+                        preloadedImages[index] = fetch(proxyUrl)
+                            .then(r => r.blob())
+                            .then(blob => createImageBitmap(blob))
+                            .catch(() => null);
                     }
                 }
             }
@@ -311,25 +281,29 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
                 }, 450);
             };
 
-            // Force wait on decoding
-            if (preloadedImages[targetIndex] && preloadedImages[targetIndex].complete) {
-                // Force decode the preloaded image before using it
-                preloadedImages[targetIndex].decode().then(() => {
+            // Use preloaded bitmap if available, otherwise fall back to network load
+            if (preloadedImages[targetIndex]) {
+                preloadedImages[targetIndex].then(bitmap => {
                     if (thisNavigationId !== navigationSequence) {
                         newImg.remove();
                         return;
                     }
-                    newImg.src = preloadedImages[targetIndex].src;
+                    if (bitmap) {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = bitmap.width;
+                        canvas.height = bitmap.height;
+                        canvas.getContext('2d').drawImage(bitmap, 0, 0);
+                        newImg.src = canvas.toDataURL();
+                        canvas.remove();
+                    } else {
+                        const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
+                        newImg.src = proxyUrl;
+                    }
                     finalizeImageTransition();
-                }).catch(() => {
-                    // Fallback if decode fails
-                    const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
-                    newImg.onload = () => finalizeImageTransition();
-                    newImg.src = proxyUrl;
                 });
             } else {
                 // Fallback to loading on-demand
-                const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
+                const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
 
                 newImg.onload = () => {
                     if (thisNavigationId !== navigationSequence) {
@@ -514,7 +488,7 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
                 showNewsIcon(imgWrapper, shimmer);
                 return;
             }
-            const fallbackURL = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(fallbacks[index])}&t=${Date.now()}`;
+            const fallbackURL = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(fallbacks[index])}`;
             img.onerror = () => {
                 trySrc(index + 1);
             };

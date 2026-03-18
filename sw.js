@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kf-assets-v1';
+const CACHE_NAME = 'kf-assets';
 
 const ASSETS_TO_CACHE = [
   '/assets/bell.png',
@@ -17,8 +17,6 @@ const ASSETS_TO_CACHE = [
   '/assets/chevron_sort_white.png',
   '/assets/comfy-default.png',
   '/assets/comfy-pressed.png',
-  '/assets/compact-default.png',
-  '/assets/compact-pressed.png',
   '/assets/favicon-32x32.png',
   '/assets/forest copy.png',
   '/assets/forest.png',
@@ -29,10 +27,8 @@ const ASSETS_TO_CACHE = [
   '/assets/head.png',
   '/assets/hermes-blink.png',
   '/assets/hermes-mouthopen.png',
-  '/assets/hermes-sleep2.png',
   '/assets/hermes-sleep3.png',
   '/assets/hermes-sleep4.png',
-  '/assets/hermes.png',
   '/assets/iconny thingy.png',
   '/assets/icons8-chevron-up-90.png',
   '/assets/icons8-chevron-up-90_blue.png',
@@ -94,9 +90,7 @@ const ASSETS_TO_CACHE = [
   '/assets/settings-sliders.png',
   '/assets/shareicon.png',
   '/assets/shareiconbluebird.png',
-  '/assets/shareicondark.png',
   '/assets/shareiconforest.png',
-  '/assets/sun.png',
   '/assets/theme-screenshot.PNG',
   '/assets/vector.png',
 ];

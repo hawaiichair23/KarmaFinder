@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to update icon based on current theme
     function updateIcon() {
+        if (window.innerWidth <= 1024) return;
         try {
             const theme = localStorage.getItem('theme');
             const isDark = theme === 'dark' || document.body.classList.contains('dark-mode');
