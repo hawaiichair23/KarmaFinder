@@ -7,7 +7,7 @@
     --secondary-color: #0079d3;
 
     /* Background Colors */
-    --background-color: #f6f6fbf8;
+    --background-color: #f6f6fb;
     --card-color: #f9fafe;
     --card-color-b: #f5f5fa;
     --input-bg: #eeedf3;
@@ -15,9 +15,9 @@
     --suggestions-bg: #f2f1f7;
     --pill-bg: rgba(149, 149, 151, 0.15);
 
-    --comments-bg-mobile: #ececf4f7;
+    --comments-bg-mobile: #ececf4;
     --button-bg-mobile: #ececf5;
-    --topbar-mobile: #f1f3f7fa;
+    --topbar-mobile: #f1f3f7;
 
     /* Text Colors */
     --text-color: #1a1a1b;
@@ -125,7 +125,7 @@ body.bluebird-theme html {
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: 'Lato', 'Inter', system-ui, sans-serif;
     background-color: var(--background-color);
     color: var(--text-color);
     margin: 0;
@@ -194,7 +194,7 @@ header a {
     text-align: center;
     margin: 20px 0 10px;
     display: inline-block;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 body.forest-theme .tagline {
@@ -276,7 +276,7 @@ body.dark-mode .search-input-container {
     flex-grow: 0.89;
     font-size: 1.1rem;
     font-weight: 400;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
     outline: none;
     background: transparent !important;
     border: none !important;
@@ -546,7 +546,7 @@ input:checked+.slider:before {
     margin-top: 8px;
     font-size: 13px;
     white-space: nowrap;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 /* =================================
@@ -561,6 +561,12 @@ input:checked+.slider:before {
     padding-left: 14px;
     border-bottom: 1px solid var(--border-color);
     color: var(--text-secondary);
+    pointer-events: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ssb-remove {
+    pointer-events: auto;
 }
 
 .ssb-label {
@@ -581,7 +587,7 @@ input:checked+.slider:before {
     font-size: 0.9rem;
     font-weight: 600;
     color: var(--text-color);
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 .ssb-remove {
@@ -593,9 +599,8 @@ input:checked+.slider:before {
     font-size: 1.1rem;
     line-height: 1;
     cursor: pointer;
-    color: var(--text-secondary);
+    color: var(--text-color);
 }
-
 
 .suggestion-item {
     display: flex;
@@ -1056,7 +1061,7 @@ body.dark-mode .result-card:hover {
     white-space: nowrap;
     min-width: 0;
     flex-shrink: 1;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 body.forest-theme .result-subreddit {
@@ -1135,7 +1140,7 @@ body.forest-theme .result-subreddit {
     text-overflow: ellipsis;
     overflow: hidden;
     transform: translateY(-25%);
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 .result-content a {
@@ -1373,7 +1378,7 @@ body.dark-mode .comment {
     font-size: 0.9rem;
     display: flex;
     align-items: center;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 .comment-author a {
@@ -1400,8 +1405,9 @@ body.forest-theme .comment-author a {
 
 .comment-text {
     line-height: 1.3;
+    font-size: 0.9rem;
     word-break: break-word;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 .comment-meta {
@@ -1452,7 +1458,7 @@ body.forest-theme .comment-author a {
     text-align: center;
     padding-top: 5px;
     font-size: 0.85rem;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
     color: var(--secondary-color);
     cursor: pointer;
     font-weight: 800;
@@ -1609,7 +1615,7 @@ body.forest-theme .bookmark-icon:focus-visible {
     transform: translate(21px, 45px);
     display: inline-block;
     transition: filter 200ms linear;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 .bookmark-link:hover {
@@ -1675,7 +1681,7 @@ body.dark-mode .theme-option.highlighted {
     cursor: pointer;
     font-weight: 500;
     font-size: 1rem;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
     color: var(--text-color);
     box-shadow: inset 0 0 1px var(--inset-shadow);
     transition: background-color 0.2s;
@@ -2072,7 +2078,7 @@ body.dark-mode .link-preview-btn {
     background-color: var(--button-bg);
     border-color: var(--darkborder);
     color: var(--light-text);
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 /* =================================
@@ -2653,7 +2659,7 @@ body.dark-mode .filter-chip-container {
 }
 
 .login-link {
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
     font-weight: 600;
     cursor: pointer;
     background: var(--card-color);
@@ -2746,7 +2752,7 @@ body.dark-mode .login-link:hover {
     text-align: center;
     font-weight: 800;
     width: 135px;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 .plan-display.plan-pro {
@@ -2915,7 +2921,7 @@ body.dark-mode .swal2-popup {
     border-radius: 16px;
     padding: 12px 20px;
     flex-grow: 0.89;
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     font-weight: 400;
     color: var(--text-color) !important;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -2924,12 +2930,34 @@ body.dark-mode .swal2-popup {
     box-shadow: none;
 }
 
+.swal2-input:focus {
+    outline: 1px solid #3b82f6;
+    box-shadow: none !important;
+}
+
 .swal2-title {
     font-size: 1.6rem;
 }
 div:where(.swal2-container).swal2-backdrop-show {
     z-index: 10000;
 }
+
+
+@media (max-width: 480px) {
+    .swal2-popup {
+        width: 90% !important;
+        border-radius: 10px !important;
+    }
+    .swal2-actions {
+        justify-content: center !important;
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+    .swal2-title {
+        font-size: 1.3rem !important;
+    }
+}
+
 
 body.dark-mode .swal2-input {
     border: 1px solid #424242;
@@ -3352,7 +3380,7 @@ body.forest-theme .link-preview-btn:hover {
     #suggestions div,
     #mobile-suggestions div {
         padding: 10px;
-        font-family: 'Lato', 'sans-serif';
+        font-family: 'Lato', sans-serif;
     }
 
     /* ================================= */
@@ -4013,7 +4041,7 @@ body.forest-theme .link-preview-btn:hover {
         gap: 4px;
         color: var(--medium-text);
         text-decoration: none;
-        font-size: 0.75rem;
+        font-size: 0.80rem;
         padding: 8px;
     }
 
@@ -4112,7 +4140,7 @@ body.forest-theme .link-preview-btn:hover {
 
     .result-content {
         font-size: 1rem;
-        font-family: 'Lato', 'sans-serif';
+        font-family: 'Lato', sans-serif;
     }
 
     .result-subreddit {
@@ -4221,10 +4249,11 @@ body.forest-theme .link-preview-btn:hover {
         display: block !important;
         order: 4;
         margin-left: 1px;
-        font-size: 0.8rem;
+        font-size: 0.85rem;
         color: var(--light-text);
         padding-bottom: 6px;
         align-self: flex-start;
+        font-family: 'Lato', sans-serif;
     }
 
     .result-time {
@@ -4569,7 +4598,7 @@ body.dark-mode .search-input-container {
     -webkit-line-clamp: 7;
     font-size: 1.2rem;
     padding-bottom: 0rem;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 .comment-icon-img {
@@ -4593,11 +4622,11 @@ body.dark-mode .comment-icon-img {
     background-color: #007bff;
     color: white;
     font-weight: 700;
-    font-size: 1rem;
+    font-size: 1.1rem;
     cursor: pointer;
     text-align: center;
     transition: background 0.15s ease;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 .section-picker-create-btn:hover,
@@ -4669,7 +4698,7 @@ body.dark-mode #subreddit-header {
 .subreddit-subscribers {
     font-size: 0.9rem;
     color: var(--medium-text);
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
     display: block;
 }
 
@@ -4678,7 +4707,7 @@ body.dark-mode #subreddit-header {
     color: var(--medium-text);
     padding: 0 6px 12px 6px;
     line-height: 1.4;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
@@ -4781,7 +4810,7 @@ body.has-results #search-filter-pills {
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 .filter-pill:active {

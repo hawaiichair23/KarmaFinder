@@ -2403,6 +2403,7 @@ function setupImportMenuEvents() {
 }
 
 async function showSectionInfo() {
+    if (document.querySelector('.section-info-sheet')) return;
     const isSharedPage = window.location.pathname.includes('/share/');
     let bookmarkCount = 0;
     let topSubreddit = 'None';
@@ -2418,7 +2419,7 @@ async function showSectionInfo() {
         try {
             const response = await fetch(`${API_BASE}/api/share/${shareCode}`);
             const data = await response.json();
-            sectionName = (data.section.emoji ? `${data.section.emoji} ` : '') + (data.section.name || 'Unknown');
+            sectionName = data.section.name || 'Unknown';
             bookmarkCount = data.bookmarks.length;
             topSubreddit = data.top_subreddit ? `r/${data.top_subreddit}` : 'None';
             createdDate = data.created_at ? new Date(data.created_at).toLocaleDateString('en-US', {
@@ -2443,7 +2444,7 @@ async function showSectionInfo() {
                 credentials: 'include'
             });
             const data = await response.json();
-            sectionName = (data.emoji ? `${data.emoji} ` : '') + (data.section_name || data.name || 'Unknown');
+            sectionName = data.section_name || data.name || 'Unknown';
             bookmarkCount = data.total_count || 0;
             topSubreddit = data.top_subreddit ? `r/${data.top_subreddit}` : 'None';
             createdDate = data.created_at ? new Date(data.created_at).toLocaleDateString('en-US', {
@@ -2459,88 +2460,94 @@ async function showSectionInfo() {
     }
 
     const sectionInfoHtml = `
-    <div class="reddit-import-container">
-        <div class="reddit-import-info">
-            <p><strong>Section Name:</strong> <span>${sectionName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span></p>
-            <p><strong>Creation Date:</strong> <span>${createdDate}</span></p>
-            <p><strong>Bookmarks:</strong> <span>${bookmarkCount}</span></p>
-            <p><strong>Top Subreddit:</strong> <span>${topSubreddit}</span></p>
-            <p><strong>Last Modified:</strong> <span>${lastModified}</span></p>
-            <p><strong>Description:</strong> ${isSharedPage ?
-            `<span>${description.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>` :
-            `<textarea id="sectionDescription" maxlength="500">${description === 'No description' ? '' : description.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
-        <div class="description-counter" id="descriptionCounter">0/500</div>`
-        }</p>
-    ${!isSharedPage ? `<button id="saveDescription">Save description</button>` : ''}
+    <div class="section-info-wrap">
+        <div class="section-info-header">
+            <span class="section-info-title">${sectionName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+            <span class="section-info-saves">${bookmarkCount} Saves</span>
+        </div>
+        <div class="section-info-stats">
+            <div class="section-stat-card">
+                <span class="section-stat-value">${createdDate}</span>
+                <span class="section-stat-label">Created</span>
+            </div>
+            <div class="section-stat-card">
+                <span class="section-stat-value">${topSubreddit}</span>
+                <span class="section-stat-label">Top Subreddit</span>
+            </div>
+        </div>
+        <div class="section-info-modified">Last modified: ${lastModified}</div>
+        ${!isSharedPage ? `
+        <div class="section-info-description">
+            <label class="section-desc-label">Description</label>
+            <textarea id="sectionDescription" maxlength="500" placeholder="Add a description">${description === 'No description' ? '' : description.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+            <div class="section-desc-footer">
+                <span class="description-counter" id="descriptionCounter">0/500</span>
+            </div>
+        </div>` : description !== 'No description' ? `
+        <div class="section-info-description">
+            <label class="section-desc-label">Description</label>
+            <p class="section-desc-readonly">${description.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+        </div>` : ''}
     </div>
-</div>
 `;
 
-    await Swal.fire({
-        title: 'Section Information',
-        html: sectionInfoHtml,
-        confirmButtonText: 'Close',
-        didOpen: () => {
-            if (!isSharedPage) {
-                const saveBtn = document.getElementById('saveDescription');
-                const textarea = document.getElementById('sectionDescription');
-                const counter = document.getElementById('descriptionCounter');
+    const sheet = document.createElement('div');
+    sheet.className = 'section-info-sheet';
+    sheet.innerHTML = `
+        <div class="section-info-topbar">
+            <span class="section-info-topbar-title">Section Info</span>
+        </div>
+        ${sectionInfoHtml}
+        <div class="section-info-done-wrap">
+            <button class="section-info-done-btn">Done</button>
+        </div>
+    `;
 
-                if (saveBtn && textarea && counter) {
-                    // Update counter on page load
-                    const currentLength = textarea.value.length;
-                    counter.textContent = `${currentLength}/500`;
-                    if (currentLength > 450) {
-                        counter.classList.add('warning');
-                    }
-
-                    // Update counter on input
-                    textarea.addEventListener('input', function () {
-                        const length = this.value.length;
-                        counter.textContent = `${length}/500`;
-
-                        if (length > 450) {
-                            counter.classList.add('warning');
-                        } else {
-                            counter.classList.remove('warning');
-                        }
-                    });
-                    saveBtn.addEventListener('click', async () => {
-                        const newDescription = textarea.value.trim();
-                                                const activeTab = document.querySelector('.tab.active');
-                                                const sectionId = activeTab
-                                                    ? activeTab.dataset.tabId
-                                                    : new URLSearchParams(window.location.search).get('section');
-
-                                                try {
-                            const response = await fetch(`${API_BASE}/api/sections/${sectionId}/description`, {
-                                method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                credentials: 'include',
-                                body: JSON.stringify({ description: newDescription })
-                            });
-
-                            if (response.ok) {
-                                saveBtn.textContent = 'Saved!';
-                                setTimeout(() => {
-                                    saveBtn.textContent = 'Save Description';
-                                }, 2000);
-                            }
-                        } catch (error) {
-                            console.error('Failed to save description:', error);
-                        }
-                    });
-                }
-            }
-        },
-        didClose: () => {
-            if (currentMenuOpener) {
-                currentMenuOpener.focus();
-                currentMenuOpener = null;
+    function closeSheet() {
+        if (!isSharedPage) {
+            const textarea = sheet.querySelector('#sectionDescription');
+            const originalDescription = description === 'No description' ? '' : description;
+            if (textarea && textarea.value.trim() !== originalDescription.trim()) {
+                const newDescription = textarea.value.trim();
+                const activeTab = document.querySelector('.tab.active');
+                const sectionId = activeTab
+                    ? activeTab.dataset.tabId
+                    : new URLSearchParams(window.location.search).get('section');
+                fetch(`${API_BASE}/api/sections/${sectionId}/description`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ description: newDescription })
+                }).catch(err => console.error('Failed to save description:', err));
             }
         }
+        sheet.style.transform = 'translateY(100%)';
+        document.body.style.overflow = '';
+        setTimeout(() => { sheet.remove(); }, 300);
+        if (currentMenuOpener) { currentMenuOpener.focus(); currentMenuOpener = null; }
+    }
+
+    sheet.querySelector('.section-info-done-btn').addEventListener('click', closeSheet);
+
+    if (!isSharedPage) {
+        const textarea = sheet.querySelector('#sectionDescription');
+        const counter = sheet.querySelector('#descriptionCounter');
+        if (textarea && counter) {
+            counter.textContent = `${textarea.value.length}/500`;
+            if (textarea.value.length > 450) counter.classList.add('warning');
+            textarea.addEventListener('input', function () {
+                counter.textContent = `${this.value.length}/500`;
+                if (this.value.length > 450) counter.classList.add('warning');
+                else counter.classList.remove('warning');
+            });
+        }
+    }
+
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+
+    requestAnimationFrame(() => {
+        sheet.style.transform = 'translateY(0)';
     });
 }
 

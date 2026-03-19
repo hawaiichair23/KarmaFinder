@@ -2693,8 +2693,8 @@
                 if (indicator) indicator.remove();
             }
 
-            // Reset pagination if new progressive search
-            if (!navigateBack && searchType === 'progressive') {
+            // Reset pagination if new progressive search (not paginating)
+            if (!navigateBack && searchType === 'progressive' && after === null) {
                 currentPageIndex = 0;
                 currentAfter = null;
                 currentBefore = null;
@@ -2714,6 +2714,7 @@
         function tryRestoreFromCache(matchFilters = null) {
             const cachedPage = loadPageDataFromSession(currentPageIndex);
             if (!cachedPage?.results?.length) return false;
+            if (cachedPage._savedAt && Date.now() - cachedPage._savedAt > 7 * 60 * 1000) return false;
             if (matchFilters && !matchFilters(cachedPage)) return false;
 
             currentAfter = cachedPage.after || null;
@@ -2811,6 +2812,7 @@
     }
 
     function performSearch(after = null, before = null, navigateBack = false) {
+
         const searchToken = activeQueryToken;
 
         if (navigateBack) {
@@ -2824,13 +2826,6 @@
         const sort = currentFilters.sort || 'hot';
         const time = currentFilters.time || 'all';
         const limit = 10;
-
-        console.log('[performSearch]', {
-            query, subreddit, sort, time, limit,
-            currentAfter, currentBefore,
-            currentPageIndex, navigateBack,
-            currentFilters: JSON.stringify(currentFilters)
-        });
 
         // Clear tokens if we're on front page 
         if (currentPageIndex === 0) {
@@ -2895,6 +2890,7 @@
                     }
                     if (currentTab === 'home') lastHomeState = { ...appState };
                     if (currentTab === 'search') lastSearchState = { ...appState };
+                    if (currentTab === 'subreddit') lastSubredditState = { ...appState };
                     return;
                 }
 
@@ -2931,6 +2927,7 @@
                         }
                         if (currentTab === 'home') lastHomeState = { ...appState };
                         if (currentTab === 'search') lastSearchState = { ...appState };
+                        if (currentTab === 'subreddit') lastSubredditState = { ...appState };
                     });
             })
             .catch(err => {
@@ -3833,7 +3830,6 @@
                 nextButton.className = 'pagination-button next-button';
                 nextButton.textContent = 'Next';
                 nextButton.addEventListener('click', () => {
-                    console.log('[next click] appState:', JSON.stringify(appState));
                     navigate({ pageIndex: currentPageIndex + 1, after: currentAfter, before: null });
                 });
                 container.appendChild(nextButton);
@@ -3847,7 +3843,7 @@
         function savePageDataToSession(index, data) {
             const filters = currentFilters || getCurrentFiltersFromUI();
             const token = `kf_page_${index}__base__${buildCacheKey('', filters)}`;
-            sessionStorage.setItem(token, JSON.stringify(data));
+            sessionStorage.setItem(token, JSON.stringify({ ...data, _savedAt: Date.now() }));
         }
 
         function loadPageDataFromSession(index) {
@@ -4783,7 +4779,6 @@
             // Manage data-page attribute for search
             if (tab === 'search') {
                 document.body.setAttribute('data-page', 'search');
-                console.log('[switchTab search] appState.subreddit:', appState.subreddit);
                 setSubredditChip(appState.subreddit || '');
                 // Sync content type tab indicator
                 const activeType = appState.contentType || 'all';
@@ -4897,8 +4892,18 @@
         window.showCreateSheet = showCreateSheet;
 
         function restoreLastSearchArea() {
-            console.log('[restoreLastSearchArea] lastSearchState:', JSON.stringify(lastSearchState));
             if (lastSearchAreaTab === 'subreddit' && lastSubredditState && lastSubredditOriginTab !== 'home') {
+                const subredditResults = document.getElementById('subreddit-results');
+            if (subredditResults && subredditResults.children.length > 0) {
+                    currentPageIndex = lastSubredditState.pageIndex || 0;
+                    currentAfter = lastSubredditState.after || null;
+                    currentBefore = lastSubredditState.before || null;
+                    Object.assign(appState, lastSubredditState);
+                    history.replaceState({}, '', urlFromState(lastSubredditState));
+                    switchTab('subreddit');
+                    restoreTabScroll('subreddit');
+                    return;
+                }
                 navigateReplace(lastSubredditState);
             } else if (lastSearchState) {
                 navigateReplace({ ...lastSearchState });
@@ -5131,7 +5136,7 @@
                     right: 0;
                     background: var(--card-color);
                     border-radius: 16px 16px 0 0;
-                    height: 51vh;
+                    height: 60vh;
                     max-height: 80vh;
                     overflow-y: auto;
                     z-index: 9999;
@@ -5140,7 +5145,6 @@
                     box-shadow: 0 -4px 20px var(--shadow-card);
                 `;
 
-          
                 // Header
                 const header = document.createElement('div');
                 header.style.cssText = `
@@ -5322,6 +5326,10 @@
 
                 // Close menu function
                 function closeMenu() {
+                    document.removeEventListener('mousemove', dragging);
+                    document.removeEventListener('touchmove', dragging);
+                    document.removeEventListener('mouseup', dragStop);
+                    document.removeEventListener('touchend', dragStop);
                     sheet.style.transform = 'translateY(100%)';
                     overlay.style.opacity = '0';
                     setTimeout(() => {
@@ -5375,8 +5383,8 @@
                         // Snap to 80vh if dragged above 60vh
                         sheet.style.height = '90vh';
                     } else {
-                        // Snap back to 45vh
-                        sheet.style.height = '51vh';
+                        // Snap back to 60vh
+                        sheet.style.height = '60vh';
                     }
                 };
 

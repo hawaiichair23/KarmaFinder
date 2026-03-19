@@ -29,7 +29,7 @@
     border-radius: 8px;
     border-color: var(--border-color);
     box-shadow: inset 0 0 1px rgba(0, 0, 0, 0.4);
-    font-family: 'Lato', 'sans-serif';
+    font-family: 'Lato', sans-serif;
 }
 
 .tab:hover {
@@ -837,7 +837,6 @@ div:where(.swal2-container) div:where(.swal2-validation-message)::before {
 }
 
 #sectionDescription {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: var(--input-bg);
     font-weight: 500;
     color: var(--text-color);
@@ -850,13 +849,7 @@ div:where(.swal2-container) div:where(.swal2-validation-message)::before {
     min-height: 80px;
     resize: vertical;
     box-sizing: border-box;
-    margin-top: 10px;
-}
-
-.dark-mode #sectionDescription {
-    background-color: var(--form-bg);
-    color: var(--form-text);
-    border: 1px solid var(--form-border);
+    margin-top: 1px;
 }
 
 #saveDescription {
@@ -870,6 +863,179 @@ div:where(.swal2-container) div:where(.swal2-validation-message)::before {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease-in-out;
+    display: block;
+    margin: 0 auto;
+}
+
+.section-info-wrap {
+    padding: 2rem;
+    padding-bottom: 1.5rem;
+    overflow-y: auto;
+}
+
+.section-info-sheet {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--background-color);
+    z-index: 9999;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.18, 1.15);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 20px;
+    margin-bottom: -20px;
+}
+
+body.forest-theme .section-info-sheet {
+    background: var(--topbar-mobile);
+}
+
+.section-info-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    flex-shrink: 0;
+}
+
+.section-info-topbar-title {
+    font-family: 'Lato', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.section-info-done-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem 1rem 3rem;
+}
+
+.section-info-done-btn {
+    background-color: #3b82f6;
+    border: none;
+    border-radius: 6px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    padding: 10px 18px;
+}
+
+.section-info-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-color);
+    margin-bottom: 12px;
+}
+
+.section-info-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin-bottom: 20px;
+}
+
+.section-info-title {
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.section-info-saves {
+    font-size: 0.95rem;
+    color: var(--medium-text);
+    margin-top: 3px;
+    margin-bottom: 15px;
+}
+
+.section-info-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.section-stat-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--input-bg);
+    border-radius: var(--card-radius);
+    padding: 10px 14px;
+}
+
+.section-stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    text-align: left;
+}
+
+.section-stat-label {
+    font-size: 0.95rem;
+    color: var(--light-text);
+    text-align: right;
+}
+
+.section-info-modified {
+    font-size: 0.95rem;
+    color: var(--light-text);
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.section-info-description {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.section-desc-label {
+    font-size: 0.95rem;
+    color: var(--medium-text);
+
+}
+
+.section-info-description textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--card-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--input-radius);
+    padding: 10px 14px;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+}
+
+.section-info-description textarea::placeholder {
+    color: var(--light-text);
+    opacity: 1;
+}
+
+.section-desc-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.section-desc-readonly {
+    color: var(--text-color);
+    font-size: 0.95rem;
+    margin: 0;
 }
 
 #saveDescription:hover {
@@ -892,7 +1058,7 @@ div:where(.swal2-container) div:where(.swal2-validation-message)::before {
     color: var(--text-color);
     opacity: 0.7;
     right: 26px;
-    margin-top: -5px;
+    margin-top: 10px;
 }
 
 .description-counter.warning {
@@ -1138,7 +1304,7 @@ body.dark-mode #mobileOrganizeBtn.active {
         flex: 1;
         font-size: 1.1rem;
         display: inline-block;
-        font-family: 'Lato', 'sans-serif';
+        font-family: 'Lato', sans-serif;
     }
     .section-card-hidden {
         opacity: 0;
@@ -1181,7 +1347,7 @@ body.dark-mode #mobileOrganizeBtn.active {
         }
     
         .mobile-section-count {
-            font-size: 0.85rem;
+            font-size: 0.95rem;
             color: var(--medium-text);
             margin-top: 10px;
             margin-bottom: 18px;
@@ -1270,7 +1436,7 @@ body.dark-mode #mobileOrganizeBtn.active {
             cursor: pointer;
             font-size: 2.2rem;
             font-weight: 500;
-            font-family: "Lato";
+            font-family: 'Lato', sans-serif;
             color: var(--text-color);
             padding: 4px 8px;
             border-radius: 8px;
@@ -1383,14 +1549,14 @@ body.dark-mode #mobileOrganizeBtn.active {
             font-size: 1rem;
             color: var(--text-color);
             font-weight: 400;
-            font-family: "Lato";
+            font-family: 'Lato', sans-serif;
         }
 
         .section-more-item {
             padding-left: 0.2rem;
             font-size: 1.3rem;
             font-weight: 500;
-            font-family: "Lato";
+            font-family: 'Lato', sans-serif;
             color: var(--text-color);
             font-weight: 500;
             cursor: pointer;
@@ -1427,7 +1593,7 @@ body.dark-mode #mobileOrganizeBtn.active {
             padding: 0.75rem 1.25rem;
             padding-left: 0.74rem;
             border-radius: 0.7rem;
-            font-family: 'Lato', 'sans-serif';
+            font-family: 'Lato', sans-serif;
             font-weight: 600;
             z-index: 10000;
             display: flex;
@@ -1475,4 +1641,7 @@ body.dark-mode #mobileOrganizeBtn.active {
             object-position: center
         }
 
+        #sectionDescription {
+            font-size: 1.2rem;
+        }
 }

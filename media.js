@@ -1455,14 +1455,14 @@ function setupImageModal(imageWrapper) {
             const galleryCounter = modalContent.querySelector('.gallery-counter');
             if (galleryCounter) {
                 galleryCounter.style.cssText = `
-                    position: absolute;
-                    top: ${isMobile ? '200px' : '10px'};
-                    right:  ${isMobile ? '2px' : '9px'};
+                    position: absolute !important;
+                    top: ${isMobile ? '200px' : '10px'} !important;
+                    right: ${isMobile ? '2px' : '9px'} !important;
                     background: rgba(0, 0, 0, 0.5);
                     color: white;
-                    padding: 5px 10px;
+                    padding: 5px 10px !important;
                     border-radius: 12px;
-                    font-size: 1rem;
+                    font-size: 1rem !important;
                     font-weight: bold;
                     z-index: 10;
                 `;
