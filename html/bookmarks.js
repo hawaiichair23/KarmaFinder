@@ -763,17 +763,11 @@ async function deleteSectionById(sectionId, sectionName) {
             showSectionsAntepage();
             showToast(`Deleted ${sectionName}`, 'error');
         } else {
+            showToast(`Deleted ${sectionName}`, 'error');
+            const url = new URL(window.location);
+            url.searchParams.delete('section');
+            window.history.replaceState({}, '', url);
             await initializeTabs();
-
-            const sectionsResponse = await fetch(`${API_BASE}/api/sections`, { credentials: 'include' });
-            const data = await sectionsResponse.json();
-            const activeTab = document.querySelector('.tab.active');
-            const allTabs = document.querySelectorAll('.tab');
-            const activeTabIndex = Array.from(allTabs).indexOf(activeTab);
-            const tabs = document.querySelectorAll('.tab');
-            const activeSectionId = tabs[activeTabIndex]?.dataset.tabId;
-            if (activeSectionId) loadSectionContent(activeSectionId, false);
-            else showSectionsAntepage();
         }
 
     } catch (err) {
@@ -939,6 +933,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     if (window.location.pathname.includes('/share/')) {
         const shareCode = window.location.pathname.split('/share/')[1];
+        if (window.switchTab) switchTab('bookmarks');
         loadSharedContent(shareCode);
         setupBookmarksScrollListener();
     }
@@ -2491,6 +2486,9 @@ async function showSectionInfo() {
     </div>
 `;
 
+    const overlay = document.createElement('div');
+    overlay.className = 'section-info-overlay';
+
     const sheet = document.createElement('div');
     sheet.className = 'section-info-sheet';
     sheet.innerHTML = `
@@ -2521,13 +2519,21 @@ async function showSectionInfo() {
                 }).catch(err => console.error('Failed to save description:', err));
             }
         }
-        sheet.style.transform = 'translateY(100%)';
+        if (window.innerWidth > 1024) {
+            sheet.style.transform = 'translate(-50%, -50%) scale(0.95)';
+            sheet.style.opacity = '0';
+        } else {
+            sheet.style.transform = 'translateY(100%)';
+        }
+        overlay.style.opacity = '0';
         document.body.style.overflow = '';
-        setTimeout(() => { sheet.remove(); }, 300);
+        document.body.style.pointerEvents = '';
+        setTimeout(() => { overlay.remove(); sheet.remove(); }, 300);
         if (currentMenuOpener) { currentMenuOpener.focus(); currentMenuOpener = null; }
     }
 
     sheet.querySelector('.section-info-done-btn').addEventListener('click', closeSheet);
+    overlay.addEventListener('click', closeSheet);
 
     if (!isSharedPage) {
         const textarea = sheet.querySelector('#sectionDescription');
@@ -2543,11 +2549,29 @@ async function showSectionInfo() {
         }
     }
 
+    document.body.appendChild(overlay);
     document.body.appendChild(sheet);
     document.body.style.overflow = 'hidden';
+    document.body.style.pointerEvents = 'none';
+    sheet.style.pointerEvents = 'all';
+
+    // On desktop reset transform so scale animation works cleanly
+    if (window.innerWidth > 1024) {
+        sheet.style.transition = 'transform 0.15s ease, opacity 0.15s ease';
+        sheet.style.transform = 'translate(-50%, -50%) scale(0.95)';
+        sheet.style.opacity = '0';
+    }
 
     requestAnimationFrame(() => {
-        sheet.style.transform = 'translateY(0)';
+        overlay.style.opacity = '1';
+        if (window.innerWidth > 1024) {
+            requestAnimationFrame(() => {
+                sheet.style.transform = 'translate(-50%, -50%) scale(1)';
+                sheet.style.opacity = '1';
+            });
+        } else {
+            sheet.style.transform = 'translateY(0)';
+        }
     });
 }
 

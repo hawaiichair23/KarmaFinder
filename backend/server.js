@@ -738,87 +738,70 @@ app.get('/reddit/icons', async (req, res) => {
     try {
         const subreddits = req.query.subreddits?.split(',').filter(s => s && s.trim()) || [];
         const icons = {};
-        if (subreddits.length === 0) {
-            return res.json({});
-        }
+        if (subreddits.length === 0) return res.json({});
+
         for (const subreddit of subreddits) {
-            console.log(`🚨 Processing subreddit: ${subreddit}`);
             try {
-                console.log(`🔎 Checking icon for r/${subreddit}`);
                 // Check DB first
                 const iconRes = await pool.query(
                     'SELECT icon_url FROM subreddit_icons WHERE subreddit = $1',
                     [subreddit]
                 );
                 if (iconRes.rows.length > 0) {
-                    icons[subreddit] = iconRes.rows[0].icon_url;
-                    console.log(`📦 Found cached icon for r/${subreddit}`);
+                    icons[subreddit] = iconRes.rows[0].icon_url || null;
+                    continue;
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 5));
+
+                let aboutData;
+                if (emergencyMode) {
+                    const aboutRes = await dogFetch(`https://www.reddit.com/r/${subreddit}/about.json`);
+                    aboutData = await aboutRes.json();
                 } else {
-                    // Add 5ms delay before Reddit API call
-                    await new Promise(resolve => setTimeout(resolve, 5));
-
-                    let aboutRes, aboutData;
-
-                    if (emergencyMode) {
-                        console.log(`🚨 Emergency mode: fetching r/${subreddit} icon via public JSON`);
-                        aboutRes = await dogFetch(`https://www.reddit.com/r/${subreddit}/about.json`);
-                        aboutData = await aboutRes.json();
-                    } else {
-                        // Normal OAuth mode
-                        let token;
-                        try {
-                            token = await getRedditAppToken();
-                        } catch (error) {
-                            console.error(`Failed to get token for r/${subreddit}:`, error.message);
-                            icons[subreddit] = null;
-                            continue; // Skip this subreddit
-                        }
-
-                        aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
-                            headers: {
-                                ...headers,
-                                'Authorization': `Bearer ${token}`,
-                                'User-Agent': getCurrentUserAgent()
-                            }
-                        });
-                        aboutData = await aboutRes.json();
+                    let token;
+                    try {
+                        token = await getRedditAppToken();
+                    } catch (error) {
+                        console.error(`Failed to get token for r/${subreddit}:`, error.message);
+                        icons[subreddit] = null;
+                        continue;
                     }
-
-                    const iconOptions = [
-                        aboutData.data.community_icon,
-                        aboutData.data.icon_img,
-                        aboutData.data.mobile_banner_image,
-                        aboutData.data.header_img,
-                        aboutData.data.banner_img
-                    ].filter(url => url).map(url => url.replace(/&amp;/g, '&').trim());
-
-                    let iconUrl = null;
-
-                    // Try each icon URL until one works
-                    for (const url of iconOptions) {
-                        try {
-                            const checkResponse = await dogFetch(url, { method: 'HEAD' });
-                            if (checkResponse.status === 200) {
-                                iconUrl = url;
-                                break;
-                            }
-                        } catch (err) {
-                            // Try next URL
+                    const aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
+                        headers: {
+                            ...headers,
+                            'Authorization': `Bearer ${token}`,
+                            'User-Agent': getCurrentUserAgent()
                         }
-                    }
+                    });
+                    aboutData = await aboutRes.json();
+                }
 
-                    icons[subreddit] = iconUrl;
-                    console.log(`🔍 About to save: subreddit="${subreddit}", iconUrl="${iconUrl}"`);
+                const iconUrl = [
+                    aboutData.data?.community_icon,
+                    aboutData.data?.icon_img,
+                    aboutData.data?.mobile_banner_image,
+                    aboutData.data?.header_img,
+                    aboutData.data?.banner_img
+                ]
+                    .filter(url => url && url.trim())
+                    .map(url => url.replace(/&amp;/g, '&').trim())[0] || null;
 
-                    // Cache it
+                icons[subreddit] = iconUrl;
+
+                // Only write to DB if we have a real icon
+                if (iconUrl) {
                     await pool.query(`
                         INSERT INTO subreddit_icons (subreddit, icon_url, created_at)
                         VALUES ($1, $2, NOW())
                         ON CONFLICT (subreddit)
                         DO UPDATE SET icon_url = EXCLUDED.icon_url, created_at = NOW()
-                        `, [subreddit, iconUrl]);
-                    console.log(`💾 Saved icon for r/${subreddit}`);
+                    `, [subreddit, iconUrl]);
+                    console.log(`💾 Saved icon for r/${subreddit}: ${iconUrl}`);
+                } else {
+                    console.log(`⚠️ No icon found for r/${subreddit}, skipping DB write`);
                 }
+
             } catch (err) {
                 console.error(`❌ Failed to fetch icon for r/${subreddit}:`, err.message);
                 icons[subreddit] = null;

@@ -238,6 +238,7 @@
 
             if (window.location.pathname.includes('/share/')) {
                 isLoading = false;
+                switchTab('bookmarks');
                 const shareCode = window.location.pathname.split('/share/')[1];
                 loadSharedContent(shareCode);
                 return;
@@ -4518,7 +4519,7 @@
                 return iconUrl;
             } catch (err) {
                 console.error(`❌ Failed to fetch icon for r/${cleanSubreddit}:`, err.message);
-                sessionStorage.setItem(storageKey, 'null');
+                // Don't cache on error — let it retry next time
                 return '/api/placeholder/20/20';
             }
         }
@@ -4686,14 +4687,14 @@
             }
         }
 
-        function openSubredditView(subredditName) {
+        function openSubredditView(subredditName, useSlideIn = true) {
             const originTab = currentTab;
             const fromBookmarks = originTab === 'bookmarks' || originTab === 'subreddit-bookmarks';
             const targetTab = fromBookmarks ? 'subreddit-bookmarks' : 'subreddit';
             const targetHeader = fromBookmarks ? 'subreddit-bm-header' : 'subreddit-header';
             const sectionId = fromBookmarks ? (parseInt(new URLSearchParams(window.location.search).get('section'), 10) || appState.sectionId || null) : null;
 
-            navigate({
+            const doNavigate = () => navigate({
                 tab: targetTab,
                 subreddit: subredditName,
                 query: '',
@@ -4705,6 +4706,18 @@
                 before: null,
                 sectionId: sectionId,
             });
+
+            if (document.startViewTransition) {
+                if (useSlideIn) {
+                    document.documentElement.classList.add('nav-subreddit');
+                    const t = document.startViewTransition(doNavigate);
+                    t.finished.finally(() => document.documentElement.classList.remove('nav-subreddit'));
+                } else {
+                    document.startViewTransition(doNavigate);
+                }
+            } else {
+                doNavigate();
+            }
 
             if (fromBookmarks) {
                 lastSubredditBmState = { ...appState };
@@ -4874,8 +4887,15 @@
                 const data = await response.json();
                 if (response.ok) {
                     showToast(`Created "${newName.trim()}"`, 'success');
-                    if (typeof showSectionsAntepage === 'function') showSectionsAntepage(true);
-                    return data.section.id;
+                    const newId = data.section.id;
+                    if (isMobile() && typeof showSectionsAntepage === 'function') showSectionsAntepage(true);
+                    else if (!isMobile() && typeof initBookmarks === 'function') {
+                        const url = new URL(window.location);
+                        url.searchParams.set('section', newId);
+                        window.history.replaceState({}, '', url);
+                        initBookmarks();
+                    }
+                    return newId;
                 }
             } catch (err) {
                 console.error('❌ Failed to create section:', err);
@@ -4892,6 +4912,27 @@
         window.showCreateSheet = showCreateSheet;
 
         function restoreLastSearchArea() {
+            if (currentTab === 'search' || currentTab === 'subreddit') {
+                setSubredditChip('');
+                currentFilters.subreddit = '';
+                currentFilters.query = '';
+                appState.subreddit = '';
+                lastSearchAreaTab = null;
+                lastSubredditState = null;
+                lastSearchState = null;
+                const searchInput = document.getElementById('search-input');
+                if (searchInput) searchInput.value = '';
+                const mobileSearchInput = document.getElementById('mobile-search-input');
+                if (mobileSearchInput) mobileSearchInput.value = '';
+                const searchResults = document.getElementById('search-results');
+                if (searchResults) searchResults.innerHTML = '';
+                document.body.classList.remove('has-results');
+                const grid = document.getElementById('explore-grid');
+                if (grid) grid.style.display = 'flex';
+                history.replaceState({}, '', '/?page=search');
+                switchTab('search');
+                return;
+            }
             if (lastSearchAreaTab === 'subreddit' && lastSubredditState && lastSubredditOriginTab !== 'home') {
                 const subredditResults = document.getElementById('subreddit-results');
             if (subredditResults && subredditResults.children.length > 0) {
@@ -4974,7 +5015,7 @@
                 const chipVisible = subredditChipContainer && subredditChipContainer.classList.contains('chip-visible');
                 if (chipVisible && currentFilters.subreddit) {
                     const doOpen = () => {
-                        openSubredditView(currentFilters.subreddit);
+                        openSubredditView(currentFilters.subreddit, false);
                         lastSubredditOriginTab = null;
                         cameFromSearchBack = true;
                     };
@@ -5458,13 +5499,7 @@
             upvoteBtn.href = permalinkUrl;
             upvoteBtn.target = '_blank';
             upvoteBtn.className = 'vote-button-red';
-            const isForest = document.body.classList.contains('forest-theme');
-            const isBluebird = document.body.classList.contains('bluebird-theme');
-            upvoteBtn.innerHTML = isForest
-                ? `<img src="assets/icons8-chevron-up-90_green.png" width="20" height="20">`
-                : isBluebird
-                ? `<img src="assets/icons8-chevron-up-90_blue.png" width="20" height="20">`
-                : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            upvoteBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="18 15 12 9 6 15"></polyline>
             </svg>`;
 

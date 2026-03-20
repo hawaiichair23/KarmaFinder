@@ -1156,14 +1156,14 @@ function setupImageModal(imageWrapper) {
         if (isExternalVideo && imageElement.dataset.videoSource) {
             modalContent = document.createElement('div');
             modalContent.style.cssText = `
-            width: auto !important;
+            width: ${isMobile ? '100vw' : 'auto'} !important;
             height: auto !important;
-            max-width: 90vw;
-            max-height: 90vh;
+            max-width: ${isMobile ? '100vw' : '90vw'};
+            max-height: ${isMobile ? '85vh' : '90vh'};
             opacity: 0;
             transform: scale(0.8);
             transition: all 0.1s ease;
-            border-radius: 25px;
+            border-radius: ${isMobile ? '0' : '25px'};
             overflow: hidden;
             background: black;
         `;
@@ -1193,11 +1193,11 @@ function setupImageModal(imageWrapper) {
                 const iframe = document.createElement('iframe');
                 iframe.src = `https://streamable.com/e/${embedId}?autoplay=1&muted=0`;
                 iframe.style.cssText = `
-                width: 70vw;
-                height: calc(70vw * 9 / 16);
-                max-height: 80vh;
+                width: ${isMobile ? '100vw' : '70vw'};
+                height: ${isMobile ? 'calc(100vw * 9 / 16)' : 'calc(70vw * 9 / 16)'};
+                max-height: ${isMobile ? '85vh' : '80vh'};
                 border: none;
-                border-radius: 25px;
+                border-radius: ${isMobile ? '0' : '25px'};
             `;
                 iframe.setAttribute('allowfullscreen', '');
                 iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
@@ -1225,11 +1225,11 @@ function setupImageModal(imageWrapper) {
                 const iframe = document.createElement('iframe');
                 iframe.src = `https://www.youtube.com/embed/${embedId}?autoplay=1`;
                 iframe.style.cssText = `
-                width: 70vw;
-                height: calc(70vw * 9 / 16);
-                max-height: 80vh;
+                width: ${isMobile ? '100vw' : '70vw'};
+                height: ${isMobile ? 'calc(100vw * 9 / 16)' : 'calc(70vw * 9 / 16)'};
+                max-height: ${isMobile ? '85vh' : '80vh'};
                 border: none;
-                border-radius: 25px;
+                border-radius: ${isMobile ? '0' : '25px'};
             `;
                 iframe.setAttribute('allowfullscreen', '');
                 iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
@@ -1633,7 +1633,17 @@ function setupImageModal(imageWrapper) {
             newImg.style.borderRadius = '25px';
 
             // Apply sizing styles and initial off-screen position for slide-in
-            if (useSameSize && imageWrapper.modalFirstImageWidth && imageWrapper.modalFirstImageHeight) {
+            if (isMobile) {
+                newImg.style.cssText = `
+                    width: 100vw !important;
+                    height: auto !important;
+                    max-height: 100vh;
+                    object-fit: contain;
+                    opacity: 1;
+                    transform: ${direction === 'prev' ? 'translateX(-100%)' : 'translateX(100%)'};
+                    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease-in;
+                `;
+            } else if (useSameSize && imageWrapper.modalFirstImageWidth && imageWrapper.modalFirstImageHeight) {
                 newImg.style.cssText = `
                             width: ${imageWrapper.modalFirstImageWidth}px !important;
                             height: ${imageWrapper.modalFirstImageHeight}px !important;
@@ -1649,8 +1659,8 @@ function setupImageModal(imageWrapper) {
                             max-width: 90vw;
                             max-height: 90vh;
                             opacity: 1; 
-                            transform: ${direction === 'prev' ? 'translateX(-100%)' : 'translateX(100%)'}; /* Off-screen */
-                            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease-in; /* Slide and fade */
+                            transform: ${direction === 'prev' ? 'translateX(-100%)' : 'translateX(100%)'};
+                            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease-in;
                         `;
             }
 

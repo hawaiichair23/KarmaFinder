@@ -247,7 +247,7 @@
                     <div id="suggestions"></div>
                     <button id="search-button" class="search-button"></button>
                 </div>
-                <img alt="filter icon" id="filter-icon" />
+                <img alt="filter icon" id="filter-icon" src="/assets/iconny thingy.png" />
                 <button id="comfy-toggle" aria-label="Toggle Comfy Mode" tabindex="0">
                     <img alt="Toggle comfy layout" />
                 </button>
@@ -575,16 +575,18 @@
             img.src = commentSrc;
         });
 
-        // Swap upvote icons per theme
-        document.querySelectorAll('.vote-button-red').forEach(btn => {
-            if (themeName === 'forest') {
-                btn.innerHTML = `<img src="assets/icons8-chevron-up-90_green.png" width="20" height="20">`;
-            } else if (themeName === 'bluebird') {
-                btn.innerHTML = `<img src="assets/icons8-chevron-up-90_blue.png" width="20" height="20">`;
-            } else {
-                btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
-            }
-        });
+        // Swap upvote icons per theme (mobile only — desktop uses SVG via CSS)
+        if (window.innerWidth <= 1024) {
+            document.querySelectorAll('.vote-button-red').forEach(btn => {
+                if (themeName === 'forest') {
+                    btn.innerHTML = `<img src="assets/icons8-chevron-up-90_green.png" width="20" height="20">`;
+                } else if (themeName === 'bluebird') {
+                    btn.innerHTML = `<img src="assets/icons8-chevron-up-90_blue.png" width="20" height="20">`;
+                } else {
+                    btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
+                }
+            });
+        }
         }
         
         // Global theme functions for UI controls
