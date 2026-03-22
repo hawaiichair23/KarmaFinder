@@ -79,18 +79,6 @@ if (mobileSearchInput) {
     });
 }
 
-window.openSortSheet = function() {
-    // TODO: open sort bottom sheet
-};
-
-window.openTimeSheet = function() {
-    // TODO: open time bottom sheet
-};
-
-window.toggleSafeSearchPill = function() {
-    // TODO: toggle safe search
-};
-
 // Wire subreddit search button
 const subredditSearchBtn = document.getElementById('subreddit-search-btn');
 if (subredditSearchBtn) {
@@ -116,7 +104,6 @@ window.addEventListener('popstate', () => {
         } else {
             const searchResults = document.getElementById('search-results');
             const searchPagination = document.getElementById('search-pagination');
-            const exploreGrid = document.getElementById('explore-grid');
 
             const swap = () => {
                 if (searchResults) searchResults.innerHTML = '';

@@ -2028,6 +2028,9 @@
                     if (currentController) currentController.abort();
                     currentController = new AbortController();
                     getSmartSuggestions(query, suggestionsDiv, dictionary, currentController.signal);
+                    if (query.trim().length > 1) {
+                        appendSubredditSuggestions(query.trim(), suggestionsDiv, currentController.signal);
+                    }
                 }, 170);
             });
 
@@ -2038,6 +2041,9 @@
                     if (currentController) currentController.abort();
                     currentController = new AbortController();
                     getSmartSuggestions(query, suggestionsDiv, dictionary, currentController.signal);
+                    if (query.length > 1) {
+                        appendSubredditSuggestions(query, suggestionsDiv, currentController.signal);
+                    }
                 }
             });
 
@@ -2045,6 +2051,15 @@
                 const item = e.target.closest('.suggestion-item');
                 if (item) {
                     e.preventDefault();
+                    if (item.classList.contains('mobile-subreddit-item')) {
+                        const name = item.querySelector('span:last-child').textContent.replace('r/', '');
+                        if (window.closeMobileSuggestions) window.closeMobileSuggestions();
+                        const searchResults = document.getElementById('search-results');
+                        if (searchResults) searchResults.innerHTML = '';
+                        document.body.classList.remove('has-results');
+                        performViewTransition('slide-right', () => openSubredditView(name));
+                        return;
+                    }
                     const word = item.dataset.word;
                     const subreddit = item.dataset.subreddit || null;
                     selectSuggestion(word, inputId, suggestionsId, subreddit);
@@ -2052,6 +2067,82 @@
             });
         };
         
+        async function fetchSubredditMatches(query, signal) {
+            const cleanQuery = query.replace(/^r\//, '').trim();
+            if (!cleanQuery) return [];
+            try {
+                const res = await fetch(`${API_BASE}/reddit?url=https://www.reddit.com/subreddits/search.json?q=${encodeURIComponent(cleanQuery)}`, { signal });
+                const data = await res.json();
+                if (!data?.data?.children) return [];
+                const filtered = [];
+                const partial = [];
+                const q = cleanQuery.toLowerCase();
+                for (const child of data.data.children) {
+                    const name = child?.data?.display_name?.toLowerCase();
+                    if (!name) continue;
+                    if (name.startsWith(q) && filtered.length < 4) filtered.push(child.data.display_name);
+                    else if (name.includes(q) && partial.length < 4) partial.push(child.data.display_name);
+                    if (filtered.length >= 4 && partial.length >= 4) break;
+                }
+                const results = filtered.length >= 3 ? filtered : [...filtered, ...partial].slice(0, 4);
+                return results;
+            } catch (err) {
+                if (err.name === 'AbortError') return [];
+                console.error('❌ fetchSubredditMatches error:', err);
+                return [];
+            }
+        }
+
+        async function appendSubredditSuggestions(query, suggestionsDiv, signal) {
+            const matches = await fetchSubredditMatches(query, signal);
+            if (signal.aborted || matches.length === 0) return;
+            if (!suggestionsDiv.classList.contains('suggestions-visible')) return;
+
+            // Remove any previous subreddit section
+            const existing = suggestionsDiv.querySelector('.mobile-subreddit-section');
+            if (existing) existing.remove();
+
+            const section = document.createElement('div');
+            section.className = 'mobile-subreddit-section';
+
+            const divider = document.createElement('div');
+            divider.className = 'mobile-subreddit-divider';
+            divider.textContent = 'Subreddits';
+            section.appendChild(divider);
+
+            matches.forEach(name => {
+                const item = document.createElement('div');
+                item.className = 'suggestion-item mobile-subreddit-item';
+
+                const icon = document.createElement('span');
+                icon.className = 'suggestion-icon subreddit-icon';
+                icon.textContent = name.charAt(0).toUpperCase();
+                item.appendChild(icon);
+
+                const label = document.createElement('span');
+                label.textContent = `r/${name}`;
+                item.appendChild(label);
+
+                // Load real icon async
+                getSubredditIcon(name).then(iconUrl => {
+                    if (iconUrl && iconUrl.startsWith('http')) {
+                        const img = document.createElement('img');
+                        img.src = iconUrl;
+                        img.alt = name;
+                        img.onload = () => {
+                            icon.textContent = '';
+                            icon.appendChild(img);
+                            icon.classList.add('icon-loaded');
+                        };
+                    }
+                }).catch(() => {});
+
+                section.appendChild(item);
+            });
+
+            suggestionsDiv.appendChild(section);
+        }
+
         async function getSmartSuggestions(query, suggestionsDiv, dictionary, signal) {
             let trimmedQuery = query.trim();
 
@@ -3003,7 +3094,7 @@
                     showError(`<div style="text-align: center;"><img src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExOWtmaXgzdmdxdzU0dHJ0dXB5MXV2bWdpb2FqYXZndWc1eGNuZTAwMSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Vuw9m5wXviFIQ/giphy.gif" alt="Rick Astley dancing" style="width: 300px; border-radius: 8px;"></div>`);
                     return;
                 }
-                openSubredditView(post.subreddit);
+                performViewTransition('slide-right', () => openSubredditView(post.subreddit));
             });
 
             // Subreddit icon
@@ -4675,7 +4766,7 @@
                     const res = await fetch(`${API_BASE}/reddit/subreddit-info?subreddit=${sub}`);
                     if (res.ok) {
                         const info = await res.json();
-                        renderSubredditHeader(info, card, () => openSubredditView(sub));
+                        renderSubredditHeader(info, card, () => performViewTransition('slide-right', () => openSubredditView(sub)));
                     }
                 } catch (err) {
                     console.error(`Failed to load explore card for r/${sub}:`, err);
@@ -4687,14 +4778,28 @@
             }
         }
 
-        function openSubredditView(subredditName, useSlideIn = true) {
+        function performViewTransition(type, callback) {
+            if (!document.startViewTransition) {
+                callback();
+                return;
+            }
+            if (type === 'slide-right') {
+                document.documentElement.classList.add('nav-subreddit');
+                const t = document.startViewTransition(callback);
+                t.finished.finally(() => document.documentElement.classList.remove('nav-subreddit'));
+            } else {
+                document.startViewTransition(callback);
+            }
+        }
+
+        function openSubredditView(subredditName) {
             const originTab = currentTab;
             const fromBookmarks = originTab === 'bookmarks' || originTab === 'subreddit-bookmarks';
             const targetTab = fromBookmarks ? 'subreddit-bookmarks' : 'subreddit';
             const targetHeader = fromBookmarks ? 'subreddit-bm-header' : 'subreddit-header';
             const sectionId = fromBookmarks ? (parseInt(new URLSearchParams(window.location.search).get('section'), 10) || appState.sectionId || null) : null;
 
-            const doNavigate = () => navigate({
+            navigate({
                 tab: targetTab,
                 subreddit: subredditName,
                 query: '',
@@ -4707,30 +4812,16 @@
                 sectionId: sectionId,
             });
 
-            if (document.startViewTransition) {
-                if (useSlideIn) {
-                    document.documentElement.classList.add('nav-subreddit');
-                    const t = document.startViewTransition(doNavigate);
-                    t.finished.finally(() => document.documentElement.classList.remove('nav-subreddit'));
-                } else {
-                    document.startViewTransition(doNavigate);
-                }
-            } else {
-                doNavigate();
-            }
-
             if (fromBookmarks) {
                 lastSubredditBmState = { ...appState };
             } else {
                 lastSubredditOriginTab = originTab;
-                lastSubredditState = { ...appState };
+                lastSubredditState = { ...appState, query: appState.query || '' };
             }
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
-
             setSubredditChip(subredditName);
 
-            // Show shimmer placeholder while header loads
             const headerEl = document.getElementById(targetHeader);
             if (headerEl) {
                 headerEl.innerHTML = '';
@@ -4741,7 +4832,6 @@
                 headerEl.appendChild(placeholder);
             }
 
-            // Fetch subreddit header info
             fetch(`${API_BASE}/reddit/subreddit-info?subreddit=${subredditName}`)
                 .then(res => res.ok ? res.json() : null)
                 .then(info => { if (info) renderSubredditHeader(info, document.getElementById(targetHeader)); })
@@ -4861,6 +4951,12 @@
             isRestoringHome = true;
             if (lastHomeState) {
                 navigateReplace({ ...lastHomeState, contentType: 'all' });
+            } else if (currentTab === 'subreddit' || currentTab === 'subreddit-bookmarks') {
+                // Preserve subreddit state before navigating home
+                lastSubredditState = { ...appState };
+                lastSearchAreaTab = 'subreddit';
+                isRestoringHome = false;
+                navigateReplace({ tab: 'home', subreddit: '', query: '', sort: 'hot', pageIndex: 0, after: null, before: null, sectionId: null, contentType: 'all' });
             } else {
                 navigateReplace({ tab: 'home', subreddit: '', query: '', sort: 'hot', pageIndex: 0, after: null, before: null, sectionId: null, contentType: 'all' });
             }
@@ -4971,6 +5067,12 @@
                 }
                 lastSearchAreaTab = 'search';
                 appState.subreddit = '';
+                appState.query = '';
+                currentFilters.query = '';
+                const mobileSearchInput = document.getElementById('mobile-search-input');
+                if (mobileSearchInput) mobileSearchInput.value = '';
+                const searchInput = document.getElementById('search-input');
+                if (searchInput) searchInput.value = '';
                 const doSwitch = () => {
                     switchTab('search');
                     if (cameFromSearchBack) {
@@ -5014,16 +5116,11 @@
             } else if (currentTab === 'search') {
                 const chipVisible = subredditChipContainer && subredditChipContainer.classList.contains('chip-visible');
                 if (chipVisible && currentFilters.subreddit) {
-                    const doOpen = () => {
-                        openSubredditView(currentFilters.subreddit, false);
+                    performViewTransition('slide-right', () => {
+                        openSubredditView(currentFilters.subreddit);
                         lastSubredditOriginTab = null;
                         cameFromSearchBack = true;
-                    };
-                    if (document.startViewTransition) {
-                        document.startViewTransition(doOpen);
-                    } else {
-                        doOpen();
-                    }
+                    });
                     return;
                 }
                 // Search flow: search results → explore grid

@@ -133,11 +133,10 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
                 const imageUrl = original || resolutionFallback;
 
                 if (imageUrl) {
-                    const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
-                    preloadedImages[index] = fetch(proxyUrl)
-                        .then(r => r.blob())
-                        .then(blob => createImageBitmap(blob))
-                        .catch(() => null);
+                    const img = new Image();
+                    const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
+                    img.onload = () => { preloadedImages[index] = img; };
+                    img.src = proxyUrl;
                 }
             }
         };
@@ -158,11 +157,24 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
                     const imageUrl = original || resolutionFallback;
 
                     if (imageUrl) {
-                        const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
-                        preloadedImages[index] = fetch(proxyUrl)
-                            .then(r => r.blob())
-                            .then(blob => createImageBitmap(blob))
-                            .catch(() => null);
+                        const img = new Image();
+                        const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
+                        img.onerror = () => {
+                            setTimeout(() => {
+                                const retryImg1 = new Image();
+                                retryImg1.src = proxyUrl;
+                                retryImg1.onload = () => { preloadedImages[index] = retryImg1; };
+                                retryImg1.onerror = () => {
+                                    setTimeout(() => {
+                                        const retryImg2 = new Image();
+                                        retryImg2.src = proxyUrl;
+                                        retryImg2.onload = () => { preloadedImages[index] = retryImg2; };
+                                    }, 1000);
+                                };
+                            }, 500);
+                        };
+                        img.onload = () => { preloadedImages[index] = img; };
+                        img.src = proxyUrl;
                     }
                 }
             }
@@ -281,29 +293,23 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
                 }, 450);
             };
 
-            // Use preloaded bitmap if available, otherwise fall back to network load
-            if (preloadedImages[targetIndex]) {
-                preloadedImages[targetIndex].then(bitmap => {
+            // Use preloaded image if available, otherwise fall back to network load
+            if (preloadedImages[targetIndex] && preloadedImages[targetIndex].complete) {
+                preloadedImages[targetIndex].decode().then(() => {
                     if (thisNavigationId !== navigationSequence) {
                         newImg.remove();
                         return;
                     }
-                    if (bitmap) {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = bitmap.width;
-                        canvas.height = bitmap.height;
-                        canvas.getContext('2d').drawImage(bitmap, 0, 0);
-                        newImg.src = canvas.toDataURL();
-                        canvas.remove();
-                    } else {
-                        const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
-                        newImg.src = proxyUrl;
-                    }
+                    newImg.src = preloadedImages[targetIndex].src;
                     finalizeImageTransition();
+                }).catch(() => {
+                    const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
+                    newImg.onload = () => finalizeImageTransition();
+                    newImg.src = proxyUrl;
                 });
             } else {
                 // Fallback to loading on-demand
-                const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
+                const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
 
                 newImg.onload = () => {
                     if (thisNavigationId !== navigationSequence) {
@@ -1082,16 +1088,17 @@ function setupMediaLoadHandling(mediaElement, imagePlaceholder) {
 }
 
 class ModalGallery {
-    constructor(galleryData, mediaMetadata, startIndex, preloadedImages, isMobile) {
+    constructor(galleryData, mediaMetadata, startIndex = 0, preloadedImages = {}, isMobile) {
         this._galleryData = galleryData;
         this._mediaMetadata = mediaMetadata;
-        this._currentIndex = startIndex || 0;
-        this._preloadedImages = preloadedImages || {};
+        this._currentIndex = startIndex;
+        this._preloadedImages = preloadedImages;
         this._isMobile = isMobile;
+
         this._aborted = false;
         this._pendingLoad = null;
 
-        // Single permanent container — never replaced
+        // Root
         this._el = document.createElement('div');
         this._el.className = 'modal-gallery-content';
         this._el.style.cssText = `
@@ -1100,25 +1107,22 @@ class ModalGallery {
             align-items: center;
             justify-content: center;
             width: ${isMobile ? '100vw' : '90vw'};
-            border-radius: ${isMobile ? '0' : '25px'};
+            overflow: visible;
             opacity: 0;
             transform: ${isMobile ? 'translateY(-6vh)' : 'none'};
             transition: opacity 0.2s ease;
         `;
 
-        // Single slot — only ever one child at a time
+        // Slot (no flex needed anymore)
         this._slot = document.createElement('div');
         this._slot.className = 'modal-img-slot';
         this._slot.style.cssText = `
-            display: grid;
-            place-items: center;
+            position: relative;
             width: ${isMobile ? '100vw' : '90vw'};
-            height: ${isMobile ? '30vh' : '25vh'};
-            overflow: hidden;
+            height: ${isMobile ? '100vh' : '500px'};
         `;
         this._el.appendChild(this._slot);
 
-        // Gallery counter
         this._counter = document.createElement('div');
         this._counter.className = 'modal-gallery-counter';
 
@@ -1127,17 +1131,20 @@ class ModalGallery {
 
     get element() { return this._el; }
     get counter() { return this._counter; }
-    get currentIndex() { return this._currentIndex; }
 
     _getImageUrl(index) {
         const item = this._galleryData[index];
         if (!item) return null;
+
         const media = this._mediaMetadata[item.media_id];
         const isAnimated = media?.e === 'AnimatedImage';
+
         const original = isAnimated
             ? (media?.s?.gif || media?.s?.mp4)?.replace(/&amp;/g, '&')
             : media?.s?.u?.replace(/&amp;/g, '&');
+
         const fallback = media?.p?.[media.p.length - 1]?.u?.replace(/&amp;/g, '&');
+
         return original || fallback || null;
     }
 
@@ -1147,185 +1154,288 @@ class ModalGallery {
         this._counter.style.display = total > 1 ? '' : 'none';
     }
 
-    _showShimmer() {
-        this._slot.innerHTML = '';
+    _createShimmer(direction = null) {
         const shimmer = document.createElement('div');
         shimmer.className = 'image-placeholder shimmer modal-shimmer';
+
         shimmer.style.cssText = `
-            width: ${this._isMobile ? '100vw' : '60vw'};
-            height: ${this._isMobile ? '30vh' : '25vh'};
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            
+            width: ${this._isMobile ? '100vw' : '300px'};
+            height: ${this._isMobile ? '30vh' : '500px'};
+            
             border-radius: ${this._isMobile ? '0' : '25px'};
             background: rgba(128,128,128,0.3);
         `;
-        this._slot.appendChild(shimmer);
+
+        // Optional slide animation
+        if (direction) {
+            const startX = direction === 'prev' ? '-150%' : '50%';
+            shimmer.style.transform = `translate(${startX}, -50%)`;
+
+            requestAnimationFrame(() => {
+                shimmer.style.transition = 'transform 0.2s ease';
+                shimmer.style.transform = 'translate(-50%, -50%)';
+            });
+        }
+
         return shimmer;
+    }
+
+    _createImage() {
+        const img = new Image();
+
+        img.style.cssText = `
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            
+            max-width: ${this._isMobile ? '100vw' : '90vw'};
+            max-height: ${this._isMobile ? '100vh' : '90vh'};
+            width: auto;
+            height: auto;
+            
+            object-fit: contain;
+            border-radius: ${this._isMobile ? '0' : '25px'};
+            cursor: ${this._isMobile ? 'default' : 'pointer'};
+            
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        `;
+
+        return img;
     }
 
     _loadInitial(index) {
         const imageUrl = this._getImageUrl(index);
         if (!imageUrl) return;
+
         this._pendingLoad = {};
         const thisLoad = this._pendingLoad;
-        this._showShimmer();
+
+        this._slot.innerHTML = '';
+        this._slot.appendChild(this._createShimmer());
+
         this._updateCounter();
-        const img = new Image();
-        img.style.cssText = `
-            width: ${this._isMobile ? '100vw' : '100%'};
-            max-width: ${this._isMobile ? '100vw' : '90vw'};
-            max-height: ${this._isMobile ? '100vh' : '90vh'};
-            height: auto;
-            object-fit: contain;
-            display: block;
-            border-radius: ${this._isMobile ? '0' : '25px'};
-            opacity: 0;
-            transition: opacity 0.2s ease;
-        `;
+
+        const img = this._createImage();
+
         img.onload = () => {
             if (thisLoad !== this._pendingLoad || this._aborted) return;
-            img.style.cssText = `
-                width: ${this._isMobile ? '100vw' : '100%'} !important;
-                height: ${this._isMobile ? 'auto' : 'auto'} !important;
-                max-width: ${this._isMobile ? '100vw' : '90vw'};
-                max-height: ${this._isMobile ? '100vh' : '90vh'};
-                object-fit: contain;
-                opacity: 0;
-                transition: opacity 0.2s ease;
-            `;
+
             this._slot.innerHTML = '';
-            this._slot.style.overflow = '';
-            this._slot.style.height = '';
             this._slot.appendChild(img);
-            img.getBoundingClientRect();
-            img.style.opacity = '1';
+
+            requestAnimationFrame(() => {
+                img.style.opacity = '1';
+            });
         };
-        img.onerror = () => { if (thisLoad === this._pendingLoad) this._slot.innerHTML = ''; };
+
+        img.onerror = () => {
+            if (thisLoad === this._pendingLoad) this._slot.innerHTML = '';
+        };
+
         img.src = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
     }
 
-    _showImage(index, direction) {
+    _showImage(index, direction, preloadedSrc = null) {
         const imageUrl = this._getImageUrl(index);
         if (!imageUrl) return;
+
         this._aborted = false;
         this._pendingLoad = {};
         const thisLoad = this._pendingLoad;
+
         this._updateCounter();
 
-        // Reset slot to shimmer size before inserting shimmer
-        this._slot.style.height = `${this._isMobile ? '30vh' : '25vh'}`;
-        this._slot.style.overflow = 'hidden';
-
-        const slotHasImage = !!this._slot.querySelector('img');
-
-        const shimmer = document.createElement('div');
-        shimmer.className = 'image-placeholder shimmer modal-shimmer';
-        shimmer.style.cssText = `
-            grid-area: 1/1;
-            width: ${this._isMobile ? '100vw' : '60vw'};
-            height: ${this._isMobile ? '30vh' : '25vh'};
-            border-radius: ${this._isMobile ? '0' : '25px'};
-            background: rgba(128,128,128,0.3);
-            opacity: ${slotHasImage ? '0' : '1'};
-            transform: ${!slotHasImage ? `translateX(${direction === 'prev' ? '-100%' : '100%'})` : 'none'};
-            transition: ${slotHasImage ? 'opacity 0.15s ease' : 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)'};
-        `;
         this._slot.innerHTML = '';
+        const shimmer = this._createShimmer(direction);
         this._slot.appendChild(shimmer);
-        shimmer.getBoundingClientRect();
-        if (slotHasImage) {
-            shimmer.style.opacity = '1';
-        } else {
-            shimmer.style.transform = 'translateX(0)';
-        }
 
-        // Load image, fade in on top of shimmer then remove shimmer
-        const img = new Image();
-        img.style.cssText = `
-            position: relative;
-            width: ${this._isMobile ? '100vw' : '100%'};
-            max-width: ${this._isMobile ? '100vw' : '90vw'};
-            max-height: ${this._isMobile ? '100vh' : '90vh'};
-            height: auto;
-            object-fit: contain;
-            display: block;
-            border-radius: ${this._isMobile ? '0' : '25px'};
-            opacity: 0;
-            transition: opacity 0.2s ease;
-        `;
+        const img = this._createImage();
+
         img.onload = () => {
             if (thisLoad !== this._pendingLoad || this._aborted) return;
-            img.style.cssText = `
-                width: ${this._isMobile ? '100vw' : '100%'} !important;
-                height: ${this._isMobile ? 'auto' : 'auto'} !important;
-                max-width: ${this._isMobile ? '100vw' : '90vw'};
-                max-height: ${this._isMobile ? '100vh' : '90vh'};
-                object-fit: contain;
-                opacity: 0;
-                transition: opacity 0.2s ease;
-            `;
+
             this._slot.appendChild(img);
-            this._slot.style.overflow = '';
-            this._slot.style.height = '';
-            img.getBoundingClientRect();
-            img.style.opacity = '1';
-            shimmer.style.transition = 'opacity 0.2s ease';
-            shimmer.style.opacity = '0';
+
+            requestAnimationFrame(() => {
+                img.style.opacity = '1';
+                shimmer.style.opacity = '0';
+                shimmer.style.transition = 'opacity 0.2s ease';
+            });
+
             shimmer.addEventListener('transitionend', () => shimmer.remove(), { once: true });
         };
-        img.onerror = () => { if (thisLoad === this._pendingLoad) this._slot.innerHTML = ''; };
-        img.src = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
+
+        img.onerror = () => {
+            if (thisLoad === this._pendingLoad) this._slot.innerHTML = '';
+        };
+
+        img.src = preloadedSrc || `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
     }
 
     navigate(direction) {
         const total = this._galleryData.length;
         if (total <= 1) return;
-        this._currentIndex = direction === 'prev'
-            ? (this._currentIndex > 0 ? this._currentIndex - 1 : total - 1)
-            : (this._currentIndex < total - 1 ? this._currentIndex + 1 : 0);
+
+        this._currentIndex =
+            direction === 'prev'
+                ? (this._currentIndex > 0 ? this._currentIndex - 1 : total - 1)
+                : (this._currentIndex < total - 1 ? this._currentIndex + 1 : 0);
 
         const preloaded = this._preloadedImages[this._currentIndex];
-        if (preloaded) {
+
+        if (preloaded && preloaded.complete) {
             this._pendingLoad = {};
             const thisLoad = this._pendingLoad;
+
             this._updateCounter();
-            preloaded.then(bitmap => {
-                if (thisLoad !== this._pendingLoad || this._aborted) return;
-                if (bitmap) {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = bitmap.width;
-                    canvas.height = bitmap.height;
-                    canvas.getContext('2d').drawImage(bitmap, 0, 0);
-                    const img = new Image();
-                    img.style.cssText = `
-                        width: ${this._isMobile ? '100vw' : '100%'} !important;
-                        height: ${this._isMobile ? 'auto' : 'auto'} !important;
-                        max-width: ${this._isMobile ? '100vw' : '90vw'};
-                        max-height: ${this._isMobile ? '100vh' : '90vh'};
-                        object-fit: contain;
-                        opacity: 0;
-                        transition: opacity 0.2s ease;
-                    `;
-                    img.onload = () => {
-                        if (thisLoad !== this._pendingLoad || this._aborted) return;
-                        this._slot.innerHTML = '';
-                        this._slot.style.overflow = '';
-                        this._slot.style.height = '';
-                        this._el.style.overflow = '';
-                        this._slot.appendChild(img);
-                        img.getBoundingClientRect();
-                        img.style.opacity = '1';
-                        canvas.remove();
-                        img.style.transform = 'translateX(0)';
-                        img.addEventListener('transitionend', () => {
-                            this._el.style.overflow = '';
-                        }, { once: true });
-                        canvas.remove();
-                    };
-                    img.src = canvas.toDataURL();
-                } else {
-                    // Bitmap failed, fall through to network load with shimmer
+
+            preloaded.decode()
+                .then(() => {
+                    if (thisLoad !== this._pendingLoad || this._aborted) return;
+                    this._showImage(this._currentIndex, direction, preloaded.src);
+                })
+                .catch(() => {
                     this._showImage(this._currentIndex, direction);
-                }
+                });
+
+            return;
+        }
+
+        this._showImage(this._currentIndex, direction);
+    }
+
+    destroy() {
+        this._aborted = true;
+        this._pendingLoad = null;
+    }
+
+    _createImage() {
+        const img = new Image();
+
+        img.style.cssText = `
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            
+            max-width: ${this._isMobile ? '100vw' : '90vw'};
+            max-height: ${this._isMobile ? '100vh' : '90vh'};
+            width: auto;
+            height: auto;
+            
+            object-fit: contain;
+            border-radius: ${this._isMobile ? '0' : '25px'};
+            cursor: ${this._isMobile ? 'default' : 'pointer'};
+            
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        `;
+
+        return img;
+    }
+
+    _loadInitial(index) {
+        const imageUrl = this._getImageUrl(index);
+        if (!imageUrl) return;
+
+        this._pendingLoad = {};
+        const thisLoad = this._pendingLoad;
+
+        this._slot.innerHTML = '';
+        this._slot.appendChild(this._createShimmer());
+
+        this._updateCounter();
+
+        const img = this._createImage();
+
+        img.onload = () => {
+            if (thisLoad !== this._pendingLoad || this._aborted) return;
+
+            this._slot.innerHTML = '';
+            this._slot.appendChild(img);
+
+            requestAnimationFrame(() => {
+                img.style.opacity = '1';
             });
+        };
+
+        img.onerror = () => {
+            if (thisLoad === this._pendingLoad) this._slot.innerHTML = '';
+        };
+
+        img.src = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
+    }
+
+    _showImage(index, direction, preloadedSrc = null) {
+        const imageUrl = this._getImageUrl(index);
+        if (!imageUrl) return;
+
+        this._aborted = false;
+        this._pendingLoad = {};
+        const thisLoad = this._pendingLoad;
+
+        this._updateCounter();
+
+        this._slot.innerHTML = '';
+        const shimmer = this._createShimmer(direction);
+        this._slot.appendChild(shimmer);
+
+        const img = this._createImage();
+
+        img.onload = () => {
+            if (thisLoad !== this._pendingLoad || this._aborted) return;
+
+            this._slot.appendChild(img);
+
+            requestAnimationFrame(() => {
+                img.style.opacity = '1';
+                shimmer.style.opacity = '0';
+                shimmer.style.transition = 'opacity 0.2s ease';
+            });
+
+            shimmer.addEventListener('transitionend', () => shimmer.remove(), { once: true });
+        };
+
+        img.onerror = () => {
+            if (thisLoad === this._pendingLoad) this._slot.innerHTML = '';
+        };
+
+        img.src = preloadedSrc || `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
+    }
+
+    navigate(direction) {
+        const total = this._galleryData.length;
+        if (total <= 1) return;
+
+        this._currentIndex =
+            direction === 'prev'
+                ? (this._currentIndex > 0 ? this._currentIndex - 1 : total - 1)
+                : (this._currentIndex < total - 1 ? this._currentIndex + 1 : 0);
+
+        const preloaded = this._preloadedImages[this._currentIndex];
+
+        if (preloaded && preloaded.complete) {
+            this._pendingLoad = {};
+            const thisLoad = this._pendingLoad;
+
+            this._updateCounter();
+
+            preloaded.decode()
+                .then(() => {
+                    if (thisLoad !== this._pendingLoad || this._aborted) return;
+                    this._showImage(this._currentIndex, direction, preloaded.src);
+                })
+                .catch(() => {
+                    this._showImage(this._currentIndex, direction);
+                });
+
             return;
         }
 
@@ -1730,6 +1840,7 @@ function setupImageModal(imageWrapper) {
                     transform: scale(0.5);
                     transition: opacity 0.2s ease, transform 0.2s ease;
                     border-radius: ${isMobile ? '0' : '25px'};
+                    cursor: ${isMobile ? 'default' : 'pointer'};
                     overflow: hidden;
                 `;
                 const srcImg = imageWrapper.querySelector('img');
@@ -1737,8 +1848,8 @@ function setupImageModal(imageWrapper) {
                     const img = new Image();
                     img.style.cssText = `
                         width: ${isMobile ? '100vw' : '100%'};
-                        max-width: 90vw;
-                        max-height: 90vh;
+                        max-width: ${isMobile ? '100vw' : '90vw'};
+                        max-height: ${isMobile ? '100vh' : '90vh'};
                         object-fit: contain;
                         border-radius: ${isMobile ? '0' : '25px'};
                     `;
@@ -1870,12 +1981,6 @@ function setupImageModal(imageWrapper) {
                 });
             }
 
-            const _origClose = closeModal;
-            closeModal = function() {
-                imageWrapper.currentIndex = gallery.currentIndex;
-                gallery.destroy();
-                _origClose();
-            };
         }
 
         if (hasGallery) {
@@ -1947,14 +2052,6 @@ function setupImageModal(imageWrapper) {
             }
         }, { passive: false });
 
-        // Reset zoom when modal closes
-        const originalCloseModal = closeModal;
-        closeModal = function () {
-            currentZoom = 1;
-            zoomOriginX = 50;
-            zoomOriginY = 50;
-            originalCloseModal();
-        };
 
         // Keyboard zoom shortcuts
         document.addEventListener('keydown', function (e) {
@@ -2008,22 +2105,17 @@ function setupImageModal(imageWrapper) {
         
         // Trigger opening animation
         setTimeout(() => {
-            const isGallery = !!(modalContent._gallery);
             const mobileOffset = isMobile ? 'translateY(-6vh)' : 'translateY(0)';
-            modalOverlay.style.backgroundColor = 'rgb(0, 0, 0)';
+            modalOverlay.style.backgroundColor = isMobile ? 'rgba(0,0,0,1)' : 'rgba(0,0,0,0.8)';
             leftArrow.style.opacity = '1';
             rightArrow.style.opacity = '1';
-            if (isGallery) {
-                modalContent.style.opacity = '1';
-            } else {
-                modalContent.style.transition = 'none';
-                modalContent.style.opacity = '0';
-                modalContent.style.transform = `scale(0.5) ${mobileOffset}`;
-                modalContent.getBoundingClientRect();
-                modalContent.style.transition = `opacity ${isMobile ? '0.2s' : '0.1s'} ease, transform ${isMobile ? '0.2s' : '0.1s'} ease`;
-                modalContent.style.opacity = '1';
-                modalContent.style.transform = `scale(1) ${mobileOffset}`;
-            }
+            modalContent.style.transition = 'none';
+            modalContent.style.opacity = '0';
+            modalContent.style.transform = `scale(0.5) ${mobileOffset}`;
+            modalContent.getBoundingClientRect();
+            modalContent.style.transition = `opacity ${isMobile ? '0.2s' : '0.1s'} ease, transform ${isMobile ? '0.2s' : '0.1s'} ease`;
+            modalContent.style.opacity = '1';
+            modalContent.style.transform = `scale(1) ${mobileOffset}`;
         }, 10);
 
         // Capture modal image dimensions after animation
@@ -2038,6 +2130,17 @@ function setupImageModal(imageWrapper) {
         // Close modal function
         function closeModal() {
             videoProcessingAborted = true;
+
+            // Gallery cleanup
+            if (gallery) {
+                imageWrapper.currentIndex = gallery.currentIndex;
+                gallery.destroy();
+            }
+
+            // Zoom reset
+            currentZoom = 1;
+            zoomOriginX = 50;
+            zoomOriginY = 50;
 
             // Immediately hide the navigation arrows
             const leftArrow = modalOverlay.querySelector('.modal-nav-left');
