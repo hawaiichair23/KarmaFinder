@@ -1169,6 +1169,7 @@ class ModalGallery {
             
             border-radius: ${this._isMobile ? '0' : '25px'};
             background: rgba(128,128,128,0.3);
+            overflow: hidden;
         `;
 
         // Optional slide animation
