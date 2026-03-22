@@ -17,6 +17,7 @@ function singleBlink() {
     if (!animationsEnabled || isSleeping) return;
 
     const img = document.querySelector('.hermes-cat');
+    if (!img) return;
     img.src = '/assets/hermes-blink.png';
     setTimeout(() => {
         if (!isSleeping) img.src = '/assets/hermes.png';
@@ -508,7 +509,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Load saved settings or use defaults
     hermesEnabled = localStorage.getItem('hermesEnabled') !== 'false';
-    animationsEnabled = localStorage.getItem('animationsEnabled') !== 'false';
+    animationsEnabled = isMobile() ? false : localStorage.getItem('animationsEnabled') !== 'false';
 
     // Auto-mute Hermes on mobile
     if (window.innerWidth <= 1024) {

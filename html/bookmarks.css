@@ -893,7 +893,7 @@ div:where(.swal2-container) div:where(.swal2-validation-message)::before {
     bottom: 0;
     left: 0;
     right: 0;
-    background: var(--background-color);
+    background: var(--card-color);
     z-index: 99999;
     transform: translateY(100%);
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.18, 1.15);
@@ -1222,6 +1222,10 @@ body.dark-mode #mobileOrganizeBtn.active {
 }
 
 @media (max-width: 1024px) {
+
+    .section-info-sheet {
+        background: var(--background-color);
+    }
 
     .result-card:hover .bookmark-section-dropdown {
             opacity: 0;

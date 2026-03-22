@@ -1081,6 +1081,263 @@ function setupMediaLoadHandling(mediaElement, imagePlaceholder) {
     }
 }
 
+class ModalGallery {
+    constructor(galleryData, mediaMetadata, startIndex, preloadedImages, isMobile) {
+        this._galleryData = galleryData;
+        this._mediaMetadata = mediaMetadata;
+        this._currentIndex = startIndex || 0;
+        this._preloadedImages = preloadedImages || {};
+        this._isMobile = isMobile;
+        this._aborted = false;
+        this._pendingLoad = null;
+
+        // Single permanent container — never replaced
+        this._el = document.createElement('div');
+        this._el.className = 'modal-gallery-content';
+        this._el.style.cssText = `
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: ${isMobile ? '100vw' : '90vw'};
+            border-radius: ${isMobile ? '0' : '25px'};
+            opacity: 0;
+            transform: ${isMobile ? 'translateY(-6vh)' : 'none'};
+            transition: opacity 0.2s ease;
+        `;
+
+        // Single slot — only ever one child at a time
+        this._slot = document.createElement('div');
+        this._slot.className = 'modal-img-slot';
+        this._slot.style.cssText = `
+            display: grid;
+            place-items: center;
+            width: ${isMobile ? '100vw' : '90vw'};
+            height: ${isMobile ? '30vh' : '25vh'};
+            overflow: hidden;
+        `;
+        this._el.appendChild(this._slot);
+
+        // Gallery counter
+        this._counter = document.createElement('div');
+        this._counter.className = 'modal-gallery-counter';
+
+        this._loadInitial(this._currentIndex);
+    }
+
+    get element() { return this._el; }
+    get counter() { return this._counter; }
+    get currentIndex() { return this._currentIndex; }
+
+    _getImageUrl(index) {
+        const item = this._galleryData[index];
+        if (!item) return null;
+        const media = this._mediaMetadata[item.media_id];
+        const isAnimated = media?.e === 'AnimatedImage';
+        const original = isAnimated
+            ? (media?.s?.gif || media?.s?.mp4)?.replace(/&amp;/g, '&')
+            : media?.s?.u?.replace(/&amp;/g, '&');
+        const fallback = media?.p?.[media.p.length - 1]?.u?.replace(/&amp;/g, '&');
+        return original || fallback || null;
+    }
+
+    _updateCounter() {
+        const total = this._galleryData.length;
+        this._counter.textContent = `${this._currentIndex + 1}/${total}`;
+        this._counter.style.display = total > 1 ? '' : 'none';
+    }
+
+    _showShimmer() {
+        this._slot.innerHTML = '';
+        const shimmer = document.createElement('div');
+        shimmer.className = 'image-placeholder shimmer modal-shimmer';
+        shimmer.style.cssText = `
+            width: ${this._isMobile ? '100vw' : '60vw'};
+            height: ${this._isMobile ? '30vh' : '25vh'};
+            border-radius: ${this._isMobile ? '0' : '25px'};
+            background: rgba(128,128,128,0.3);
+        `;
+        this._slot.appendChild(shimmer);
+        return shimmer;
+    }
+
+    _loadInitial(index) {
+        const imageUrl = this._getImageUrl(index);
+        if (!imageUrl) return;
+        this._pendingLoad = {};
+        const thisLoad = this._pendingLoad;
+        this._showShimmer();
+        this._updateCounter();
+        const img = new Image();
+        img.style.cssText = `
+            width: ${this._isMobile ? '100vw' : '100%'};
+            max-width: ${this._isMobile ? '100vw' : '90vw'};
+            max-height: ${this._isMobile ? '100vh' : '90vh'};
+            height: auto;
+            object-fit: contain;
+            display: block;
+            border-radius: ${this._isMobile ? '0' : '25px'};
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        `;
+        img.onload = () => {
+            if (thisLoad !== this._pendingLoad || this._aborted) return;
+            img.style.cssText = `
+                width: ${this._isMobile ? '100vw' : '100%'} !important;
+                height: ${this._isMobile ? 'auto' : 'auto'} !important;
+                max-width: ${this._isMobile ? '100vw' : '90vw'};
+                max-height: ${this._isMobile ? '100vh' : '90vh'};
+                object-fit: contain;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+            `;
+            this._slot.innerHTML = '';
+            this._slot.style.overflow = '';
+            this._slot.style.height = '';
+            this._slot.appendChild(img);
+            img.getBoundingClientRect();
+            img.style.opacity = '1';
+        };
+        img.onerror = () => { if (thisLoad === this._pendingLoad) this._slot.innerHTML = ''; };
+        img.src = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
+    }
+
+    _showImage(index, direction) {
+        const imageUrl = this._getImageUrl(index);
+        if (!imageUrl) return;
+        this._aborted = false;
+        this._pendingLoad = {};
+        const thisLoad = this._pendingLoad;
+        this._updateCounter();
+
+        // Reset slot to shimmer size before inserting shimmer
+        this._slot.style.height = `${this._isMobile ? '30vh' : '25vh'}`;
+        this._slot.style.overflow = 'hidden';
+
+        const slotHasImage = !!this._slot.querySelector('img');
+
+        const shimmer = document.createElement('div');
+        shimmer.className = 'image-placeholder shimmer modal-shimmer';
+        shimmer.style.cssText = `
+            grid-area: 1/1;
+            width: ${this._isMobile ? '100vw' : '60vw'};
+            height: ${this._isMobile ? '30vh' : '25vh'};
+            border-radius: ${this._isMobile ? '0' : '25px'};
+            background: rgba(128,128,128,0.3);
+            opacity: ${slotHasImage ? '0' : '1'};
+            transform: ${!slotHasImage ? `translateX(${direction === 'prev' ? '-100%' : '100%'})` : 'none'};
+            transition: ${slotHasImage ? 'opacity 0.15s ease' : 'transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)'};
+        `;
+        this._slot.innerHTML = '';
+        this._slot.appendChild(shimmer);
+        shimmer.getBoundingClientRect();
+        if (slotHasImage) {
+            shimmer.style.opacity = '1';
+        } else {
+            shimmer.style.transform = 'translateX(0)';
+        }
+
+        // Load image, fade in on top of shimmer then remove shimmer
+        const img = new Image();
+        img.style.cssText = `
+            position: relative;
+            width: ${this._isMobile ? '100vw' : '100%'};
+            max-width: ${this._isMobile ? '100vw' : '90vw'};
+            max-height: ${this._isMobile ? '100vh' : '90vh'};
+            height: auto;
+            object-fit: contain;
+            display: block;
+            border-radius: ${this._isMobile ? '0' : '25px'};
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        `;
+        img.onload = () => {
+            if (thisLoad !== this._pendingLoad || this._aborted) return;
+            img.style.cssText = `
+                width: ${this._isMobile ? '100vw' : '100%'} !important;
+                height: ${this._isMobile ? 'auto' : 'auto'} !important;
+                max-width: ${this._isMobile ? '100vw' : '90vw'};
+                max-height: ${this._isMobile ? '100vh' : '90vh'};
+                object-fit: contain;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+            `;
+            this._slot.appendChild(img);
+            this._slot.style.overflow = '';
+            this._slot.style.height = '';
+            img.getBoundingClientRect();
+            img.style.opacity = '1';
+            shimmer.style.transition = 'opacity 0.2s ease';
+            shimmer.style.opacity = '0';
+            shimmer.addEventListener('transitionend', () => shimmer.remove(), { once: true });
+        };
+        img.onerror = () => { if (thisLoad === this._pendingLoad) this._slot.innerHTML = ''; };
+        img.src = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
+    }
+
+    navigate(direction) {
+        const total = this._galleryData.length;
+        if (total <= 1) return;
+        this._currentIndex = direction === 'prev'
+            ? (this._currentIndex > 0 ? this._currentIndex - 1 : total - 1)
+            : (this._currentIndex < total - 1 ? this._currentIndex + 1 : 0);
+
+        const preloaded = this._preloadedImages[this._currentIndex];
+        if (preloaded) {
+            this._pendingLoad = {};
+            const thisLoad = this._pendingLoad;
+            this._updateCounter();
+            preloaded.then(bitmap => {
+                if (thisLoad !== this._pendingLoad || this._aborted) return;
+                if (bitmap) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = bitmap.width;
+                    canvas.height = bitmap.height;
+                    canvas.getContext('2d').drawImage(bitmap, 0, 0);
+                    const img = new Image();
+                    img.style.cssText = `
+                        width: ${this._isMobile ? '100vw' : '100%'} !important;
+                        height: ${this._isMobile ? 'auto' : 'auto'} !important;
+                        max-width: ${this._isMobile ? '100vw' : '90vw'};
+                        max-height: ${this._isMobile ? '100vh' : '90vh'};
+                        object-fit: contain;
+                        opacity: 0;
+                        transition: opacity 0.2s ease;
+                    `;
+                    img.onload = () => {
+                        if (thisLoad !== this._pendingLoad || this._aborted) return;
+                        this._slot.innerHTML = '';
+                        this._slot.style.overflow = '';
+                        this._slot.style.height = '';
+                        this._el.style.overflow = '';
+                        this._slot.appendChild(img);
+                        img.getBoundingClientRect();
+                        img.style.opacity = '1';
+                        canvas.remove();
+                        img.style.transform = 'translateX(0)';
+                        img.addEventListener('transitionend', () => {
+                            this._el.style.overflow = '';
+                        }, { once: true });
+                        canvas.remove();
+                    };
+                    img.src = canvas.toDataURL();
+                } else {
+                    // Bitmap failed, fall through to network load with shimmer
+                    this._showImage(this._currentIndex, direction);
+                }
+            });
+            return;
+        }
+
+        this._showImage(this._currentIndex, direction);
+    }
+
+    destroy() {
+        this._aborted = true;
+        this._pendingLoad = null;
+    }
+}
+
 function setupImageModal(imageWrapper) {
     const isMobile = window.innerWidth <= 1024;
     imageWrapper.addEventListener('click', async function (event) {
@@ -1445,61 +1702,51 @@ function setupImageModal(imageWrapper) {
             modalContent.appendChild(newVideo);
 
         } else {
-            // Handle regular images (existing logic)
-            modalContent = imageWrapper.cloneNode(true);
-            // Remove the small thumbnail arrows from modal 
-            const thumbnailArrows = modalContent.querySelectorAll('.gallery-arrow');
-            thumbnailArrows.forEach(arrow => arrow.remove());
+            // Image / gallery path — use ModalGallery
+            const galleryData = imageWrapper.galleryData;
+            const mediaMetadata = imageWrapper.mediaMetadata;
+            const startIndex = imageWrapper.currentIndex || 0;
+            const preloadedImages = imageWrapper.preloadedImages || {};
 
-            // Make the counter bigger for modal view
-            const galleryCounter = modalContent.querySelector('.gallery-counter');
-            if (galleryCounter) {
-                galleryCounter.style.cssText = `
-                    position: absolute !important;
-                    top: ${isMobile ? '200px' : '10px'} !important;
-                    right: ${isMobile ? '2px' : '9px'} !important;
-                    background: rgba(0, 0, 0, 0.5);
-                    color: white;
-                    padding: 5px 10px !important;
-                    border-radius: 12px;
-                    font-size: 1rem !important;
-                    font-weight: bold;
-                    z-index: 10;
-                `;
-            }
+            if (galleryData && mediaMetadata) {
+                const gallery = new ModalGallery(galleryData, mediaMetadata, startIndex, preloadedImages, isMobile);
+                modalContent = gallery.element;
+                modalContainer.appendChild(gallery.counter);
+                // Store for wiring after arrows are declared
+                modalContent._gallery = gallery;
 
-            modalContent.style.cssText = `
-                width: ${isMobile ? '100vw' : 'auto'} !important;
-                height: ${isMobile ? '100vh' : 'auto'} !important;
-                cursor: pointer;
-                max-width: ${isMobile ? '100vw' : '90vw'};
-                max-height: ${isMobile ? '100vh' : '90vh'};
-                display: ${isMobile ? 'flex' : 'block'} !important;
-                align-items: center;
-                justify-content: center;
-                opacity: 0;
-                transform: scale(0.8);
-                transition: all 0.1s ease;
-                border-radius: ${isMobile ? '0' : '25px'};
-            `;
-
-            const imageInside = modalContent.querySelector('img');
-            const shimmerPlaceholder = modalContent.querySelector('.image-placeholder');
-
-            if (imageInside) {
-                imageInside.style.cssText = `
-                    width: ${isMobile ? '100vw' : '100%'} !important;
-                    height: ${isMobile ? 'auto' : 'auto'} !important;
+            } else {
+                // No gallery data — single image fallback
+                modalContent = document.createElement('div');
+                modalContent.style.cssText = `
+                    width: ${isMobile ? '100vw' : 'auto'};
+                    height: ${isMobile ? '100vh' : 'auto'};
                     max-width: ${isMobile ? '100vw' : '90vw'};
                     max-height: ${isMobile ? '100vh' : '90vh'};
-                    object-fit: contain;
-                    opacity: 1 !important;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0;
+                    transform: scale(0.5);
+                    transition: opacity 0.2s ease, transform 0.2s ease;
+                    border-radius: ${isMobile ? '0' : '25px'};
+                    overflow: hidden;
                 `;
+                const srcImg = imageWrapper.querySelector('img');
+                if (srcImg) {
+                    const img = new Image();
+                    img.style.cssText = `
+                        width: ${isMobile ? '100vw' : '100%'};
+                        max-width: 90vw;
+                        max-height: 90vh;
+                        object-fit: contain;
+                        border-radius: ${isMobile ? '0' : '25px'};
+                    `;
+                    img.src = srcImg.src;
+                    modalContent.appendChild(img);
+                }
             }
 
-            if (shimmerPlaceholder) {
-                shimmerPlaceholder.remove();
-            }
         }
 
         // Add modal content to container
@@ -1529,11 +1776,12 @@ function setupImageModal(imageWrapper) {
     <svg xmlns="http://www.w3.org/2000/svg" width="${arrowSize}" height="${arrowSize}" viewBox="0 0 24 24" fill="none" style="transform: translateX(-1px);" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left-icon lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg>
 `;
 
+
         leftArrow.style.cssText = `
             position: absolute;
             left: ${isMobile ? '2px' : '320px'};
             top: 50%;
-            transform: ${isMobile ? 'translateY(calc(-50% - 5vh))' : 'translateY(-50%)'};
+            transform: ${isMobile ? 'translateY(calc(-50% - 6vh))' : 'translateY(-50%)'};
             width: 50px;
             height: 50px;
             background: rgba(0, 0, 0, 0.5);
@@ -1561,7 +1809,7 @@ function setupImageModal(imageWrapper) {
                     position: absolute;
                     right: ${isMobile ? '2px' : '320px'};
                     top: 50%;
-                    transform: ${isMobile ? 'translateY(calc(-50% - 5vh))' : 'translateY(-50%)'};
+                    transform: ${isMobile ? 'translateY(calc(-50% - 6vh))' : 'translateY(-50%)'};
                     width: 50px;
                     height: 50px;
                     background: rgba(0, 0, 0, 0.5);
@@ -1575,246 +1823,61 @@ function setupImageModal(imageWrapper) {
                     user-select: none;
                 `;
 
-        // Get gallery data from the original image wrapper
-        const galleryData = imageWrapper.galleryData;
-        const mediaMetadata = imageWrapper.mediaMetadata;
-        // Get current index - fallback chain
-        let currentIndex = 0;
-        const galleryCounter = imageWrapper.querySelector('.gallery-counter');
+        const hasGallery = !!(imageWrapper.galleryData && imageWrapper.galleryData.length > 1);
 
-        if (galleryCounter) {
-            const counterText = galleryCounter.textContent;
-            currentIndex = parseInt(counterText.split('/')[0]) - 1;
-        } else if (imageWrapper.currentIndex !== undefined) {
-            currentIndex = imageWrapper.currentIndex;
-        } else {
-        }
+        // Wire gallery navigation now that arrows exist
+        const gallery = modalContent._gallery;
+        if (gallery) {
+            leftArrow.addEventListener('click', (e) => { e.stopPropagation(); gallery.navigate('prev'); });
+            rightArrow.addEventListener('click', (e) => { e.stopPropagation(); gallery.navigate('next'); });
+            leftArrow.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); gallery.navigate('prev'); }
+            });
+            rightArrow.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); gallery.navigate('next'); }
+            });
 
-        const useSameSize = imageWrapper.useSameSize;
+            document.addEventListener('keydown', function onModalKey(e) {
+                if (!document.body.contains(modalOverlay)) { document.removeEventListener('keydown', onModalKey); return; }
+                if (e.key === 'ArrowLeft') { e.preventDefault(); gallery.navigate('prev'); }
+                else if (e.key === 'ArrowRight') { e.preventDefault(); gallery.navigate('next'); }
+            });
 
-        // Add preloaded images storage for modal, share preloaded images from main gallery if available
-        const modalPreloadedImages = imageWrapper.preloadedImages;
-
-        let lastModalNavigationTime = 0;
-        const MODAL_THROTTLE_DELAY = 70;
-
-        const navigateModalGallery = (direction) => {
-            // Throttle rapid clicks
-            const now = Date.now();
-            if (now - lastModalNavigationTime < MODAL_THROTTLE_DELAY) {
-                return;
-            }
-            lastModalNavigationTime = now;
-
-            if (!galleryData || !mediaMetadata) return;
-
-            const totalImages = galleryData.length;
-            let currentImgElement = modalContent.querySelector('img');
-
-            // Calculate target index
-            const targetIndex = direction === 'prev'
-                ? (currentIndex > 0 ? currentIndex - 1 : totalImages - 1)
-                : (currentIndex < totalImages - 1 ? currentIndex + 1 : 0);
-
-            // Get new image URL using targetIndex
-            const mediaId = galleryData[targetIndex].media_id;
-            const media = mediaMetadata[mediaId];
-            const isAnimated = media?.e === 'AnimatedImage';
-            const original = isAnimated
-                ? (media?.s?.gif || media?.s?.mp4)?.replace(/&amp;/g, '&')
-                : media?.s?.u?.replace(/&amp;/g, '&');
-            const resolutionFallback = media?.p?.[media.p.length - 1]?.u?.replace(/&amp;/g, '&');
-            const imageUrl = original || resolutionFallback;
-
-            if (!imageUrl) return;
-
-            // Create new image element for the incoming image
-            const newImg = document.createElement('img');
-            newImg.style.borderRadius = '25px';
-
-            // Apply sizing styles and initial off-screen position for slide-in
             if (isMobile) {
-                newImg.style.cssText = `
-                    width: 100vw !important;
-                    height: auto !important;
-                    max-height: 100vh;
-                    object-fit: contain;
-                    opacity: 1;
-                    transform: ${direction === 'prev' ? 'translateX(-100%)' : 'translateX(100%)'};
-                    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease-in;
-                `;
-            } else if (useSameSize && imageWrapper.modalFirstImageWidth && imageWrapper.modalFirstImageHeight) {
-                newImg.style.cssText = `
-                            width: ${imageWrapper.modalFirstImageWidth}px !important;
-                            height: ${imageWrapper.modalFirstImageHeight}px !important;
-                            object-fit: cover;
-                            opacity: 1; 
-                            transform: ${direction === 'prev' ? 'translateX(-100%)' : 'translateX(100%)'}; /* Off-screen */
-                            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease-in; /* Slide and fade */
-                        `;
-            } else {
-                newImg.style.cssText = `
-                            width: 100% !important;
-                            height: auto !important;
-                            max-width: 90vw;
-                            max-height: 90vh;
-                            opacity: 1; 
-                            transform: ${direction === 'prev' ? 'translateX(-100%)' : 'translateX(100%)'};
-                            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease-in;
-                        `;
-            }
-
-            // This function finalizes the image swap and starts the slide-in animation
-            const performImageSwapAndAnimate = () => {
-                // Update currentIndex and gallery counter NOW that we're about to show the new image
-                currentIndex = targetIndex;
-                const galleryCounter = modalContent.querySelector('.gallery-counter');
-                if (galleryCounter) {
-                    galleryCounter.textContent = `${currentIndex + 1}/${totalImages}`;
-                }
-
-                // Cleanly replace the old image with the new one
-                if (currentImgElement && currentImgElement.parentNode) {
-                    currentImgElement.parentNode.replaceChild(newImg, currentImgElement);
-                } else {
-                    // If there's no current image (e.g., first load), just append
-                    modalContent.appendChild(newImg);
-                }
-                setTimeout(() => {
-                    newImg.style.transform = 'translateX(0)';
-                }, 10);
-
-                // Sync back to main gallery wrapper
-                imageWrapper.currentIndex = currentIndex;
-            };
-
-            // Check if we have a preloaded image
-            if (modalPreloadedImages[targetIndex] && modalPreloadedImages[targetIndex].complete) {
-                modalPreloadedImages[targetIndex].decode().then(() => {
-                    newImg.src = modalPreloadedImages[targetIndex].src;
-                    performImageSwapAndAnimate();
-                }).catch(() => {
-                    //console.error(`❌ Failed to decode preloaded image ${targetIndex + 1}`);
-                    return;
-                });
-            } else {
-                // Single fallback: load on-demand
-                const proxyUrl = getImageUrl(imageUrl)
-                newImg.onload = () => performImageSwapAndAnimate();
-                newImg.onerror = () => {
-                    console.error(`❌ Failed to load image ${targetIndex + 1}`);
-                    return;
-                };
-                newImg.src = proxyUrl;
-            }
-
-            // Let tryGalleryPatch handle preloading by updating its current index
-            imageWrapper.currentIndex = targetIndex;
-        };
-
-        // Click handlers for navigation arrows
-        leftArrow.addEventListener('click', (e) => {
-            e.stopPropagation();
-            navigateModalGallery('prev');
-        });
-
-        leftArrow.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                navigateModalGallery('prev');
-            }
-        });
-
-        rightArrow.addEventListener('click', (e) => {
-            e.stopPropagation();
-            navigateModalGallery('next');
-        });
-
-        rightArrow.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                navigateModalGallery('next');
-            }
-        });
-
-                                const hasGallery = galleryData && galleryData.length > 1;
-                
-                // Swipe down to close on mobile
-                if (isMobile) {
-                let swipeDownStartX = 0;
-                let swipeDownStartY = 0;
-                const SWIPE_DOWN_THRESHOLD = 80;
-                
+                let touchStartX = 0, touchStartY = 0, swipeDirection = null;
+                const SWIPE_THRESHOLD = 70, CLOSE_THRESHOLD = 80;
                 modalOverlay.addEventListener('touchstart', (e) => {
-                swipeDownStartX = e.touches[0].clientX;
-                swipeDownStartY = e.touches[0].clientY;
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                    swipeDirection = null;
                 }, { passive: true });
-                
-                modalOverlay.addEventListener('touchend', (e) => {
-                const diffY = e.changedTouches[0].clientY - swipeDownStartY;
-                const diffX = Math.abs(e.changedTouches[0].clientX - swipeDownStartX);
-                if (diffY > SWIPE_DOWN_THRESHOLD && diffX < diffY) {
-                    closeModal();
-                }
-                });
-                }
-                
-                // Add swipe support for modal gallery on mobile
-                if (hasGallery && isMobile) {
-            let modalTouchStartX = 0;
-            let modalTouchStartY = 0;
-            let modalSwipeDirection = null;
-            const MODAL_SWIPE_THRESHOLD = 70;
-        
-            modalOverlay.addEventListener('touchstart', (e) => {
-                modalTouchStartX = e.touches[0].clientX;
-                modalTouchStartY = e.touches[0].clientY;
-                modalSwipeDirection = null;
-            }, { passive: true });
-        
-            modalOverlay.addEventListener('touchmove', (e) => {
-                if (modalSwipeDirection === null) {
-                    const diffX = Math.abs(e.touches[0].clientX - modalTouchStartX);
-                    const diffY = Math.abs(e.touches[0].clientY - modalTouchStartY);
-                    if (diffX > 5 || diffY > 5) {
-                        modalSwipeDirection = diffX > diffY ? 'horizontal' : 'vertical';
+                modalOverlay.addEventListener('touchmove', (e) => {
+                    if (swipeDirection === null) {
+                        const dx = Math.abs(e.touches[0].clientX - touchStartX);
+                        const dy = Math.abs(e.touches[0].clientY - touchStartY);
+                        if (dx > 5 || dy > 5) swipeDirection = dx > dy ? 'horizontal' : 'vertical';
                     }
-                }
-                if (modalSwipeDirection === 'horizontal') {
-                    e.preventDefault();
-                }
-            }, { passive: false });
-        
-            modalOverlay.addEventListener('touchend', (e) => {
-                const swipeDistance = e.changedTouches[0].clientX - modalTouchStartX;
-                if (modalSwipeDirection === 'horizontal' && Math.abs(swipeDistance) > MODAL_SWIPE_THRESHOLD) {
-                    navigateModalGallery(swipeDistance > 0 ? 'prev' : 'next');
-                }
-            });
+                    if (swipeDirection === 'horizontal') e.preventDefault();
+                }, { passive: false });
+                modalOverlay.addEventListener('touchend', (e) => {
+                    const dx = e.changedTouches[0].clientX - touchStartX;
+                    const dy = e.changedTouches[0].clientY - touchStartY;
+                    if (swipeDirection === 'horizontal' && Math.abs(dx) > SWIPE_THRESHOLD) {
+                        gallery.navigate(dx > 0 ? 'prev' : 'next');
+                    } else if (swipeDirection === 'vertical' && dy > CLOSE_THRESHOLD && Math.abs(dx) < dy) {
+                        closeModal();
+                    }
+                });
+            }
+
+            const _origClose = closeModal;
+            closeModal = function() {
+                imageWrapper.currentIndex = gallery.currentIndex;
+                gallery.destroy();
+                _origClose();
+            };
         }
 
-                // Swipe down to close on mobile
-        if (isMobile) {
-            let swipeDownStartX = 0;
-            let swipeDownStartY = 0;
-            const SWIPE_DOWN_THRESHOLD = 80;
-        
-            modalOverlay.addEventListener('touchstart', (e) => {
-                swipeDownStartX = e.touches[0].clientX;
-                swipeDownStartY = e.touches[0].clientY;
-            }, { passive: true });
-        
-            modalOverlay.addEventListener('touchend', (e) => {
-                const diffY = e.changedTouches[0].clientY - swipeDownStartY;
-                const diffX = Math.abs(e.changedTouches[0].clientX - swipeDownStartX);
-                if (diffY > SWIPE_DOWN_THRESHOLD && diffX < diffY) {
-                    closeModal();
-                }
-            });
-        }
-        
         if (hasGallery) {
             // Add arrows to container
             modalContainer.appendChild(leftArrow);
@@ -1922,15 +1985,7 @@ function setupImageModal(imageWrapper) {
                 zoomChanged = true;
             }
 
-            // Arrow keys for gallery navigation
-            else if (e.key === 'ArrowLeft' && hasGallery) {
-                e.preventDefault();
-                navigateModalGallery('prev');
-            }
-            else if (e.key === 'ArrowRight' && hasGallery) {
-                e.preventDefault();
-                navigateModalGallery('next');
-            }
+            // Arrow keys handled by ModalGallery's own keydown listener
 
             if (zoomChanged && newZoom !== currentZoom) {
                 currentZoom = newZoom;
@@ -1953,20 +2008,22 @@ function setupImageModal(imageWrapper) {
         
         // Trigger opening animation
         setTimeout(() => {
-            const mobileOffset = isMobile ? 'translateY(-5vh)' : 'translateY(0)';
-            modalContent.style.transition = 'none';
-            modalContent.style.opacity = '0';
-            modalContent.style.transform = `scale(0.5) ${mobileOffset}`;
-
-            // Force reflow
-            modalContent.getBoundingClientRect();
-
-            modalContent.style.transition = `opacity ${isMobile ? '0.2s' : '0.1s'} ease, transform ${isMobile ? '0.2s' : '0.1s'} ease`;
-            modalContent.style.opacity = '1';
-            modalContent.style.transform = `scale(1) ${mobileOffset}`;
-            modalOverlay.style.backgroundColor = 'rgba(0,0,0,0.8)';
+            const isGallery = !!(modalContent._gallery);
+            const mobileOffset = isMobile ? 'translateY(-6vh)' : 'translateY(0)';
+            modalOverlay.style.backgroundColor = 'rgb(0, 0, 0)';
             leftArrow.style.opacity = '1';
             rightArrow.style.opacity = '1';
+            if (isGallery) {
+                modalContent.style.opacity = '1';
+            } else {
+                modalContent.style.transition = 'none';
+                modalContent.style.opacity = '0';
+                modalContent.style.transform = `scale(0.5) ${mobileOffset}`;
+                modalContent.getBoundingClientRect();
+                modalContent.style.transition = `opacity ${isMobile ? '0.2s' : '0.1s'} ease, transform ${isMobile ? '0.2s' : '0.1s'} ease`;
+                modalContent.style.opacity = '1';
+                modalContent.style.transform = `scale(1) ${mobileOffset}`;
+            }
         }, 10);
 
         // Capture modal image dimensions after animation
@@ -1980,10 +2037,7 @@ function setupImageModal(imageWrapper) {
 
         // Close modal function
         function closeModal() {
-        videoProcessingAborted = true; // Stop any ongoing video processing
-            
-            // Hard reset to index 0 when modal closes
-            imageWrapper.currentIndex = 0;
+            videoProcessingAborted = true;
 
             // Immediately hide the navigation arrows
             const leftArrow = modalOverlay.querySelector('.modal-nav-left');
