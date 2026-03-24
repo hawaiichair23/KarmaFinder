@@ -32,7 +32,7 @@
     --footie-color: #a1a1a1;
 
     /* Border & Shadow */
-    --border-color: rgb(209, 209, 217);
+    --border-color: rgb(221, 221, 230);
     --border-dark: #6b6b6b;
     --shadow-light: rgba(0, 0, 0, 0.1);
     --shadow-card: rgba(0, 0, 0, 0.25);
@@ -73,7 +73,7 @@ body.dark-mode {
     /* footie */
     --footie-color: #636363;
 
-    --border-color: #333337;
+    --border-color: #2d2d31;
     --border-dark: #787b82;
     --shadow-light: rgba(0, 0, 0, 0.3);
     --hover-bg: #36363a;
@@ -108,7 +108,7 @@ body.forest-theme {
     --text-secondary: #b8ecdc;
     --secondary-color: rgb(199, 39, 74);
     --border-dark: rgb(67, 145, 139);
-    --border-color: rgb(41, 91, 87);
+    --border-color: rgb(36, 82, 79);
     --hover-bg: rgb(30, 68, 65);
     --meta-text: #74c6b4;
     --button-bg: #174f49;
@@ -626,7 +626,7 @@ body.forest-theme .suggestions-subreddit-banner {
     right: 0;
     color: var(--text-color);
     background-color: var(--suggestions-bg);
-    border: 1px solid #999;
+    border: none;
     border-radius: 8px;
     max-height: 340px;
     overflow-y: auto;
@@ -639,7 +639,7 @@ body.forest-theme .suggestions-subreddit-banner {
 #mobile-suggestions div {
     padding: 10px;
     cursor: pointer;
-    box-shadow: inset 0 0 1px var(--border-color);
+    box-shadow: inset 0 -1px 0 var(--border-color);
     width: 750px;
     height: 31px;
 }
@@ -651,9 +651,9 @@ body.forest-theme #mobile-suggestions div {
 
 #suggestions div:hover,
 #suggestions div.highlighted,
-#mobile-suggestions div:hover,
-#mobile-suggestions div.highlighted {
-    background-color: var(--hover-bg-lite);
+#mobile-suggestions div:not(.mobile-subreddit-section):not(.mobile-subreddit-divider):hover,
+#mobile-suggestions div:not(.mobile-subreddit-section):not(.mobile-subreddit-divider).highlighted {
+    background-color: var(--hover-bg-lite) !important;
 }
 
 #suggestions div:last-child,
@@ -663,16 +663,22 @@ body.forest-theme #mobile-suggestions div {
 
 body.dark-mode #suggestions div:hover,
 body.dark-mode #suggestions div.highlighted,
-body.dark-mode #mobile-suggestions div:hover,
-body.dark-mode #mobile-suggestions div.highlighted {
-    background: #36363a;
+body.dark-mode #mobile-suggestions div:not(.mobile-subreddit-section):not(.mobile-subreddit-divider):hover,
+body.dark-mode #mobile-suggestions div:not(.mobile-subreddit-section):not(.mobile-subreddit-divider).highlighted {
+    background: #36363a !important;
 }
-
-body.dark-mode #suggestions div,
-body.dark-mode #mobile-suggestions div {
-    box-shadow: inset 0 0 1px #35353e;
+body.forest-theme #suggestions div:hover,
+body.forest-theme #suggestions div.highlighted,
+body.forest-theme #mobile-suggestions div:not(.mobile-subreddit-section):not(.mobile-subreddit-divider):hover,
+body.forest-theme #mobile-suggestions div:not(.mobile-subreddit-section):not(.mobile-subreddit-divider).highlighted {
+    background: var(--hover-bg) !important;
 }
-
+body.bluebird-theme #suggestions div:hover,
+body.bluebird-theme #suggestions div.highlighted,
+body.bluebird-theme #mobile-suggestions div:not(.mobile-subreddit-section):not(.mobile-subreddit-divider):hover,
+body.bluebird-theme #mobile-suggestions div:not(.mobile-subreddit-section):not(.mobile-subreddit-divider).highlighted {
+    background: var(--hover-bg) !important;
+}
 body.dark-mode #suggestions,
 body.dark-mode #mobile-suggestions {
     background-color: #232326;
@@ -769,8 +775,8 @@ body.suggestions-active #suggestions-back-btn {
 }
 
 .suggestion-favicon {
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
     margin-right: 8px;
     cursor: pointer;
 }
@@ -850,7 +856,7 @@ display: none;
 .subreddit-suggestion {
     padding: 8px 12px;
     background-color: var(--suggestions-bg);
-    box-shadow: inset 0 0 1px var(--border-color);
+    box-shadow: inset 0 -1px 0 var(--border-color);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -2200,7 +2206,7 @@ body.dark-mode .hermes-context-menu {
     display: flex;
     align-items: center;
     gap: 10px;
-    box-shadow: inset 0 0 1px var(--border-color);
+    box-shadow: inset 0 -1px 0 var(--border-color);
     left: 0;
     margin-left: 0;
 }
@@ -2334,41 +2340,6 @@ body[data-layout="compact"].safe-search-enabled .nsfw .image-wrapper .thumbnail 
     color: var(--meta-text);
     padding-top: 1px;
     margin-left: 6px;
-}
-
-.mobile-subreddit-divider {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--meta-text);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 8px 16px 4px;
-    opacity: 0.6;
-}
-
-.mobile-subreddit-item {
-    gap: 10px;
-}
-
-.mobile-subreddit-item .subreddit-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: var(--hover-bg);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    font-weight: 600;
-    flex-shrink: 0;
-    overflow: hidden;
-}
-
-.mobile-subreddit-item .subreddit-icon img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
 }
 
 .lock-icon {
@@ -2653,7 +2624,7 @@ footer {
     padding: 10px;
     cursor: pointer;
     gap: 10px;
-    box-shadow: inset 0 0 1px var(--border-color);
+    box-shadow: inset 0 -1px 0 var(--border-color);
 }
 
 .theme-option.active {
@@ -3043,7 +3014,7 @@ body.swal2-shown {
     color: var(--text-color);
     padding: 8px 12px;
     background-color: var(--suggestions-bg);
-    box-shadow: inset 0 0 1px var(--border-color);
+    box-shadow: inset 0 -1px 0 var(--border-color);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -3257,8 +3228,8 @@ body.forest-theme .link-preview-btn:hover {
 
 .modal-gallery-counter {
     position: fixed;
-    top: 20px;
-    right: 10px;
+    top: 40px;
+    right: 380px;
     background: rgba(0, 0, 0, 0.5);
     color: white;
     padding: 5px 10px;
@@ -3270,6 +3241,11 @@ body.forest-theme .link-preview-btn:hover {
 }
 
 @media (max-width: 1024px) {
+
+    .modal-gallery-counter {
+        top: 16px;
+        right: 2px;
+    }
 
     .pushpin-icon {
         width: 23px;
@@ -3428,32 +3404,79 @@ body.forest-theme .link-preview-btn:hover {
         border-radius: 18px;
     }
 
+    /* suggestion items */
     #suggestions div,
     #mobile-suggestions div {
+        padding: 10px;
+        font-family: 'Lato', sans-serif;
         width: 100% !important;
-        height: auto !important;
+        height: 3.2rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
     #suggestions .suggestion-icon,
-    #mobile-suggestions .suggestion-icon {
-        flex-shrink: 0 !important;
-    }
-
-    span.suggestion-icon.subreddit-icon {
-        flex-shrink: 0 !important;
-    }
-
+    #mobile-suggestions .suggestion-icon,
+    span.suggestion-icon.subreddit-icon,
     .suggestion-favicon {
         flex-shrink: 0 !important;
     }
-    
-    #suggestions div,
-    #mobile-suggestions div {
-        padding: 10px;
-        font-family: 'Lato', sans-serif;
+
+    /* subreddit section — no background ever */
+    #mobile-suggestions .mobile-subreddit-section,
+    #suggestions .mobile-subreddit-section {
+        padding: 0;
+        height: auto;
+        overflow: visible;
+        box-shadow: none;
+        background: none !important;
+    }
+
+    #mobile-suggestions .mobile-subreddit-divider {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--meta-text);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        height: 28px !important;
+        padding-top: 4px !important;
+        background: none !important;
+    }
+
+    /* active highlight on individual items only — no hover on mobile */
+    #mobile-suggestions .suggestion-item:active {
+        background-color: var(--hover-bg-lite) !important;
+    }
+    body.dark-mode #mobile-suggestions .suggestion-item:active,
+    body.forest-theme #mobile-suggestions .suggestion-item:active,
+    body.bluebird-theme #mobile-suggestions .suggestion-item:active {
+        background: var(--hover-bg) !important;
+    }
+
+    .mobile-subreddit-item {
+        padding: 2px 10px;
+    }
+
+    .mobile-subreddit-item .subreddit-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--hover-bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 600;
+        flex-shrink: 0;
+        overflow: hidden;
+    }
+
+    .mobile-subreddit-item .subreddit-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
     }
 
     /* ================================= */
@@ -4381,7 +4404,7 @@ body.forest-theme .link-preview-btn:hover {
 
     .result-image {
         width: 100% !important;
-        max-height: 380px;
+        max-height: 360px;
         object-fit: cover;
         border-radius: 0px;
     }
@@ -4403,7 +4426,7 @@ body.forest-theme .link-preview-btn:hover {
         margin-top: -6px;
         margin-right: auto;
         margin-bottom: 0.7rem;
-        background: var(--comments-bg);
+        background: var(--comments-bg-mobile);
         margin-top: 0.15rem;
     }
 
@@ -4941,20 +4964,24 @@ body.forest-theme .pill-arrow {
     to   { transform: translateX(-100%); }
 }
 
-html.nav-subreddit::view-transition-old(root) {
-    animation: 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards vt-slide-out-left;
+/* Default: no animation unless direction class is explicitly set */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
 }
 
-html.nav-subreddit::view-transition-new(root) {
+html.nav-forward::view-transition-old(root) {
+    animation: 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards vt-slide-out-left;
+}
+html.nav-forward::view-transition-new(root) {
     animation: 320ms cubic-bezier(0.4, 0, 0.2, 1) forwards vt-slide-in-right;
 }
 
-::view-transition-old(root) {
-    animation: vt-slide-out-right 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+html.nav-back::view-transition-old(root) {
+    animation: 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards vt-slide-out-right;
 }
-
-::view-transition-new(root) {
-    animation: vt-slide-in-left 320ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+html.nav-back::view-transition-new(root) {
+    animation: 320ms cubic-bezier(0.4, 0, 0.2, 1) forwards vt-slide-in-left;
 }
 
 ::view-transition-old(bottom-bar),

@@ -232,7 +232,7 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
         top: 0;
         left: 0;
         width: 100%;
-        height: auto;
+        height: 100%;
         object-fit: cover;
         transform: ${direction === 'prev' ? 'translateX(-100%)' : 'translateX(100%)'};
         transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease-in-out;
@@ -1184,137 +1184,6 @@ class ModalGallery {
         }
 
         return shimmer;
-    }
-
-    _createImage() {
-        const img = new Image();
-
-        img.style.cssText = `
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            
-            max-width: ${this._isMobile ? '100vw' : '90vw'};
-            max-height: ${this._isMobile ? '100vh' : '90vh'};
-            width: auto;
-            height: auto;
-            
-            object-fit: contain;
-            border-radius: ${this._isMobile ? '0' : '25px'};
-            cursor: ${this._isMobile ? 'default' : 'pointer'};
-            
-            opacity: 0;
-            transition: opacity 0.2s ease;
-        `;
-
-        return img;
-    }
-
-    _loadInitial(index) {
-        const imageUrl = this._getImageUrl(index);
-        if (!imageUrl) return;
-
-        this._pendingLoad = {};
-        const thisLoad = this._pendingLoad;
-
-        this._slot.innerHTML = '';
-        this._slot.appendChild(this._createShimmer());
-
-        this._updateCounter();
-
-        const img = this._createImage();
-
-        img.onload = () => {
-            if (thisLoad !== this._pendingLoad || this._aborted) return;
-
-            this._slot.innerHTML = '';
-            this._slot.appendChild(img);
-
-            requestAnimationFrame(() => {
-                img.style.opacity = '1';
-            });
-        };
-
-        img.onerror = () => {
-            if (thisLoad === this._pendingLoad) this._slot.innerHTML = '';
-        };
-
-        img.src = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
-    }
-
-    _showImage(index, direction, preloadedSrc = null) {
-        const imageUrl = this._getImageUrl(index);
-        if (!imageUrl) return;
-
-        this._aborted = false;
-        this._pendingLoad = {};
-        const thisLoad = this._pendingLoad;
-
-        this._updateCounter();
-
-        this._slot.innerHTML = '';
-        const shimmer = this._createShimmer(direction);
-        this._slot.appendChild(shimmer);
-
-        const img = this._createImage();
-
-        img.onload = () => {
-            if (thisLoad !== this._pendingLoad || this._aborted) return;
-
-            this._slot.appendChild(img);
-
-            requestAnimationFrame(() => {
-                img.style.opacity = '1';
-                shimmer.style.opacity = '0';
-                shimmer.style.transition = 'opacity 0.2s ease';
-            });
-
-            shimmer.addEventListener('transitionend', () => shimmer.remove(), { once: true });
-        };
-
-        img.onerror = () => {
-            if (thisLoad === this._pendingLoad) this._slot.innerHTML = '';
-        };
-
-        img.src = preloadedSrc || `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
-    }
-
-    navigate(direction) {
-        const total = this._galleryData.length;
-        if (total <= 1) return;
-
-        this._currentIndex =
-            direction === 'prev'
-                ? (this._currentIndex > 0 ? this._currentIndex - 1 : total - 1)
-                : (this._currentIndex < total - 1 ? this._currentIndex + 1 : 0);
-
-        const preloaded = this._preloadedImages[this._currentIndex];
-
-        if (preloaded && preloaded.complete) {
-            this._pendingLoad = {};
-            const thisLoad = this._pendingLoad;
-
-            this._updateCounter();
-
-            preloaded.decode()
-                .then(() => {
-                    if (thisLoad !== this._pendingLoad || this._aborted) return;
-                    this._showImage(this._currentIndex, direction, preloaded.src);
-                })
-                .catch(() => {
-                    this._showImage(this._currentIndex, direction);
-                });
-
-            return;
-        }
-
-        this._showImage(this._currentIndex, direction);
-    }
-
-    destroy() {
-        this._aborted = true;
-        this._pendingLoad = null;
     }
 
     _createImage() {
