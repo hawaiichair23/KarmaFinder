@@ -181,7 +181,11 @@ function handleRedditAuthParams() {
     if (redditAuth === 'success' && autoImport === 'true') {
         // Show import dialog immediately with loading state
         setTimeout(() => {
-            showRedditImportDialog();
+            if (isMobile()) {
+                showMobileImportDialog();
+            } else {
+                showRedditImportDialog();
+            }
         }, 200);
 
         // Clean up URL
@@ -336,15 +340,6 @@ async function insertTabsUI(tabsData) {
         if (contentContainer) {
             // insert tabs above results
             contentContainer.insertAdjacentHTML('beforebegin', tabsSectionHTML);
-
-            // insert scroll indicator AFTER results container
-            contentContainer.insertAdjacentHTML('afterend', `
-        <div class="scroll-container-minimal">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-        </div>
-    `);
 
             tabContainer = document.querySelector('.tab-container');
         } else {
@@ -937,7 +932,15 @@ document.addEventListener('DOMContentLoaded', function () {
         loadSharedContent(shareCode);
         setupBookmarksScrollListener();
     }
-    updateLoginButton()
+    updateLoginButton();
+
+    // Close import menu on outside clicks — registered once
+    document.addEventListener('click', function (e) {
+        const menu = document.getElementById('importMenu');
+        if (menu && !menu.contains(e.target) && !e.target.closest('.import-button')) {
+            menu.style.display = 'none';
+        }
+    });
 });
 
 function insertSharedTabUI(sectionData) {
@@ -981,59 +984,6 @@ function insertSharedTabUI(sectionData) {
     tabElement.appendChild(emojiSpan);
     tabElement.appendChild(titleSpan);
     tabContainer.appendChild(tabElement);
-}
-
-function positionScrollIndicator() {
-    const indicator = document.querySelector('.scroll-container-minimal');
-    if (!indicator) return;
-
-    const resultCards = document.querySelectorAll('.result-card');
-    if (resultCards.length === 0) {
-        indicator.style.display = 'none';
-        indicator.style.opacity = '0';
-        return;
-    }
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const isSharedPage = window.location.pathname.includes('/share/');
-
-    // Show indicator for regular bookmarks pages
-    if (urlParams.get('page') === 'bookmarks') {
-        let sectionId;
-
-        if (isMobile()){
-            sectionId = urlParams.get('section');
-        } else {
-            const activeTab = document.querySelector('.tab.active');
-            if (!activeTab) {
-                indicator.style.display = 'none';
-                indicator.style.opacity = '0';
-                return;
-            }
-            sectionId = activeTab.dataset.tabId;
-        }
-        if (hasMoreBookmarks[sectionId]) {
-            setTimeout(() => {
-                indicator.style.display = 'flex';
-                indicator.style.opacity = '1';
-                indicator.style.position = 'absolute';
-            }, 1000);
-        } else {
-            indicator.style.display = 'none';
-            indicator.style.opacity = '0';
-        }
-    }
-    // Show indicator for shared pages
-    else if (isSharedPage && hasMoreSharedContent) {
-        setTimeout(() => {
-            indicator.style.display = 'flex';
-            indicator.style.opacity = '1';
-            indicator.style.position = 'absolute';
-        }, 1000);
-    } else {
-        indicator.style.display = 'none';
-        indicator.style.opacity = '0';
-    }
 }
 
 function makeBookmarksDraggable(sectionId) {
@@ -2067,8 +2017,8 @@ async function showRedditImportDialog(username, uniqueCount) {
     const dropdownHtml = `
       <div class="reddit-import-container">
           <div class="reddit-import-info">
-              <p><strong>Reddit User:</strong> <span id="user-info">${isLoading ? '' : username}</span></p>
-              <p><strong>Posts:</strong> <span id="count-info">${isLoading ? '' : `${uniqueCount} unique ${uniqueCount === 1 ? 'post' : 'posts'} to import`}</span></p>
+              <p><strong>Reddit User</strong> <span id="user-info">${isLoading ? '' : username}</span></p>
+              <p><strong>Posts</strong> <span id="count-info">${isLoading ? '' : `${uniqueCount} unique ${uniqueCount === 1 ? 'post' : 'posts'} to import`}</span></p>
           </div>
           <label class="reddit-import-label">Import to section:</label>
           <select id="sectionSelect">
@@ -2356,7 +2306,11 @@ function setupImportMenuEvents() {
         item.addEventListener('click', async function () {
             const action = this.dataset.action;
             if (action === 'reddit-import') {
-                showRedditImportDialog();
+                if (isMobile()) {
+                    showMobileImportDialog();
+                } else {
+                    showRedditImportDialog();
+                }
                         } else if (action === 'switch-reddit') {
             
                 try {
@@ -2388,13 +2342,6 @@ function setupImportMenuEvents() {
         });
     });
 
-    // Close menu on outside clicks
-    document.addEventListener('click', function (e) {
-        const menu = document.getElementById('importMenu');
-        if (menu && !menu.contains(e.target) && !e.target.closest('.import-button')) {
-            menu.style.display = 'none';
-        }
-    });
 }
 
 async function showSectionInfo() {
@@ -2428,7 +2375,6 @@ async function showSectionInfo() {
             bookmarkCount = 0;
         }
     } else {
-                // Original logic for owned sections
         const activeTab = document.querySelector('.tab.active');
         const sectionId = activeTab
             ? activeTab.dataset.tabId
@@ -2572,6 +2518,283 @@ async function showSectionInfo() {
         } else {
             sheet.style.transform = 'translateY(0)';
         }
+    });
+}
+
+async function showImportSectionPicker() {
+    return new Promise(async (resolve) => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 10002;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        `;
+
+        const sheet = document.createElement('div');
+        sheet.className = 'import-picker-sheet';
+        sheet.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 16px 16px 0 0;
+            overflow-y: auto;
+            z-index: 10003;
+            transform: translateY(100%);
+            transition: transform 0.25s ease-in-out;
+            box-shadow: 0 -4px 20px var(--shadow-card);
+        `;
+
+        const header = document.createElement('div');
+        header.className = 'header-picker-sheet';
+        header.style.cssText = `
+            padding: 13px 16px 13px;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        `;
+        header.innerHTML = `
+            <button id="import-picker-close" style="position: absolute; left: 12px; top: 48%; transform: translateY(-50%); font-weight: 300; background: none; border: none; font-size: 2.2rem; color: var(--text-color); cursor: pointer; line-height: 1;">×</button>
+            <h3 style="margin: 0; font-size: 1.2rem; color: var(--text-color); font-weight: 600;">Save to</h3>
+        `;
+
+        const listContainer = document.createElement('div');
+        listContainer.style.cssText = `padding: 8px 0;`;
+
+        sheet.appendChild(header);
+        sheet.appendChild(listContainer);
+
+        function closeMenu() {
+            sheet.style.transform = 'translateY(100%)';
+            overlay.style.opacity = '0';
+            setTimeout(() => { overlay.remove(); sheet.remove(); }, 200);
+        }
+
+        header.querySelector('#import-picker-close').addEventListener('click', () => { closeMenu(); resolve(null); });
+
+        try {
+            const res = await fetch(`${API_BASE}/api/sections/with-previews`, { credentials: 'include' });
+            const sectionsData = await res.json();
+
+            for (const section of sectionsData.sections) {
+                const item = document.createElement('div');
+                item.className = 'section-picker-item';
+                if (section.over_18) item.classList.add('nsfw');
+                item.setAttribute('data-permalink', section.permalink);
+
+                const thumbContainer = document.createElement('div');
+                thumbContainer.className = 'section-picker-thumb';
+
+                if (section.url) {
+                    const sectionPost = {
+                        reddit_post_id: section.reddit_post_id,
+                        title: section.title,
+                        url: section.url,
+                        permalink: section.permalink,
+                        subreddit: section.subreddit,
+                        score: section.score,
+                        is_video: section.is_video,
+                        domain: section.domain,
+                        author: section.author,
+                        created_utc: section.created_utc,
+                        num_comments: section.num_comments,
+                        over_18: section.over_18,
+                        preview: section.preview,
+                        selftext: section.selftext,
+                        body: section.body,
+                        is_gallery: section.is_gallery,
+                        gallery_data: section.gallery_data,
+                        media_metadata: section.media_metadata,
+                        crosspost_parent_list: section.crosspost_parent_list,
+                        content_type: section.content_type,
+                        icon_url: section.icon_url,
+                        locked: section.locked,
+                        stickied: section.stickied
+                    };
+                    const domain = getDomainFromUrl(sectionPost.url);
+                    const thumbnailURL = getThumbnailUrl(sectionPost);
+                    const cachedUrl = await getCachedSectionImage(section.permalink);
+                    const urlToUse = cachedUrl || thumbnailURL;
+                    const mediaContainer = createMediaElement(sectionPost, urlToUse, domain, thumbContainer, true);
+                    thumbContainer.appendChild(mediaContainer);
+                    if (!cachedUrl && thumbnailURL) cacheSectionImage(section.permalink, thumbnailURL);
+                } else {
+                    const newsIcon = document.createElement('div');
+                    newsIcon.className = 'news-icon-fallback';
+                    newsIcon.style.cssText = `width: 55px; height: 55px; background-size: 60px 60px; position: relative;`;
+                    thumbContainer.appendChild(newsIcon);
+                }
+
+                const info = document.createElement('div');
+                info.className = 'section-picker-info';
+                info.innerHTML = `<span>${section.section_name}</span>`;
+
+                item.appendChild(thumbContainer);
+                item.appendChild(info);
+
+                item.addEventListener('click', () => {
+                    closeMenu();
+                    resolve({ id: section.section_id, name: section.section_name });
+                });
+
+                listContainer.appendChild(item);
+            }
+
+            // Patch gallery images
+            sectionsData.sections.forEach(section => {
+            if (section.is_gallery && section.gallery_data && section.media_metadata) {
+                const item = listContainer.querySelector(`[data-permalink="${section.permalink}"]`);
+                if (item) {
+                    const fullPost = {
+                        is_gallery: section.is_gallery,
+                        gallery_data: section.gallery_data,
+                        media_metadata: section.media_metadata
+                    };
+                    tryGalleryPatch(fullPost, section.permalink, item, 1, true);
+                }
+            }
+        });
+        } catch (err) {
+            console.error('Failed to load sections for import picker:', err);
+            closeMenu();
+            resolve(null);
+            return;
+        }
+
+        overlay.addEventListener('click', () => { closeMenu(); resolve(null); });
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(sheet);
+
+        requestAnimationFrame(() => {
+            overlay.style.opacity = '1';
+            sheet.style.transform = 'translateY(0)';
+        });
+    });
+}
+
+async function showMobileImportDialog() {
+    const overlay = document.createElement('div');
+    overlay.className = 'mobile-import-overlay';
+
+    const sheet = document.createElement('div');
+    sheet.className = 'mobile-import-sheet';
+
+    const handle = document.createElement('div');
+    handle.className = 'mobile-import-handle';
+
+    const title = document.createElement('div');
+    title.className = 'mobile-import-title';
+    title.textContent = 'Import Reddit Saves';
+
+    const body = document.createElement('div');
+    body.className = 'mobile-import-body';
+
+    const stats = document.createElement('div');
+    stats.className = 'mobile-import-stats';
+    stats.innerHTML = `
+        <div class="mobile-import-stat-row">
+            <span class="mobile-import-stat-label">Reddit User</span>
+            <span class="mobile-import-stat-value" id="mob-reddit-user"></span>
+        </div>
+        <div class="mobile-import-stat-row">
+            <span class="mobile-import-stat-label">Posts</span>
+            <span class="mobile-import-stat-value" id="mob-reddit-count"></span>
+        </div>
+    `;
+
+    // Fetch real data
+    fetch('/api/reddit/saved-count', { credentials: 'include' })
+        .then(res => {
+            if (res.status === 404 || res.status === 500) {
+                closeSheet();
+                initiateRedditLogin();
+                return;
+            }
+            return res.json();
+        })
+        .then(data => {
+            if (data) {
+                document.getElementById('mob-reddit-user').innerHTML = `<span class="mobile-import-checkmark">✓</span> ${data.username}`;
+                document.getElementById('mob-reddit-count').innerHTML = `<span class="mobile-import-checkmark">✓</span> ${data.uniqueCount} unique ${data.uniqueCount === 1 ? 'post' : 'posts'} to import`;
+            }
+        })
+        .catch(() => closeSheet());
+
+    const selectLabel = document.createElement('span');
+    selectLabel.className = 'mobile-import-select-label';
+    selectLabel.textContent = 'Import to section';
+
+    let selectedSectionId = null;
+
+    const selectRow = document.createElement('div');
+    selectRow.className = 'mobile-import-select-row';
+    selectRow.innerHTML = '<span id="mob-section-label">Select section...</span><img class="chevron">';
+    selectRow.addEventListener('click', async () => {
+        const result = await showImportSectionPicker();
+        if (result) {
+            selectedSectionId = result.id;
+            document.getElementById('mob-section-label').textContent = result.name;
+        }
+    });
+
+    body.appendChild(stats);
+    body.appendChild(selectLabel);
+    body.appendChild(selectRow);
+
+    const footer = document.createElement('div');
+    footer.className = 'mobile-import-footer';
+
+    const importBtn = document.createElement('button');
+    importBtn.className = 'mobile-import-btn mobile-import-btn-confirm';
+    importBtn.textContent = 'Import';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'mobile-import-btn mobile-import-btn-cancel';
+    cancelBtn.textContent = 'Cancel';
+
+    footer.appendChild(importBtn);
+    footer.appendChild(cancelBtn);
+
+    sheet.appendChild(handle);
+    sheet.appendChild(title);
+    sheet.appendChild(body);
+    sheet.appendChild(footer);
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+
+    requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+        requestAnimationFrame(() => {
+            sheet.classList.add('open');
+        });
+    });
+
+    function closeSheet() {
+        sheet.classList.remove('open');
+        overlay.style.opacity = '0';
+        document.body.style.overflow = '';
+        setTimeout(() => { sheet.remove(); overlay.remove(); }, 300);
+    }
+    overlay.addEventListener('click', closeSheet);
+    cancelBtn.addEventListener('click', closeSheet);
+    importBtn.addEventListener('click', () => {
+        if (!selectedSectionId) {
+            showToast('Please select a section', 'error');
+            return;
+        }
+        closeSheet();
+        importRedditBookmarks(selectedSectionId);
     });
 }
 
@@ -2788,7 +3011,6 @@ function applyStaggeredAnimation(selector, classToAdd, delayBetween = 10) {
 let mediaObserver = null;
 
 function setupMediaVisibilityOptimization() {
-    if (isMobile()) return;
     // Clean up existing observer if it exists
     if (mediaObserver) {
         mediaObserver.disconnect();
@@ -2951,6 +3173,7 @@ async function showSectionsAntepage(skipHistoryPush = false) {
     for (const section of sectionsData.sections) {
         const card = document.createElement('div');
         card.className = 'section-card section-card-hidden';
+        if (section.over_18) card.classList.add('nsfw');
         card.onclick = () => loadSectionContent(section.section_id);
         card.setAttribute('data-permalink', section.permalink);
 
@@ -3025,6 +3248,7 @@ async function showSectionsAntepage(skipHistoryPush = false) {
 
         // Replace loading animation with content
         const resultsContainer = document.getElementById('bookmarks-results');
+
         resultsContainer.innerHTML = '';
         resultsContainer.appendChild(grid);
 
@@ -3137,6 +3361,8 @@ function loadSharedContent(shareCode, isLoadMore = false) {
                 hasMoreSharedContent = true;
             }
 
+            syncScrollLoader(data.section);
+
             isLoading = false;
 
             setTimeout(() => {
@@ -3144,7 +3370,6 @@ function loadSharedContent(shareCode, isLoadMore = false) {
                     setupDropdownEvents();
                 });
                 setupMediaVisibilityOptimization();
-                positionScrollIndicator();
             }, 150);
 
         })
@@ -3363,7 +3588,7 @@ function buildMobileSectionHeader(sectionId, name, totalCount, resultsContainer)
             disableMobileOrganize(sectionId);
         }
     });
-    header.querySelector('#mobileImportBtn').addEventListener('click', () => initiateRedditLogin());
+    header.querySelector('#mobileImportBtn').addEventListener('click', () => showMobileImportDialog());
     header.querySelector('#mobileSectionInfoBtn').addEventListener('click', () => showSectionInfo());
     header.querySelector('.mobile-section-more-btn').addEventListener('click', async () => {
         const result = await showSectionMoreMenu(sectionId, name);
@@ -3465,9 +3690,27 @@ function afterSectionRender(sectionId) {
         }, 150);
     }
 
-    setTimeout(() => {
-        positionScrollIndicator();
-    }, 150);
+}
+
+function syncScrollLoader(sectionId) {
+    let indicator = document.querySelector('.scroll-container-minimal');
+    if (!indicator) {
+        const resultsContainer = document.getElementById('bookmarks-results');
+        if (!resultsContainer) return;
+        resultsContainer.insertAdjacentHTML('afterend', `
+            <div class="scroll-container-minimal" style="display:none;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </div>
+        `);
+        indicator = document.querySelector('.scroll-container-minimal');
+    }
+    if (hasMoreBookmarks[sectionId] || hasMoreSharedContent) {
+        if (!isMobile()) indicator.style.display = 'flex';
+    } else {
+        indicator.style.display = 'none';
+    }
 }
 
 async function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = false) {
@@ -3538,6 +3781,8 @@ async function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = 
             sectionOffsets[sectionId] += 10;
             hasMoreBookmarks[sectionId] = true;
         }
+
+        syncScrollLoader(sectionId);
 
         isLoading = false;
     } catch (error) {

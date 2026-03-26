@@ -2056,6 +2056,11 @@ app.get('/api/sections/with-previews', async (req, res) => {
 
         result.rows.forEach(row => {
             row.bookmark_count = countMap[row.section_id] || 0;
+
+            if (row.media_metadata && row.gallery_data?.items?.[0]?.media_id) {
+                const firstKey = row.gallery_data.items[0].media_id;
+                row.media_metadata = { [firstKey]: row.media_metadata[firstKey] };
+            }
         });
 
         res.json({ sections: result.rows });

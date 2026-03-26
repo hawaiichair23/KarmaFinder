@@ -17,7 +17,7 @@
 
     --comments-bg-mobile: #ebebf3;
     --button-bg-mobile: #ececf5;
-    --topbar-mobile: #f1f3f7;
+    --topbar-mobile: #f4f6f9;
 
     /* Text Colors */
     --text-color: #1a1a1b;
@@ -562,14 +562,9 @@ input:checked+.slider:before {
     padding: 15px 16px;
     padding-top: 4px;
     padding-left: 14px;
-    border-bottom: 1px solid var(--border-color);
     color: var(--text-secondary);
     pointer-events: none;
     -webkit-tap-highlight-color: transparent;
-}
-
-body.forest-theme .suggestions-subreddit-banner {
-    border-bottom: 1px solid var(--border-dark);
 }
 
 .ssb-remove {
@@ -706,6 +701,10 @@ body.suggestions-active #mobile-suggestions {
 body.suggestions-active #mobile-suggestions div {
     width: 100% !important;
     box-sizing: border-box;
+}
+
+body.has-results .suggestions-subreddit-banner {
+    box-shadow: inset 0 -1px 0 var(--border-color);
 }
 
 .suggestions-active .mobile-top-bar {
@@ -2088,7 +2087,7 @@ body.forest-theme .link-preview-btn {
 }
 
 body.bluebird-theme .link-preview-btn {
-    background-color: var(--button-bg);
+    background-color: var(--hover-bg);
     border: 1px solid var(--border-color);
 }
 
@@ -2300,6 +2299,11 @@ body[data-layout="compact"].safe-search-enabled .nsfw .image-wrapper img,
 body[data-layout="compact"].safe-search-enabled .nsfw .image-wrapper video,
 body[data-layout="compact"].safe-search-enabled .nsfw .image-wrapper .thumbnail {
     filter: blur(10px);
+}
+
+body.safe-search-enabled .section-card.nsfw .image-wrapper img,
+body.safe-search-enabled .section-card.nsfw .image-wrapper video {
+    filter: blur(28px);
 }
 
 /* =================================
@@ -2907,8 +2911,8 @@ body.comfy-mode .gallery-counter {
 }
 
 .swal2-popup {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    border-radius: 10px;
+    font-family: 'Lato', 'sans-serif';
+    border-radius: 1rem;
     background-color: var(--card-color);
     color: var(--text-color);
     --swal2-action-button-focus-box-shadow: none !important;
@@ -2916,30 +2920,35 @@ body.comfy-mode .gallery-counter {
 }
 
 .swal2-confirm {
-    background-color: #3b82f6;
-    border-radius: 6px;
+    background-color: #007bff;
+    font-family: 'Lato', 'sans-serif';
+    border-radius: 1rem;
     transition: filter 0.15s ease-in-out;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     font-weight: 600;
 }
 
 .swal2-cancel {
-    border-radius: 6px;
+    font-family: 'Lato', 'sans-serif';
+    border-radius: 1rem;
     transition: filter 0.15s ease-in-out;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     font-weight: 600;
 }
 
 body.dark-mode .swal2-confirm {
-    background-color: #006ec3;
+    font-family: 'Lato', 'sans-serif';
+    border-radius: 1rem;
+    background-color: #007bff;
 }
 
 .swal2-confirm:hover {
-    background-color: #006ec3;
+    font-family: 'Lato', 'sans-serif';
+    border-radius: 1rem;
+    background-color: #007bff;
 }
 
 body.dark-mode .swal2-confirm:hover {
-    background-color: #0062ac;
+    border-radius: 1rem;
+    background-color: #007bff;
 }
 
 body.dark-mode .swal2-popup {
@@ -2955,14 +2964,14 @@ body.dark-mode .swal2-popup {
     font-size: 1.2rem;
     font-weight: 400;
     color: var(--text-color) !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Lato', 'sans-serif';
     border: 1px solid var(--border-color);
     background-color: var(--input-bg);
     box-shadow: none;
 }
 
 .swal2-input:focus {
-    outline: 1px solid #3b82f6;
+    outline: 1px solid #007bff;
     box-shadow: none !important;
 }
 
@@ -3573,7 +3582,7 @@ body.forest-theme .link-preview-btn:hover {
         display: flex;
         flex-direction: column;
         padding-left: 3px;
-        padding-right: 2px;
+        padding-right: 5px;
         padding-top: 5px;
         padding-bottom: 5px;
         transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -3623,7 +3632,6 @@ body.forest-theme .link-preview-btn:hover {
         padding-right: 5px;
         padding-top: 3px;
         padding-bottom: 3px;
-        margin-right: 3px;
     }
 
     .mobile-search-row .search-input-container {
@@ -3681,7 +3689,7 @@ body.forest-theme .link-preview-btn:hover {
     }
 
     body[data-page='subreddit'] .mobile-search-row {
-        padding-left: 11px;
+        padding-left: 10px;
         padding-right: 11px;
         padding-top: 14px;
     }
@@ -3698,6 +3706,7 @@ body.forest-theme .link-preview-btn:hover {
         width: 39px;
         height: 39px;
         padding: 0;
+        margin-right: -2px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -3969,6 +3978,13 @@ body.forest-theme .link-preview-btn:hover {
 
     #mobileDarkToggle::before {
         background-image: url('../assets/moon2.png');
+    }
+
+    #mobilePaletteBtn::before {
+        width: 23px;
+        height: 23px;
+        left: 14px;
+        bottom: 13px;
     }
 
     body.forest-theme #mobileDarkToggle::before {
@@ -4404,7 +4420,7 @@ body.forest-theme .link-preview-btn:hover {
 
     .result-image {
         width: 100% !important;
-        max-height: 360px;
+        max-height: 350px;
         object-fit: cover;
         border-radius: 0px;
     }
@@ -4736,12 +4752,6 @@ body.dark-mode .comment-icon-img {
     font-family: 'Lato', sans-serif;
 }
 
-.section-picker-create-btn:hover,
-.section-picker-create-btn:active {
-    filter:brightness(0.5);
-    transition: color 0.15s ease;
-}
-
 /* Subreddit View */
 #screen-subreddit {
     max-width: var(--container-max-width);
@@ -4762,20 +4772,20 @@ body.dark-mode #subreddit-header {
 
 .subreddit-banner {
     width: 100%;
-    height: 115px;
+    height: 108px;
     background-size: cover;
     background-position: center;
     border-radius: 12px;
     position: relative;
     display: flex;
     align-items: flex-end;
-    padding: 12px;
+    padding: 10px;
     box-sizing: border-box;
 }
 
 .subreddit-icon-large {
-    width: 56px;
-    height: 56px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     background-size: cover;
     background-position: center;

@@ -142,8 +142,8 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
         };
 
         const preloadAllImages = () => {
-            // Preload 2 back, current, and 5 forward
-            for (let i = -2; i <= 5; i++) {
+            // Preload 1 back, current, and 1 forward
+            for (let i = -1; i <= 1; i++) {
                 const index = (currentIndex + i + totalImages) % totalImages;
                 if (!preloadedImages[index]) {
                     const item = galleryData[index];
@@ -255,6 +255,7 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
                 }
 
                 currentIndex = targetIndex;
+                imgWrapper.currentIndex = currentIndex;
                 updateCounter();
 
                 newImg.offsetHeight;
@@ -1168,7 +1169,7 @@ class ModalGallery {
             height: ${this._isMobile ? '30vh' : '500px'};
             
             border-radius: ${this._isMobile ? '0' : '25px'};
-            background: rgba(128,128,128,0.3);
+            background: none;
             overflow: hidden;
         `;
 
