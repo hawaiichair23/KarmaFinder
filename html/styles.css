@@ -1121,7 +1121,7 @@ body.forest-theme .result-subreddit {
 
 .result-title {
     font-size: 1.2rem;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
     font-weight: 600;
     color: var(--text-primary);
     display: -webkit-box;
@@ -4679,7 +4679,6 @@ body.forest-theme .link-preview-btn:hover {
     }
 
     [data-layout="compact"] .comments-section   { display: none !important; }
-    [data-layout="compact"] .result-content     { display: none !important; }
     [data-layout="compact"] .result-time-bottom { display: none !important; }
     [data-layout="compact"] .result-meta-text-group { gap: 4px; }
     [data-layout="compact"] .result-subreddit      { flex-shrink: 0; }
@@ -4693,6 +4692,11 @@ body.forest-theme .link-preview-btn:hover {
     [data-layout="compact"] .result-title {
         font-size: 1rem;
         -webkit-line-clamp: 3;
+    }
+
+    [data-layout="compact"] .result-content {
+        font-size: 0.9rem;
+        -webkit-line-clamp: 2;
     }
 
 .section-picker-item .image-wrapper,

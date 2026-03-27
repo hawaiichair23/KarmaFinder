@@ -98,8 +98,8 @@
         let isScrambled = false;
         let searchCount = parseInt(localStorage.getItem('searchCount')) || 0;
         let isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-        let currentPageIndex = 0;
         let currentTab = 'home';
+        const tabScrollY = {};
         let lastSearchAreaTab = 'search';
         let lastSubredditState = null;
         let lastSubredditOriginTab = null;
@@ -107,6 +107,11 @@
         let cameFromSearchBack = false;
         let lastSearchState = null;
         let lastHomeState = null;
+        const tabState = {
+            home:      { after: null, before: null, pageIndex: 0 },
+            search:    { after: null, before: null, pageIndex: 0 },
+            subreddit: { after: null, before: null, pageIndex: 0 }
+        };
         let isRestoringHome = false;
         let lastBookmarksAreaTab = 'bookmarks';
         let navStack = [];
@@ -121,6 +126,7 @@
         let currentAfter = null;
         let currentBefore = null;
         let isLoading = false;
+        let isScrollLoad = false;
         let cachedFirstSectionId = null;
 
         // ─── Navigation system ─────────────────────────────────────────────────────
@@ -154,7 +160,6 @@
                 sort: p.get('sort') || 'hot',
                 time: p.get('time') || 'all',
                 contentType: p.get('type') || 'all',
-                pageIndex: parseInt(p.get('pi'), 10) || 0,
                 after: p.get('after') || null,
                 before: p.get('before') || null,
                 sectionId: parseInt(p.get('section'), 10) || null,
@@ -170,8 +175,7 @@
             if (state.sort && state.sort !== 'hot') p.set('sort', state.sort);
             if (state.time && state.time !== 'all') p.set('time', state.time);
             if (state.contentType && state.contentType !== 'all') p.set('type', state.contentType);
-            if (state.pageIndex > 0) p.set('pi', state.pageIndex);
-            if (state.after && state.pageIndex > 0) p.set('after', state.after);
+            if (state.after) p.set('after', state.after);
             if (state.tab === 'bookmarks' && state.sectionId) p.set('section', state.sectionId);
             const str = p.toString();
             return str ? `/?${str}` : '/';
@@ -193,7 +197,6 @@
         window.navigateReplace = navigateReplace;
 
         function renderForState(state, isBack = true) {
-            saveTabScroll(currentTab);
 
             // Reset content type when leaving search
             if (currentTab === 'search' && state.tab !== 'search') {
@@ -207,8 +210,6 @@
             }
 
             Object.assign(appState, state);
-            currentTab = state.tab;
-            currentPageIndex = state.pageIndex;
             currentAfter = state.after;
             currentBefore = state.before;
 
@@ -324,7 +325,7 @@
                 }
             }, 0);
 
-            updatePagination();
+            if (!isMobile()) syncScrollLoader();
 
             // Clean up
             delete window.preloadedSearchData;
@@ -397,13 +398,8 @@
             }
         }
 
-        function loadPaginationState() {
-            const params = new URLSearchParams(window.location.search);
-            const pageIndex = parseInt(params.get('page'), 10);
-            currentPageIndex = isNaN(pageIndex) ? 0 : pageIndex;
-            currentAfter = params.get('after') || null;
-            currentBefore = params.get('before') || null;
-        }
+
+
 
         window.addEventListener('popstate', () => {
             Object.assign(appState, stateFromURL());
@@ -426,7 +422,6 @@
 
             const subreddit = subredditInput.value.trim();
             searchButton.style.backgroundImage = "url('/assets/search-pressed.png')";
-            currentPageIndex = 0;
 
             // Check blocklist 
             if (subreddit && bannedSubreddits.includes(subreddit.toLowerCase())) {
@@ -697,7 +692,6 @@
                     const searchTerm = searchInput.value.trim();
 
                     searchButton.style.backgroundImage = "url('/assets/search-pressed.png')";
-                    currentPageIndex = 0;
 
                     // **BLOCKLIST CHECK**
                     if (subreddit && bannedSubreddits.includes(subreddit.toLowerCase())) {
@@ -1113,8 +1107,6 @@
         if (sortSelect) {
             sortSelect.addEventListener('change', () => {
                 currentFilters.sort = sortSelect.value;
-        
-                currentIndex = 0;
                 handleSearchRequest();
             });
         }
@@ -1122,9 +1114,6 @@
         if (timeSelect) {
             timeSelect.addEventListener('change', () => {
                 currentFilters.time = timeSelect.value;
-        
-                // Reset pagination state
-                currentIndex = 0;
                 handleSearchRequest();
             });
         }
@@ -1154,8 +1143,6 @@
         if (contentSelect) {
             contentSelect.addEventListener('change', () => {
                 currentFilters.contentType = contentSelect.value;
-                // Reset pagination state
-                currentIndex = 0;
                 handleSearchRequest();
             });
         }
@@ -2462,8 +2449,7 @@
                 }
             }
 
-            // Reset page index and history for new search
-            currentPageIndex = 0;
+            // Reset for new search
             resetSortToHot();
             window.dispatchEvent(new Event('search-started'));
             handleSearchRequest();
@@ -2565,7 +2551,6 @@
                             "Zilch.",
                             "No can do."
                         ]);
-                        getPaginationContainer().innerHTML = '';
                         return;
                     }
 
@@ -2587,16 +2572,14 @@
                     currentAfter = paginationToken;
                     currentBefore = null;
 
-                    // Save history
-                    savePaginationState(initialResults);
+
                     // Store for scrollination
                     currentVectorResults = allResults;
                     currentVectorOffset = 10;
                     hasMoreVectorResults = allResults.length > 10;                    
                     handleSearchResults(initialResults);
-                    getPaginationContainer().innerHTML = '';
                     if (!navigateBack) {
-                        Object.assign(appState, { after: currentAfter, before: currentBefore, pageIndex: currentPageIndex });
+                        Object.assign(appState, { after: currentAfter, before: currentBefore });
                         history.replaceState({}, '', urlFromState(appState));
                     }
                     // Create vector scroll indicator 
@@ -2672,9 +2655,6 @@
                 }
             };
             window.addEventListener('scroll', vectorScrollHandler);
-            setTimeout(() => {
-                getPaginationContainer().innerHTML = '';
-            }, 1000);
         }
 
         function positionVectorScrollIndicator() {
@@ -2790,9 +2770,8 @@
                 if (indicator) indicator.remove();
             }
 
-            // Reset pagination if new progressive search (not paginating)
-            if (!navigateBack && searchType === 'progressive' && after === null) {
-                currentPageIndex = 0;
+            // Reset pagination for any new search (not paginating or navigating back)
+            if (!navigateBack && after === null) {
                 currentAfter = null;
                 currentBefore = null;
             }
@@ -2808,28 +2787,12 @@
             }
         }
 
-        function tryRestoreFromCache(matchFilters = null) {
-            const cachedPage = loadPageDataFromSession(currentPageIndex);
-            if (!cachedPage?.results?.length) return false;
-            if (cachedPage._savedAt && Date.now() - cachedPage._savedAt > 7 * 60 * 1000) return false;
-            if (matchFilters && !matchFilters(cachedPage)) return false;
 
-            currentAfter = cachedPage.after || null;
-            currentBefore = cachedPage.before || null;
-            displayResults(cachedPage.results);
-            if (cachedPage.results.length > 0) preloadBookmarks();
-            updatePagination();
-            window.scrollTo(0, 0);
-            return true;
-        }
+
 
         async function performProgressiveSearch(after = null, before = null, navigateBack = false) {
 
-            showLoading(getResultsContainer());
-
-            if (navigateBack) {
-                if (tryRestoreFromCache()) return;
-            }
+            if (!isScrollLoad) showLoading(getResultsContainer());
 
             const filters = currentFilters;
             const query = filters.query?.trim() || '';
@@ -2878,7 +2841,7 @@
             currentFilters.query = filters.query; currentFilters.subreddit = filters.subreddit; currentFilters.sort = filters.sort; currentFilters.time = filters.time; currentFilters.contentType = filters.contentType;
             currentBefore = null;
             currentAfter = paginationToken;
-            Object.assign(appState, { after: currentAfter, before: currentBefore, pageIndex: currentPageIndex, contentType: filters.contentType });
+            Object.assign(appState, { after: currentAfter, before: currentBefore, contentType: filters.contentType });
             handleSearchResults(finalResults, { skipURL: true });
             if (currentTab === 'search') lastSearchState = { ...appState };
         }
@@ -2901,21 +2864,37 @@
 
     function handleSearchResults(filtered) {
         isRestoringHome = false;
-        saveAfterToken(currentFilters, currentPageIndex, currentAfter);
-        savePaginationState(filtered);
-        displayResults(filtered);
+        const append = isScrollLoad;
+        isScrollLoad = false;
+        displayResults(filtered, append);
         if (filtered.length > 0) preloadBookmarks();
-        window.scrollTo(0, 0);
+    }
+
+    function setupSearchScrollListener() {
+        window.addEventListener('scroll', function() {
+                if (currentTab !== 'search' && currentTab !== 'subreddit' && currentTab !== 'home') return;
+            if (!currentAfter || isLoading) return;
+            const distanceFromBottom = document.body.offsetHeight - (window.scrollY + window.innerHeight);
+            if (distanceFromBottom <= 100) {
+                isLoading = true;
+                isScrollLoad = true;
+                handleSearchRequest(currentAfter, null, false, true);
+            }
+        });
     }
 
     function commitSearchState(navigateBack) {
         if (!navigateBack) {
-            Object.assign(appState, { tab: currentTab, after: currentAfter, before: currentBefore, pageIndex: currentPageIndex });
+            Object.assign(appState, { tab: currentTab, after: currentAfter, before: currentBefore });
             if (isMobile()) {
                 history.replaceState({}, '', urlFromState(appState));
             } else {
                 history.pushState({}, '', urlFromState(appState));
             }
+        }
+        if (tabState[currentTab]) {
+            tabState[currentTab].after = currentAfter;
+            tabState[currentTab].before = currentBefore;
         }
         if (currentTab === 'home') lastHomeState = { ...appState };
         if (currentTab === 'search') lastSearchState = { ...appState };
@@ -2927,7 +2906,6 @@
         const searchToken = activeQueryToken;
 
         if (navigateBack) {
-            if (tryRestoreFromCache()) return;
             const f = getFiltersFromURL();
             currentFilters.query = f.query; currentFilters.subreddit = f.subreddit; currentFilters.sort = f.sort; currentFilters.time = f.time; currentFilters.contentType = f.contentType;
         }
@@ -2937,14 +2915,6 @@
         const sort = currentFilters.sort || 'hot';
         const time = currentFilters.time || 'all';
         const limit = 10;
-
-        // Clear tokens if we're on front page
-        if (currentPageIndex === 0) {
-            currentAfter = null;
-            currentBefore = null;
-            after = null;
-            before = null;
-        }
 
         // Set tokens
         if (!navigateBack) {
@@ -2959,7 +2929,7 @@
             saveRecentSubreddit(subreddit);
         }
 
-        const tokenForThisPage = buildCacheKey(currentPageIndex === 0 ? 'page_1' : currentAfter, currentFilters);
+        const tokenForThisPage = buildCacheKey(after || 'page_1', currentFilters);
         const finalUrl = buildRedditUrl(query, subreddit, sort, time, limit, currentAfter, currentBefore);
 
         const params = new URLSearchParams();
@@ -2970,7 +2940,7 @@
         if (after) params.append('after', after);
         params.append('limit', limit.toString());
 
-        showLoading(getResultsContainer());
+        if (!isScrollLoad) showLoading(getResultsContainer());
 
         try {
             // Attempt DB fetch first
@@ -3017,6 +2987,8 @@
             commitSearchState(navigateBack);
 
         } catch (err) {
+            isLoading = false;
+            isScrollLoad = false;
             console.error("Search error:", err);
             showError("Something went wrong. Please try again.");
         }
@@ -3305,15 +3277,8 @@
             return { resultContent, snippet };
         }
 
-        const getPaginationContainer = () => {
-            if (document.body.getAttribute('data-page') === 'search' && window.innerWidth <= 1024) {
-                return document.getElementById('search-pagination');
-            }
-            if (document.body.getAttribute('data-page') === 'subreddit') {
-                return document.getElementById('subreddit-pagination');
-            }
-            return document.getElementById('pagination');
-        };
+
+
 
         const getResultsContainer = () => {
             if (currentTab === 'search') return document.getElementById('search-results');
@@ -3545,7 +3510,7 @@
                 document.body.classList.add('has-results');
                 requestAnimationFrame(moveTabIndicator);
             }
-            updatePagination();
+            if (!isMobile()) syncScrollLoader();
 
             const allCards = resultsContainer.querySelectorAll('.result-card');
             const visibleCards = Array.from(allCards).filter(card =>
@@ -3554,7 +3519,6 @@
             const isBookmarksPage = urlParams.get('page') === 'bookmarks';
             if (visibleCards.length === 0 && !isBookmarksPage) {     
                     noResultsMessage();
-                    getPaginationContainer().innerHTML = '';
                 return;
             }
         }
@@ -3705,7 +3669,6 @@
 
         function showError(message) {
             const resultsContainer = getResultsContainer();
-            const paginationContainer = getPaginationContainer();
             resultsContainer.innerHTML = '';
 
             if (currentTab === 'search' && currentFilters.subreddit) {
@@ -3727,7 +3690,6 @@
             resultsContainer.insertAdjacentHTML('beforeend', `<div class='results-error'><p>${message}</p></div>`);
             resultsContainer.style.opacity = 0;
             applyStaggeredAnimation('.results-error', 'visible', 60);
-            paginationContainer.innerHTML = '';
 
             setTimeout(() => {
                 resultsContainer.style.transition = 'opacity 0.3s ease';
@@ -3887,85 +3849,23 @@
             return null;
         }
         
-        function updatePagination() {
-            const container = getPaginationContainer();
-            const visibleCards = document.querySelectorAll('.result-card:not([style*="display: none"])');
-            container.innerHTML = '';
 
-            // ← Previous button
-            if (currentPageIndex > 0) {
-                const prevButton = document.createElement('button');
-                prevButton.className = 'pagination-button prev-button';
-                prevButton.textContent = 'Back';
-                prevButton.addEventListener('click', () => {
-                    currentPageIndex--;
-                    appState.pageIndex = currentPageIndex;
-                    history.replaceState({}, '', urlFromState(appState));
-                    handleSearchRequest(null, null, true, true);
-                });
-                container.appendChild(prevButton);
-            }
 
-            // → Next button
-            if (visibleCards.length >= 10 && currentAfter) {
-                const nextButton = document.createElement('button');
-                nextButton.className = 'pagination-button next-button';
-                nextButton.textContent = 'Next';
-                nextButton.addEventListener('click', () => {
-                    navigate({ pageIndex: currentPageIndex + 1, after: currentAfter, before: null });
-                });
-                container.appendChild(nextButton);
-            }
-        }
 
-        function getCacheKey(index, filters) {
-            return `kf_page_${index}__${buildCacheKey('base', filters)}`;
-        }
 
-        function savePageDataToSession(index, data) {
-            const filters = currentFilters || getCurrentFiltersFromUI();
-            const token = `kf_page_${index}__base__${buildCacheKey('', filters)}`;
-            sessionStorage.setItem(token, JSON.stringify({ ...data, _savedAt: Date.now() }));
-        }
 
-        function loadPageDataFromSession(index) {
-            const filters = currentFilters || getCurrentFiltersFromUI();
-            const token = `kf_page_${index}__base__${buildCacheKey('', filters)}`;
-            const raw = sessionStorage.getItem(token);
-            return raw ? JSON.parse(raw) : null;
-        }
 
-        function savePaginationState(results = []) {
-            // Save full page data
-            savePageDataToSession(currentPageIndex, {
-                query: currentFilters.query,
-                subreddit: currentFilters.subreddit,
-                sort: currentFilters.sort,
-                time: currentFilters.time,
-                contentType: currentFilters.contentType,
-                after: currentAfter,
-                before: currentBefore,
-                nextBefore: results.length > 0 ? `t3_${results[0].id}` : null,
-                results,
-                toggle1: document.getElementById('toggle1')?.checked || false,
-                toggle2: document.getElementById('toggle2')?.checked || false,
-                safeSearch: document.getElementById('safesearch-select')?.value || 'on'
-            });
 
-            // Save tokens for prev button
-            const state = JSON.parse(sessionStorage.getItem('paginationState') || '{}');
-            state[currentPageIndex] = { after: currentAfter, before: currentBefore };
-            sessionStorage.setItem('paginationState', JSON.stringify(state));
 
-            // Save global state
-            sessionStorage.setItem('kf_current_page_index', currentPageIndex.toString());
-            sessionStorage.setItem('kf_current_filters', JSON.stringify(currentFilters));
-        }
 
-        function getPaginationToken(index) {
-            const state = JSON.parse(sessionStorage.getItem('paginationState') || '{}');
-            return state[index] || {};
-        }
+
+
+
+
+
+
+
+
 
         function formatTimestamp(timestamp) {
             const date = new Date(timestamp * 1000);
@@ -4866,19 +4766,10 @@
                 .catch(err => console.error('Failed to load subreddit info:', err));
         }
 
-        const tabScrollPositions = {};
-
-        function saveTabScroll(tab) {
-            tabScrollPositions[tab] = window.scrollY;
-        }
-
-        function restoreTabScroll(tab) {
-            requestAnimationFrame(() => {
-                window.scrollTo(0, tabScrollPositions[tab] || 0);
-            });
-        }
-
         function switchTab(tab) {
+            // Save scroll position of current tab
+            tabScrollY[currentTab] = window.scrollY;
+
             // Reset content type filter when leaving search
             if (currentTab === 'search' && tab !== 'search') {
                 currentFilters.contentType = 'all';
@@ -4902,9 +4793,6 @@
             // Show the right one
             const screen = document.getElementById('screen-' + tab);
             if (screen) screen.classList.add('active');
-
-            // Restore scroll position for this tab
-            restoreTabScroll(tab);
 
             // Manage data-page attribute for search
             if (tab === 'search') {
@@ -4936,6 +4824,12 @@
 
             currentTab = tab;
             window.currentTab = tab;
+            isLoading = false;
+            isScrollLoad = false;
+            if (tabState[tab]) {
+                currentAfter = tabState[tab].after;
+                currentBefore = tabState[tab].before;
+            }
             if (tab === 'search' || tab === 'subreddit') lastSearchAreaTab = tab;
             if (tab === 'bookmarks') lastBookmarksAreaTab = tab;
             sessionStorage.setItem('kf_current_tab', tab);
@@ -4953,19 +4847,22 @@
             const bottomTab = tab === 'subreddit' ? 'search' : tab;
             const activeItem = document.querySelector(`.bottom-bar-item[data-tab="${bottomTab}"]`);
             if (activeItem) activeItem.classList.add('active');
-        }
 
+            // Restore scroll position for new tab
+            setTimeout(() => {
+                window.scrollTo(0, tabScrollY[tab] || 0);
+            }, 0);
+        }
+        
         function restoreLastHomeArea() {
             const homeResults = document.getElementById('results');
             if (homeResults && homeResults.children.length > 0 && lastHomeState) {
-                currentPageIndex = lastHomeState.pageIndex || 0;
                 currentAfter = lastHomeState.after || null;
                 currentBefore = lastHomeState.before || null;
                 const cleanState = { ...lastHomeState, contentType: 'all' };
                 Object.assign(appState, cleanState);
                 history.replaceState({}, '', urlFromState(cleanState));
                 switchTab('home');
-                restoreTabScroll('home');
                 return;
             }
             isRestoringHome = true;
@@ -5069,6 +4966,20 @@
             if (currentTab === 'subreddit') {
                 navStack.push({ screen: 'subreddit', subreddit: currentFilters.subreddit });
             }
+            activeQueryToken++;
+            if (lastSearchState) {
+                Object.assign(appState, lastSearchState);
+                currentAfter = lastSearchState.after || null;
+                currentBefore = lastSearchState.before || null;
+                const si = document.getElementById('search-input');
+                const msi = document.getElementById('mobile-search-input');
+                if (si) si.value = lastSearchState.query || '';
+                if (msi) msi.value = lastSearchState.query || '';
+            } else {
+                currentAfter = null;
+                currentBefore = null;
+            }
+            history.replaceState({}, '', '/?page=search');
             switchTab(lastSearchAreaTab);
         }
         window.restoreLastSearchArea = restoreLastSearchArea;
@@ -5127,7 +5038,6 @@
         }
 
         function restoreUIState(urlParams) {
-            loadPaginationState();
             applyFiltersToUI(getFiltersFromURL());
             restoreToggleStates();
             document.body.setAttribute('data-layout', localStorage.getItem('mobile-layout') || 'comfy');
@@ -5164,6 +5074,7 @@
             initDropdowns();
             loadCachedPosts();
             renderForState(appState, true);
+            setupSearchScrollListener();
         }
 
         // DOM load wrapper
@@ -5663,7 +5574,6 @@
 
         function showLoading(targetContainer = getResultsContainer()) {
             isLoading = true;
-            getPaginationContainer().innerHTML = '';
             const grid = document.getElementById('explore-grid');
             if (grid) grid.style.display = 'none';
             targetContainer.innerHTML = `
@@ -5679,7 +5589,7 @@
                 });
             }, 10);
 
-            getPaginationContainer().innerHTML = '';
+
             targetContainer.style.opacity = 1;
         }
 
@@ -5969,40 +5879,11 @@
             return posts.filter(post => post.created_utc >= timeCutoff);
         }
 
-        function loadAfterToken(filters, index) {
-            const key = `kf_after_${index}`;
-            const raw = sessionStorage.getItem(key);
-            if (!raw) return null;
 
-            const data = JSON.parse(raw);
-            if (
-                data.query === filters.query &&
-                data.subreddit === filters.subreddit &&
-                data.sort === filters.sort &&
-                data.time === filters.time &&
-                data.contentType === filters.contentType
-            ) {
-                return data.after || null;
-            }
 
-            return null;
-        }
 
-        function saveAfterToken(filters, index, afterToken) {
-            if (!afterToken) return;
 
-            const key = `kf_after_${index}`;
-            const data = {
-                query: filters.query,
-                subreddit: filters.subreddit,
-                sort: filters.sort,
-                time: filters.time,
-                contentType: filters.contentType,
-                after: afterToken
-            };
 
-            sessionStorage.setItem(key, JSON.stringify(data));
-        }
 
 
         function trimRedditPostData(post) {
