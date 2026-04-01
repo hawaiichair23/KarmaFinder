@@ -2643,9 +2643,6 @@ function classifyPostMedia(post, domain) {
 }
 
 function getImageUrl(url) {
-    if (url.includes('i.redd.it') || url.includes('preview.redd.it') || url.includes('v.redd.it')) {
-        return url;
-    }
     return `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(url)}`;
 }
 

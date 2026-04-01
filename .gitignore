@@ -1,8 +1,8 @@
 .env 
 node_modules/
-blocklist.json
 temp/
 *.log 
+backend/server.js
 subslist.js
 populate_posts_embeddings.js
 daddy-bot.js
