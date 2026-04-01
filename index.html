@@ -157,7 +157,7 @@
             
                 <!-- Get Premium - only shows on mobile -->
                 <div class="sidebar-item" style="display: none;">
-                    <button class="sidebar-btn" id="mobileGetPremiumBtn" onclick="window.location.href='/premium'">
+                    <button class="sidebar-btn" id="mobileGetPremiumBtn" onclick="window.open('https://buy.stripe.com/4gM14n5qfeRAdbe4ao5c401', '_blank')">
                         Get Premium
                     </button>
                 </div>
@@ -261,8 +261,8 @@
                 <div class="option-group">
                     <label for="sort-select">Sort By</label>
                     <select id="sort-select">
-                        <option value="relevance" selected>Relevance</option>
                         <option value="hot">Hot</option>
+                        <option value="relevance">Relevance</option>
                         <option value="top">Top</option>
                         <option value="new">New</option>
                     </select>
@@ -289,8 +289,8 @@
                 </div>
 
                 <div class="option-group subreddit-dropdown">
-                    <label for="subreddit-input">Subreddit (optional)</label>
-                    <input type="text" id="subreddit-input" placeholder="e.g., AskReddit">
+                    <label for="subreddit-input">Subreddit</label>
+                    <input type="text" id="subreddit-input" placeholder="AskReddit">
                     <div id="subreddit-suggestions-container">
                         <div id="subreddit-suggestions" class="subreddit-suggestions"></div>
                     </div>
@@ -348,6 +348,10 @@
 
         <div id="screen-subreddit" class="screen">
         <div id="subreddit-header"></div>
+        <div id="subreddit-filter-pills" class="subreddit-filter-pills-row hidden">
+            <button class="filter-pill subreddit-pill" id="subreddit-pill-sort" onclick="openSortSheet()">Hot <img class="pill-arrow" src="/assets/chevron_sort.png" alt=""></button>
+            <button class="filter-pill subreddit-pill" id="subreddit-pill-time" onclick="openTimeSheet()">All time <img class="pill-arrow" src="/assets/chevron_sort.png" alt=""></button>
+        </div>
         <div id="subreddit-results" class="results-container"></div>
         <div id="subreddit-pagination" class="pagination"></div>
         </div>
@@ -414,7 +418,7 @@
         "--button-bg": "#ececf5",
         "--toggle-bg": "#eff1f6",
         "--disabled-opacity": "0.5",
-        "--card-radius": "9px",
+        "--card-radius": "13px",
         "--input-radius": "6px",
         "--container-max-width": "1200px",
         "--image-width": "160px",
@@ -447,7 +451,7 @@
         "--button-bg": "rgb(189, 224, 255)",
         "--toggle-bg": "rgb(237, 242, 252)",
         "--disabled-opacity": "0.5",
-        "--card-radius": "9px",
+        "--card-radius": "13px",
         "--input-radius": "6px",
         "--container-max-width": "1200px",
         "--image-width": "160px",
@@ -480,14 +484,15 @@
         "--button-bg": "rgb(32, 73, 73)",
         "--toggle-bg": "rgb(30, 55, 42)",
         "--disabled-opacity": "0.5",
-        "--card-radius": "9px",
+        "--card-radius": "13px",
         "--input-radius": "6px",
         "--container-max-width": "1200px",
         "--image-width": "160px",
         "--bg-image": "url('/assets/forest.png')",
         "--bg-size": "cover",
-        "--bg-position": "bottom",
+        "--bg-position": "center 24%",
         "--bg-repeat": "repeat-y",
+        "--bg-attachment": "fixed",
         "--github-button svg": "invert(0)"
         },
         

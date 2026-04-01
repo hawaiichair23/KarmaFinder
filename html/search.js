@@ -86,11 +86,6 @@ if (subredditSearchBtn) {
         if (window.KF) KF.openSubredditSearch(currentFilters.subreddit);
     });
 }
-window.addEventListener('search-tab-init', () => {
-    if (typeof window.englishWords !== 'undefined' && mobileSearchInput) {
-        setupSearchSuggestions('mobile-search-input', 'mobile-suggestions', window.englishWords);
-    }
-});
 
 // Handle popstate within search
 window.addEventListener('popstate', () => {

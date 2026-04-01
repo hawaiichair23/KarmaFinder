@@ -87,72 +87,10 @@
 <body>
     <h2>Admin Panel</h2>
 
-    <div id="status" class="status">Loading...</div>
-
-    <h2>Emergency Controls</h2>
-    <button class="emergency-btn" onclick="activateEmergency('json')">
-        🚨 ACTIVATE EMERGENCY (JSON)
-    </button>
-    <button class="emergency-btn" onclick="resetEmergency()">
-        ✅ RESET TO NORMAL
-    </button>
+    <div id="status" class="status normal">✅ Normal Operation</div>
 
     <script>
-
-        async function checkStatus() {
-            try {
-                const response = await fetch('/api/admin/emergency/status', {
-                    headers: { 'x-admin-key': adminKey }
-                });
-                const data = await response.json();
-
-                const statusDiv = document.getElementById('status');
-                if (data.emergencyMode) {
-                    statusDiv.innerHTML = `🚨 EMERGENCY MODE ACTIVE (${data.fallbackMode})`;
-                    statusDiv.className = 'status emergency';
-                } else {
-                    statusDiv.innerHTML = '✅ Normal Operation';
-                    statusDiv.className = 'status normal';
-                }
-            } catch (error) {
-                document.getElementById('status').innerHTML = '❌ Error checking status';
-            }
-        }
-
-        async function activateEmergency(mode) {
-            try {
-                const response = await fetch(`/api/admin/emergency/${mode}`, {
-                    method: 'POST',
-                    headers: { 'x-admin-key': adminKey }
-                });
-                const data = await response.json();
-                alert(data.message);
-                checkStatus();
-            } catch (error) {
-                alert('Error activating emergency mode');
-            }
-        }
-
-        async function resetEmergency() {
-            try {
-                const response = await fetch('/api/admin/emergency/oauth', {
-                    method: 'POST',
-                    headers: { 'x-admin-key': adminKey }
-                });
-                const data = await response.json();
-                alert('Reset to normal mode');
-                checkStatus();
-            } catch (error) {
-                alert('Error resetting');
-            }
-        }
-
-
-        // Check status when page loads
-        checkStatus();
-
-        // Auto-refresh status every 30 seconds
-        setInterval(checkStatus, 30000);
+        // Admin panel ready for future features
     </script>
 </body>
 

@@ -1,17 +1,25 @@
+// Node built-ins
 const fs = require('fs');
-const tmp = require('tmp-promise');
-const { Resend } = require('resend');
+const path = require('path');
+const os = require('os');
 const crypto = require('crypto');
-const rateLimit = require('express-rate-limit');
+const { spawn } = require('child_process');
+const tempDir = path.join(__dirname, 'temp');
+
+// Third-party
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
-const path = require('path');
-const os = require('os');
 const cookieParser = require('cookie-parser');
-const app = express();
+const rateLimit = require('express-rate-limit');
+const redis = require('redis');
+const { Resend } = require('resend');
 
-const API_BASE = 'http://localhost:3000';
+// Local
+const { pool } = require('./db');
+const { scheduleFileDeletion } = require('./cleanup.js');
+const API_BASE = process.env.API_BASE || 'http://localhost:3000';
+const app = express();
 
 app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -40,13 +48,13 @@ app.get('/share/:shareCode', (req, res) => {
     res.sendFile(path.join(__dirname, '../index.html'));
 });
 
-const { execSync } = require('child_process');
-const { scheduleFileDeletion } = require('./cron-cleanup.js');
-const { pool } = require('./db');
-const redis = require('redis');
-
 const redisClient = redis.createClient({
-    url: `redis://default:${process.env.REDIS_API_KEY}@${process.env.REDIS_ENDPOINT}`
+    url: `redis://default:${process.env.REDIS_API_KEY}@${process.env.REDIS_ENDPOINT}`,
+    socket: {
+        reconnectStrategy: (retries) => {
+            return Math.min(retries * 500, 30000);
+        }
+    }
 });
 
 redisClient.on('error', (err) => {
@@ -57,7 +65,6 @@ redisClient.on('connect', () => {
     console.log('✅ Connected to Redis');
 });
 
-// Connect to Redis
 redisClient.connect();
 
 let pc = null;
@@ -176,8 +183,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
         
 require('dotenv').config();
-require('./daddy-bot');
-require('./cron-cleanup');
+require('./cleanup.js');
 
 const Stripe = require('stripe');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -229,9 +235,6 @@ function getNextClient() {
     client.requestCount++;
     return client;
 }
-
-let emergencyMode = process.env.EMERGENCY_MODE === 'true';
-let fallbackMode = process.env.REDDIT_FALLBACK_MODE || 'oauth';
 
 async function requireAdminCookie(req, res, next) {
     const authToken = req.cookies.authToken;
@@ -449,10 +452,6 @@ async function getOGImage(url) {
 }
 
 async function getRedditAppToken(retryCount = 0, maxRetries = 3) {
-    if (emergencyMode) {
-        console.log('⚠️ Emergency mode active, skipping OAuth');
-        return null;
-    }
 
     const client = getNextClient();
 
@@ -527,31 +526,7 @@ function logFetch(url) {
     console.log(`🔁 [${timeString}] Fetching: ${url}`);
 }
 
-let emergencyActivatedAt = null;
-
-function activateEmergency(mode = 'json') {
-    if (mode === 'oauth') {
-        // Reset to normal mode
-        emergencyMode = false;
-        fallbackMode = 'oauth';
-        emergencyActivatedAt = null;
-        console.log('✅ NORMAL MODE RESTORED - Using OAuth');
-    } else {
-        // Emergency mode
-        emergencyMode = true;
-        fallbackMode = mode;
-        emergencyActivatedAt = new Date();
-        console.log(`🚨 EMERGENCY MODE ACTIVATED at ${emergencyActivatedAt.toLocaleString()} - Mode: ${mode}`);
-    }
-}
-
 function logRateInfo(headers, force = false) {
-    if (emergencyMode && emergencyActivatedAt) {
-        console.log(`🚨 Emergency Mode Active (since ${emergencyActivatedAt.toLocaleTimeString()})`);
-        return;
-    }
-
-    // Normal mode rate limiting
     const now = new Date();
     const timeString = now.toLocaleTimeString();
     const used = parseFloat(headers.get("x-ratelimit-used") || "0");
@@ -574,11 +549,6 @@ async function dogFetch(url, options = {}, timeoutMs = 10000) {
         'User-Agent': getCurrentUserAgent(),
         ...(options.headers || {})
     };
-
-    if (emergencyMode) {
-        delete headers.Authorization; // ensure no auth in emergency mode
-        console.log('🚨 Emergency request without auth');
-    }
 
     logFetch(url);
 
@@ -604,33 +574,25 @@ async function dogFetch(url, options = {}, timeoutMs = 10000) {
     }
 }
 
-async function hedgedRedditRequest(url, isEmergencyMode, hedgeDelayMs = 2000) {
+async function hedgedRedditRequest(url, hedgeDelayMs = 2000) {
     const requests = [];
     let token = null;
 
-    // Get token if not in emergency mode
-    if (!isEmergencyMode) {
-        try {
-            token = await getRedditAppToken();
-        } catch (error) {
-            console.error('Token fetch failed in hedgedRequest:', error.message);
-            token = null;
-        }
+    try {
+        token = await getRedditAppToken();
+    } catch (error) {
+        console.error('Token fetch failed in hedgedRequest:', error.message);
+        token = null;
     }
 
-    // Start first request
     const makeRequest = () => {
-        if (isEmergencyMode) {
-            return dogFetch(url);
-        } else {
-            return dogFetch(url, {
-                headers: {
-                    ...headers,
-                    'Authorization': `Bearer ${token}`,
-                    'User-Agent': getCurrentUserAgent()
-                }
-            });
-        }
+        return dogFetch(url, {
+            headers: {
+                ...headers,
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': getCurrentUserAgent()
+            }
+        });
     };
 
     requests.push(makeRequest());
@@ -754,28 +716,22 @@ app.get('/reddit/icons', async (req, res) => {
 
                 await new Promise(resolve => setTimeout(resolve, 5));
 
-                let aboutData;
-                if (emergencyMode) {
-                    const aboutRes = await dogFetch(`https://www.reddit.com/r/${subreddit}/about.json`);
-                    aboutData = await aboutRes.json();
-                } else {
-                    let token;
-                    try {
-                        token = await getRedditAppToken();
-                    } catch (error) {
-                        console.error(`Failed to get token for r/${subreddit}:`, error.message);
-                        icons[subreddit] = null;
-                        continue;
-                    }
-                    const aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
-                        headers: {
-                            ...headers,
-                            'Authorization': `Bearer ${token}`,
-                            'User-Agent': getCurrentUserAgent()
-                        }
-                    });
-                    aboutData = await aboutRes.json();
+                let token;
+                try {
+                    token = await getRedditAppToken();
+                } catch (error) {
+                    console.error(`Failed to get token for r/${subreddit}:`, error.message);
+                    icons[subreddit] = null;
+                    continue;
                 }
+                const aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
+                    headers: {
+                        ...headers,
+                        'Authorization': `Bearer ${token}`,
+                        'User-Agent': getCurrentUserAgent()
+                    }
+                });
+                const aboutData = await aboutRes.json();
 
                 const iconUrl = [
                     aboutData.data?.community_icon,
@@ -830,28 +786,21 @@ app.get('/reddit/subreddit-info', async (req, res) => {
         }
 
         // Fetch from Reddit
-        let aboutData;
-        if (emergencyMode) {
-            console.log(`🚨 Emergency mode: fetching r/${subreddit} info via public JSON`);
-            const aboutRes = await dogFetch(`https://www.reddit.com/r/${subreddit}/about.json`);
-            aboutData = (await aboutRes.json()).data;
-        } else {
-            let token;
-            try {
-                token = await getRedditAppToken();
-            } catch (error) {
-                console.error(`Failed to get token for r/${subreddit}:`, error.message);
-                return res.status(500).json({ error: 'Failed to authenticate with Reddit' });
-            }
-            const aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
-                headers: {
-                    ...headers,
-                    'Authorization': `Bearer ${token}`,
-                    'User-Agent': getCurrentUserAgent()
-                }
-            });
-            aboutData = (await aboutRes.json()).data;
+        let token;
+        try {
+            token = await getRedditAppToken();
+        } catch (error) {
+            console.error(`Failed to get token for r/${subreddit}:`, error.message);
+            return res.status(500).json({ error: 'Failed to authenticate with Reddit' });
         }
+        const aboutRes = await dogFetch(`https://oauth.reddit.com/r/${subreddit}/about`, {
+            headers: {
+                ...headers,
+                'Authorization': `Bearer ${token}`,
+                'User-Agent': getCurrentUserAgent()
+            }
+        });
+        const aboutData = (await aboutRes.json()).data;
 
         // Resolve icon — community_icon first, fall back to icon_img
         let iconUrl = null;
@@ -939,24 +888,10 @@ app.get('/reddit', async (req, res) => {
         }
     }
 
-    // EMERGENCY MODE URL HANDLING
-    if (emergencyMode) {
-        console.log('🚨 Emergency mode: using public Reddit URLs');
-
-        // Check if .json is already in the URL
-        if (!decodedUrl.includes('.json')) {
-            // Add .json before query parameters
-            const [baseUrl, queryString] = decodedUrl.split('?');
-            decodedUrl = queryString ? `${baseUrl}.json?${queryString}` : `${baseUrl}.json`;
-        }
-        // If .json is already there, leave the URL as-is
-
-    } else {
-        // Normal mode: Rewrite www to oauth and remove ALL .json
-        decodedUrl = decodedUrl.replace('https://www.reddit.com', 'https://oauth.reddit.com');
-        decodedUrl = decodedUrl.replace(/\.json\?/, '?'); // Remove .json before query params
-        decodedUrl = decodedUrl.replace(/\.json$/, '');
-    }
+    // Rewrite www to oauth and remove .json
+    decodedUrl = decodedUrl.replace('https://www.reddit.com', 'https://oauth.reddit.com');
+    decodedUrl = decodedUrl.replace(/\.json\?/, '?'); // Remove .json before query params
+    decodedUrl = decodedUrl.replace(/\.json$/, '');
 
     // Try Redis cache first (only for regular Reddit API calls, not subreddit search)
     if (!decodedUrl.includes('subreddits/search.json')) {
@@ -1011,7 +946,7 @@ app.get('/reddit', async (req, res) => {
     try {
         let response;
 
-        response = await hedgedRedditRequest(decodedUrl, emergencyMode);
+        response = await hedgedRedditRequest(decodedUrl);
 
         if (response.status === 429) {
             const now = new Date().toLocaleTimeString();
@@ -1171,9 +1106,10 @@ app.get('/search', async (req, res) => {
             console.error('❌ Cannot perform search - no Reddit token available');
             return res.status(503).send('Reddit authentication temporarily unavailable. Please try again.');
         }
-
-        const oauthUrl = redditUrl.replace('https://www.reddit.com', 'https://oauth.reddit.com');
-        // Add delay between Reddit requests
+        const oauthUrl = redditUrl
+            .replace('https://www.reddit.com', 'https://oauth.reddit.com')
+            .replace(/\.json\?/, '?')
+            .replace(/\.json$/, '');
         await new Promise(resolve => setTimeout(resolve, 5));
         const response = await dogFetch(oauthUrl, {
             headers: {
@@ -1783,6 +1719,11 @@ async function requireAuth(req, res, next) {
         return res.status(500).json({ error: 'Auth check failed' });
     }
 }
+
+app.post('/api/auth/logout', (req, res) => {
+    res.clearCookie('authToken', { httpOnly: true, secure: false, sameSite: 'lax' });
+    res.json({ success: true });
+});
 
 app.use('/api/bookmarks', requireAuth);
 app.use('/api/sections', requireAuth);
@@ -2465,7 +2406,6 @@ app.get('/api/share/:shareCode', async (req, res) => {
         const offset = parseInt(req.query.offset) || 0;
         const limit = parseInt(req.query.limit) || 11;
 
-        // ADD THIS COUNT QUERY HERE:
         const totalCountResult = await pool.query(
             'SELECT COUNT(*) as total FROM bookmarks WHERE section_id = $1',
             [section.id]
@@ -2490,7 +2430,7 @@ app.get('/api/share/:shareCode', async (req, res) => {
         res.json({
             section,
             bookmarks: bookmarks.rows,
-            total_count: parseInt(totalCountResult.rows[0].total), // ADD THIS LINE
+            total_count: parseInt(totalCountResult.rows[0].total), 
             top_subreddit: topSubreddit,
             created_at: section.created_at,
             last_modified: section.last_modified
@@ -2508,7 +2448,7 @@ app.put('/api/sections/:sectionId/description', async (req, res) => {
         const { sectionId } = req.params;
         const { description } = req.body;
 
-        if (!description || typeof description !== 'string') {
+        if (typeof description !== 'string') {
             return res.status(400).json({ error: 'Invalid description' });
         }
 
@@ -2657,9 +2597,6 @@ app.put('/api/sections/:sectionId', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
-const { spawn } = require('child_process');
-const tempDir = path.join(__dirname, 'temp');
 
 // Make sure tempDir exists
 if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
@@ -3066,14 +3003,13 @@ app.get('/proxy-redgifs/*', async (req, res) => {
     }
 });
 
-app.get('/api/subscription/:email', async (req, res) => {
+app.get('/api/subscription/me', requireAuth, async (req, res) => {
     try {
-        const { email } = req.params;
         const subscriptionResult = await pool.query(`
             SELECT user_id, plan_type
             FROM subscriptions
-            WHERE email = $1
-        `, [email]);
+            WHERE user_id = $1
+        `, [req.userId]);
 
         const hasSubscription = subscriptionResult.rows.length > 0;
         const planType = hasSubscription ? subscriptionResult.rows[0].plan_type : null;
@@ -3492,7 +3428,13 @@ app.delete('/api/reddit/disconnect', async (req, res) => {
     }
 });
 
-app.post('/api/auth/magic-link', async (req, res) => {
+const magicLinkLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5,
+    message: { error: 'Too many login attempts, please try again later' }
+});
+
+app.post('/api/auth/magic-link', magicLinkLimiter, async (req, res) => {
     const { email, redirect } = req.body;
 
     try {
@@ -3502,7 +3444,7 @@ app.post('/api/auth/magic-link', async (req, res) => {
         `, [email]);
 
         if (emailCheck.rows.length === 0) {
-            return res.status(404).json({ error: 'No account found with this email address.' });
+            return res.status(200).json({ success: true });
         }
 
         // Generate token
@@ -3597,8 +3539,8 @@ app.post('/api/auth/verify/:token', async (req, res) => {
             res.cookie('authToken', authToken, {
                 httpOnly: true,
                 secure: false,
-                sameSite: 'strict',
-                maxAge: 90 * 24 * 60 * 60 * 1000
+                sameSite: 'lax',
+                expires: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
             });
         }
 
@@ -3863,7 +3805,7 @@ app.post('/api/auto-login-after-payment', async (req, res) => {
             httpOnly: true,
             secure: false,
             sameSite: 'lax',
-            maxAge: 90 * 24 * 60 * 60 * 1000
+            expires: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
         });
 
         console.log(`✅ Auto-login successful for ${email} (${dbSubscription.plan_type})`);
@@ -3924,9 +3866,10 @@ app.post('/verify-token', verifyTokenLimiter, async (req, res) => {
 });
 
 if (STRIPE_ENABLED) {
-app.post('/api/create-checkout', async (req, res) => {
+app.post('/api/create-checkout', requireAuth, async (req, res) => {
     try {
-        const { email } = req.body;
+        const userResult = await pool.query('SELECT email FROM subscriptions WHERE user_id = $1', [req.userId]);
+        const email = userResult.rows[0]?.email;
 
         if (email) {
             const existingSubscription = await pool.query(`
@@ -3974,9 +3917,10 @@ app.post('/api/create-checkout', async (req, res) => {
 }
 
 if (STRIPE_ENABLED) {
-app.post('/api/create-checkout-pro', async (req, res) => {
+app.post('/api/create-checkout-pro', requireAuth, async (req, res) => {
     try {
-        const { email } = req.body;
+        const userResult = await pool.query('SELECT email FROM subscriptions WHERE user_id = $1', [req.userId]);
+        const email = userResult.rows[0]?.email;
 
         if (email) {
             const existingSubscription = await pool.query(`
@@ -4297,19 +4241,6 @@ app.get('/admin', async (req, res) => {
     res.sendFile(filePath);
 });
 
-app.get('/api/admin/emergency/status', requireAdminCookie, (req, res) => {
-    res.json({ emergencyMode, fallbackMode });
-});
-
-app.post('/api/admin/emergency/:mode', requireAdminCookie, (req, res) => {
-    const { mode } = req.params;
-    if (!['json', 'rss', 'oauth'].includes(mode)) {
-        return res.status(400).json({ error: 'Invalid mode' });
-    }
-    activateEmergency(mode);
-    res.json({ success: true, message: `Emergency mode activated: ${mode}` });
-});
-
 app.get('/api/rare-line', (req, res) => {
     const rareChance = Math.random();
     if (rareChance < 0.001) {
@@ -4369,15 +4300,6 @@ async function startServer() {
 }
 
 async function logSystemHealth() {
-    let cpuUsage = 0;
-    try {
-        const cpuOutput = execSync('wmic cpu get loadpercentage /value', { encoding: 'utf8' });
-        const match = cpuOutput.match(/LoadPercentage=(\d+)/);
-        cpuUsage = match ? parseInt(match[1]) : 0;
-    } catch (err) {
-        cpuUsage = 0;
-    }
-
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
     const memUsage = ((totalMem - freeMem) / totalMem) * 100;
@@ -4386,7 +4308,7 @@ async function logSystemHealth() {
     await pool.query(`
        INSERT INTO monitoring_logs (log_level, endpoint, error_message)
        VALUES ($1, $2, $3)
-   `, ['info', '/system', `${now} - CPU: ${cpuUsage}%, Memory: ${memUsage.toFixed(1)}%`]);
+   `, ['info', '/system', `${now} - Memory: ${memUsage.toFixed(1)}%`]);
 }
 
 // Memory monitoring and cleanup

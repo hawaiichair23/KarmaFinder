@@ -134,7 +134,7 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
 
                 if (imageUrl) {
                     const img = new Image();
-                    const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
+                    const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
                     img.onload = () => { preloadedImages[index] = img; };
                     img.src = proxyUrl;
                 }
@@ -158,7 +158,7 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
 
                     if (imageUrl) {
                         const img = new Image();
-                        const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
+                        const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
                         img.onerror = () => {
                             setTimeout(() => {
                                 const retryImg1 = new Image();
@@ -304,13 +304,13 @@ function tryGalleryPatch(fullPost, permalink, resultCard, attempt = 1, skipNavig
                     newImg.src = preloadedImages[targetIndex].src;
                     finalizeImageTransition();
                 }).catch(() => {
-                    const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
+                    const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
                     newImg.onload = () => finalizeImageTransition();
                     newImg.src = proxyUrl;
                 });
             } else {
                 // Fallback to loading on-demand
-                const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}&t=${Date.now()}`;
+                const proxyUrl = `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
 
                 newImg.onload = () => {
                     if (thisNavigationId !== navigationSequence) {
@@ -1206,7 +1206,7 @@ class ModalGallery {
             cursor: ${this._isMobile ? 'default' : 'pointer'};
             
             opacity: 0;
-            transition: opacity 0.2s ease;
+            transition: opacity 0.15s ease;
         `;
 
         return img;
@@ -1247,37 +1247,27 @@ class ModalGallery {
     _showImage(index, direction, preloadedSrc = null) {
         const imageUrl = this._getImageUrl(index);
         if (!imageUrl) return;
-
         this._aborted = false;
         this._pendingLoad = {};
         const thisLoad = this._pendingLoad;
-
         this._updateCounter();
-
         this._slot.innerHTML = '';
         const shimmer = this._createShimmer(direction);
         this._slot.appendChild(shimmer);
-
         const img = this._createImage();
-
         img.onload = () => {
             if (thisLoad !== this._pendingLoad || this._aborted) return;
-
             this._slot.appendChild(img);
-
             requestAnimationFrame(() => {
                 img.style.opacity = '1';
                 shimmer.style.opacity = '0';
                 shimmer.style.transition = 'opacity 0.2s ease';
             });
-
             shimmer.addEventListener('transitionend', () => shimmer.remove(), { once: true });
         };
-
         img.onerror = () => {
             if (thisLoad === this._pendingLoad) this._slot.innerHTML = '';
         };
-
         img.src = preloadedSrc || `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(imageUrl)}`;
     }
 
@@ -2006,6 +1996,7 @@ function setupImageModal(imageWrapper) {
             if (gallery) {
                 imageWrapper.currentIndex = gallery.currentIndex;
                 gallery.destroy();
+                imageWrapper.preloadedImages = {};
             }
 
             // Zoom reset
@@ -2303,7 +2294,7 @@ class ImageHandler {
         }
 
         if (imgContainer && !imgContainer.querySelector('.news-icon')) {
-            showNewsIcon(imgContainer, shimmer); // Your existing function
+            showNewsIcon(imgContainer, shimmer); 
         }
     }
 
@@ -2655,7 +2646,7 @@ function getImageUrl(url) {
     if (url.includes('i.redd.it') || url.includes('preview.redd.it') || url.includes('v.redd.it')) {
         return url;
     }
-    return `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(url)}&t=${Date.now()}`;
+    return `${IMAGE_PROXY_BASE}/image?url=${encodeURIComponent(url)}`;
 }
 
 function getYouTubeThumbnail(url) {

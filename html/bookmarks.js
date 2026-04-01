@@ -148,10 +148,10 @@ function createContextMenu() {
 
 // Basic initialization function for bookmarks page
 async function initBookmarks() {
+    if (window.location.pathname.includes('/share/')) return;
     preloadBookmarks();
     createContextMenu();
     setupContextMenuHandlers();
-    handleBookmarksPI();
     handleRedditAuthParams();
     setupBookmarksScrollListener();
 
@@ -262,7 +262,7 @@ function handleBookmarksPI(bookmarkCount) {
         handleRandomResponse(responses);
     } else if (bookmarkCount >= 20) {
         // 20-99 bookmarks - decent collection
-        const responses = ["Quite the collection you have here.", "This is what they call a body of work.", "Beautiful bookmarks.", "You're a connoisseur, eh?", "Getting serious about organization, I see.", ...generalResponses];
+        const responses = ["Quite the collection.", "This is what they call a body of work.", "Beautiful bookmarks.", "You're a connoisseur, eh?", "Getting serious about organization, I see.", ...generalResponses];
         handleRandomResponse(responses);
     }
 }
@@ -406,28 +406,13 @@ async function insertTabsUI(tabsData) {
             showEmojiPicker(emojiSpan);
         });
         
-        document.addEventListener('contextmenu', () => {
-            const picker = document.getElementById('emojiPicker');
-            if (picker && picker.style.display === 'block') {
-                picker.style.display = 'none';
-                currentEmojiTarget = null;
-            }
-        });
-
-        document.addEventListener('click', function (e) {
-            if (e.target.closest('.section-selector')) {
-                const contextMenu = document.getElementById('contextMenu');
-                if (contextMenu) {
-                    contextMenu.style.display = 'none';
-                }
-            }
-        });
-
         tabContainer.appendChild(newTabElement);
     });
+
+    tabContainer.classList.toggle('multirow', tabsData.length > 8);
         
     // Only add the + button if we have less than 8 tabs
-    if (tabsData.length < 8) {
+    if (tabsData.length < 16) {
         const addSectionBtn = document.createElement('button');
         addSectionBtn.className = 'add-section-btn';
         addSectionBtn.title = 'Add New Section';
@@ -438,10 +423,6 @@ async function insertTabsUI(tabsData) {
         addSectionBtn.addEventListener('click', createNewSection);
     
 
-    if (addSectionBtn) {
-        addSectionBtn.removeEventListener('click', createNewSection);
-        addSectionBtn.addEventListener('click', createNewSection);
-    }
     }
     setupTabEvents();
 }
@@ -547,7 +528,7 @@ function setupTabEvents() {
             const tabNameElement = this.querySelector('.tab-title');
             if (tabNameElement) {
                 const tabName = tabNameElement.textContent;
-                handleTabSpecificPI(tabName);
+                Math.random() < 0.5 ? handleTabSpecificPI(tabName) : handleBookmarksPI();
             }
 
             // Hide scroll indicator when switching tabs
@@ -944,6 +925,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function insertSharedTabUI(sectionData) {
+    if (isMobile()) return;
     let tabContainer = document.querySelector('.tab-container');
     const contentContainer = document.getElementById('bookmarks-results');
 
@@ -1140,7 +1122,7 @@ async function addSectionDropdowns(excludeSectionId = null) {
             </button>
             <div class="section-dropdown" tabindex="0" onkeydown="handleSectionDropdownKeydown(event)">
                 ${sectionOptions}
-                ${userSections.length < 13 && !excludeSectionId ? `
+                ${userSections.length < 16 && !excludeSectionId ? `
                 <div class="section-option create-new" data-section-id="create">
                     <span class="section-emoji">+</span>
                     <span class="section-name">Create New Section</span>
@@ -2362,7 +2344,7 @@ async function showSectionInfo() {
             const response = await fetch(`${API_BASE}/api/share/${shareCode}`);
             const data = await response.json();
             sectionName = data.section.name || 'Unknown';
-            bookmarkCount = data.bookmarks.length;
+            bookmarkCount = data.total_count;
             topSubreddit = data.top_subreddit ? `r/${data.top_subreddit}` : 'None';
             createdDate = data.created_at ? new Date(data.created_at).toLocaleDateString('en-US', {
                 year: 'numeric',
@@ -2404,7 +2386,7 @@ async function showSectionInfo() {
     <div class="section-info-wrap">
         <div class="section-info-header">
             <span class="section-info-title">${sectionName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
-            <span class="section-info-saves">${bookmarkCount} Saves</span>
+<span class="section-info-saves">${bookmarkCount} ${bookmarkCount === 1 ? 'Save' : 'Saves'}</span>
         </div>
         <div class="section-info-stats">
             <div class="section-stat-card">
@@ -2737,7 +2719,7 @@ async function showMobileImportDialog() {
 
     const selectRow = document.createElement('div');
     selectRow.className = 'mobile-import-select-row';
-    selectRow.innerHTML = '<span id="mob-section-label">Select section...</span><img class="chevron">';
+    selectRow.innerHTML = '<span id="mob-section-label">Select section</span><img class="chevron">';
     selectRow.addEventListener('click', async () => {
         const result = await showImportSectionPicker();
         if (result) {
@@ -3204,17 +3186,37 @@ async function showSectionsAntepage(skipHistoryPush = false) {
                 stickied: section.stickied
             };
             const domain = getDomainFromUrl(post.url);
-            const thumbnailURL = getThumbnailUrl(post);
 
-            // Check IndexedDB cache first
-            const cachedUrl = await getCachedSectionImage(section.permalink);
-            const urlToUse = cachedUrl || thumbnailURL;
-            const mediaContainer = createMediaElement(post, urlToUse, domain, card, true);
-            card.appendChild(mediaContainer);
+            if (post.domain && post.domain.startsWith('self.') && !post.preview) {
+                // Text post with no image - show news icon fallback
+                const imgWrapper = document.createElement('div');
+                imgWrapper.className = 'image-wrapper';
 
-            // If not cached, cache it now for next time
-            if (!cachedUrl && thumbnailURL) {
-                cacheSectionImage(section.permalink, thumbnailURL);
+                const newsIcon = document.createElement('div');
+                newsIcon.className = 'news-icon-fallback';
+                newsIcon.setAttribute('aria-label', 'Text post');
+                newsIcon.style.opacity = '0';
+                newsIcon.style.transition = 'opacity 0.3s ease-in-out';
+
+                imgWrapper.appendChild(newsIcon);
+                card.appendChild(imgWrapper);
+
+                setTimeout(() => {
+                    newsIcon.style.opacity = '1';
+                }, 10);
+            } else {
+                const thumbnailURL = getThumbnailUrl(post);
+
+                // Check IndexedDB cache first
+                const cachedUrl = await getCachedSectionImage(section.permalink);
+                const urlToUse = cachedUrl || thumbnailURL;
+                const mediaContainer = createMediaElement(post, urlToUse, domain, card, true);
+                card.appendChild(mediaContainer);
+
+                // If not cached, cache it now for next time
+                if (!cachedUrl && thumbnailURL) {
+                    cacheSectionImage(section.permalink, thumbnailURL);
+                }
             }
         } else {
             // Empty section - show news icon fallback
@@ -3275,7 +3277,7 @@ async function showSectionsAntepage(skipHistoryPush = false) {
 }
 
 // Shared content loader
-function loadSharedContent(shareCode, isLoadMore = false) {
+async function loadSharedContent(shareCode, isLoadMore = false) {
     if (isLoading) return;
 
     const resultsContainer = document.getElementById('bookmarks-results');
@@ -3290,94 +3292,94 @@ function loadSharedContent(shareCode, isLoadMore = false) {
     }
     isLoading = true;
 
-    // Fetch shared content with pagination
-    fetch(`${API_BASE}/api/share/${shareCode}?offset=${sharedContentOffset}&limit=${BOOKMARKS_PER_PAGE}`)
-        .then(response => response.json())
-        .then(data => {
-            // Only insert tab UI on first load
+    try {
+        const response = await fetch(`${API_BASE}/api/share/${shareCode}?offset=${sharedContentOffset}&limit=${BOOKMARKS_PER_PAGE}`);
+        const data = await response.json();
+
+        // Only insert tab UI on first load
+        if (!isLoadMore) {
+            insertSharedTabUI(data.section);
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+
+        if (!data.bookmarks || data.bookmarks.length === 0) {
+            hasMoreSharedContent = false;
             if (!isLoadMore) {
-                insertSharedTabUI(data.section);
-                window.history.replaceState({}, '', window.location.pathname);
+                showError("No bookmarks found in this shared collection.");
             }
-
-            if (!data.bookmarks || data.bookmarks.length === 0) {
-                hasMoreSharedContent = false;
-                if (!isLoadMore) {
-                    showError("No bookmarks found in this shared collection.");
-                }
-                isLoading = false;
-                return;
-            }
-
-            // Only show first 10 bookmarks to user (same logic as loadSectionContent)
-            const bookmarksToShow = data.bookmarks.slice(0, 10);
-
-            const transformedData = {
-                data: {
-                    children: bookmarksToShow.map(bookmark => ({
-                        data: {
-                            id: bookmark.reddit_post_id,
-                            title: bookmark.title,
-                            url: bookmark.url,
-                            permalink: bookmark.permalink,
-                            subreddit: bookmark.subreddit,
-                            score: bookmark.score,
-                            is_video: bookmark.is_video,
-                            domain: bookmark.domain,
-                            author: bookmark.author,
-                            created_utc: bookmark.created_utc,
-                            num_comments: bookmark.num_comments,
-                            over_18: bookmark.over_18,
-                            selftext: bookmark.selftext,
-                            body: bookmark.body,
-                            is_gallery: bookmark.is_gallery,
-                            gallery_data: bookmark.gallery_data,
-                            media_metadata: bookmark.media_metadata,
-                            crosspost_parent_list: bookmark.crosspost_parent_list || [],
-                            content_type: bookmark.content_type,
-                            icon_url: bookmark.icon_url,
-                            locked: bookmark.locked,
-                            stickied: bookmark.stickied,
-                            preview: bookmark.preview
-                        }
-                    }))
-                }
-            };
-
-            window.isViewingSharedContent = true;
-            displayResults(transformedData, isLoadMore);
-
-            // Make bookmark icons permanently saved and non-interactive
-            document.querySelectorAll('.bookmark-icon').forEach(icon => {
-                icon.classList.add('saved');
-                icon.style.pointerEvents = 'none';
-            });
-
-            // Check if more content exists
-            if (data.bookmarks.length < 11) {
-                hasMoreSharedContent = false;
-            } else {
-                sharedContentOffset += 10;
-                hasMoreSharedContent = true;
-            }
-
-            syncScrollLoader(data.section);
-
             isLoading = false;
+            return;
+        }
 
-            setTimeout(() => {
+        // Only show first 10 bookmarks to user (same logic as loadSectionContent)
+        const bookmarksToShow = data.bookmarks.slice(0, 10);
+
+        const transformedData = {
+            data: {
+                children: bookmarksToShow.map(bookmark => ({
+                    data: {
+                        id: bookmark.reddit_post_id,
+                        title: bookmark.title,
+                        url: bookmark.url,
+                        permalink: bookmark.permalink,
+                        subreddit: bookmark.subreddit,
+                        score: bookmark.score,
+                        is_video: bookmark.is_video,
+                        domain: bookmark.domain,
+                        author: bookmark.author,
+                        created_utc: bookmark.created_utc,
+                        num_comments: bookmark.num_comments,
+                        over_18: bookmark.over_18,
+                        selftext: bookmark.selftext,
+                        body: bookmark.body,
+                        is_gallery: bookmark.is_gallery,
+                        gallery_data: bookmark.gallery_data,
+                        media_metadata: bookmark.media_metadata,
+                        crosspost_parent_list: bookmark.crosspost_parent_list || [],
+                        content_type: bookmark.content_type,
+                        icon_url: bookmark.icon_url,
+                        locked: bookmark.locked,
+                        stickied: bookmark.stickied,
+                        preview: bookmark.preview
+                    }
+                }))
+            }
+        };
+
+        window.isViewingSharedContent = true;
+        await displayResults(transformedData, isLoadMore);
+        preloadBookmarks();
+
+        if (!isLoadMore && isMobile()) {
+buildSharedMobileHeader({ ...data.section, bookmark_count: data.total_count }, resultsContainer);
+        }
+
+        // Check if more content exists
+        if (data.bookmarks.length < 11) {
+            hasMoreSharedContent = false;
+        } else {
+            sharedContentOffset += 10;
+            hasMoreSharedContent = true;
+        }
+
+        syncScrollLoader(data.section);
+
+        isLoading = false;
+
+        setTimeout(() => {
+            if (!isMobile()) {
                 addSectionDropdowns(data.section.id).then(() => {
                     setupDropdownEvents();
                 });
-                setupMediaVisibilityOptimization();
-            }, 150);
+            }
+            setupMediaVisibilityOptimization();
+        }, 150);
 
-        })
-        .catch(error => {
-            console.error('Shared content fetch failed:', error);
-            isLoading = false;
-            showError("No bookmarks found in this shared collection.");
-        });
+    } catch (error) {
+        console.error('Shared content fetch failed:', error);
+        isLoading = false;
+        showError("No bookmarks found in this shared collection.");
+    }
 }
 
 // Unified loading function for all sections
@@ -3722,6 +3724,8 @@ async function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = 
         sectionOffsets[sectionId] = 0;
         hasMoreBookmarks[sectionId] = false;
         resultsContainer.textContent = '';
+        const scrollIndicator = document.querySelector('.scroll-container-minimal');
+        if (scrollIndicator) scrollIndicator.style.display = 'none';
         showLoading(resultsContainer);
     }
 
@@ -3790,6 +3794,40 @@ async function loadSectionContent(sectionId, isLoadMore = false, fromPopstate = 
         isLoading = false;
         showError("Failed to load bookmarks");
     }
+}
+
+function buildSharedMobileHeader(sectionData, resultsContainer) {
+    const existingHeader = document.querySelector('.mobile-section-header');
+    if (existingHeader) existingHeader.remove();
+
+    const header = document.createElement('div');
+    header.className = 'mobile-section-header';
+    header.innerHTML = `
+        <div class="mobile-section-header-top">
+            <div class="mobile-section-header-left">
+                <div class="mobile-section-title">${sectionData.name}</div>
+                <div class="mobile-section-count">${sectionData.bookmark_count} ${sectionData.bookmark_count === 1 ? 'Save' : 'Saves'}</div>
+            </div>
+            <div class="mobile-section-header-right">
+                <button class="mobile-section-action-btn" id="sharedInfoBtn">
+                    <img src="../assets/icons8-tag-96.png" class="info-icon">
+                    Info
+                </button>
+                <button class="mobile-section-share-btn" title="Share">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                        <polyline points="16 6 12 2 8 6"/>
+                        <line x1="12" y1="2" x2="12" y2="15"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    `;
+
+    resultsContainer.prepend(header);
+
+    header.querySelector('#sharedInfoBtn').addEventListener('click', () => showSectionInfo());
+    header.querySelector('.mobile-section-share-btn').addEventListener('click', () => showMobileShareSheet());
 }
 
 // Initialize when switching to bookmarks tab on mobile

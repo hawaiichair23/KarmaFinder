@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 localStorage.setItem('theme', isDark ? 'dark' : 'light');
+                localStorage.setItem('selectedTheme', isDark ? 'dark' : 'default');
             } catch (e) {
                 // Handle localStorage errors silently
             }

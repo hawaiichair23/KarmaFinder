@@ -1,11 +1,13 @@
 let isTalking = false;
 let mouthTimeout;
+let isScrambled = false;
 let hermesLineCount = 0;
 let animationsEnabled = true;
 let isSleeping = false;
 let blinkTimer1, blinkTimer2, blinkTimer3;
 let sleepTimer;
 let hermesEnabled = true;
+let currentPriority = 0;
 let blinkTimeout;
 let clickCount = 0;
 let firstClickTime = 0;
@@ -169,7 +171,7 @@ if (document.querySelector('.hermes-cat')) {
 
 let currentTypewriterTimeout;
 
-function typewriterEffect(element, text, speed = 50) {
+function typewriterEffect(element, text, speed = 30) {
     if (!animationsEnabled) {
         // Just show the text instantly
         element.textContent = text;
@@ -192,8 +194,10 @@ function typewriterEffect(element, text, speed = 50) {
     typeChar();
 }
 
-function showSpeechBubble(messages) {
+function showSpeechBubble(messages, priority = 1) {
     if (!hermesEnabled) return;
+    if (priority < currentPriority) return;
+    currentPriority = priority;
 
     const bubble = document.getElementById('hermes-speech');
     if (!bubble) return;
@@ -265,6 +269,7 @@ function hideSpeechBubble() {
     const bubble = document.getElementById('hermes-speech');
     if (!bubble) return;
     bubble.classList.add('hidden');
+    currentPriority = 0;
 }
 
 function scrambleYeller() {
@@ -274,15 +279,16 @@ function scrambleYeller() {
         firstClickTime = now;
     }
     clickCount++;
-    if (clickCount >= 5) {
+    if (clickCount >= 4) {
         isScrambled = true; // Set blocked state
 
         showSpeechBubble([
             "YOU KNOW I GET SCRAMBLED!",
             "STOP!",
+            "SLOW UP.",
             "GOOD GRIEF!",
             "ONE AT A TIME."
-        ]);
+        ], 3);
 
         setTimeout(() => {
             isScrambled = false; // Unblock after 2.5 seconds
@@ -294,27 +300,17 @@ function scrambleYeller() {
     return isScrambled || false;
 }
 
-async function showRareLines() {
-    if (!document.querySelector('.hermes-cat')) return;
-
+async function fetchRareLine() {
+    if (!document.querySelector('.hermes-cat')) return null;
     try {
         const response = await fetch(`${API_BASE}/api/rare-line`);
         const data = await response.json();
-        if (data.line && data.line !== 'undefined') {
-            clearTimeout(currentTypewriterTimeout);
-            showSpeechBubble(data.line);
-        } else if (data.sequential && data.sequential.every(line => line && line !== 'undefined')) {
-            // Only show if all lines exist
-            showSpeechBubble(data.sequential[0]);
-            setTimeout(() => {
-                showSpeechBubble(data.sequential[1]);
-                setTimeout(() => {
-                    showSpeechBubble(data.sequential[2]);
-                }, 3000);
-            }, 31000);
-        }
+        if (data.line && data.line !== 'undefined') return { type: 'single', line: data.line };
+        if (data.sequential && data.sequential.every(line => line && line !== 'undefined')) return { type: 'sequential', lines: data.sequential };
+        return null;
     } catch (error) {
         console.error('Error fetching rare line:', error);
+        return null;
     }
 }
 
@@ -518,13 +514,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function playGreeting() {
         if (!hermesEnabled) return;
-        setTimeout(() => { showSpeechBubble("Welcome back."); }, 350);
+        setTimeout(() => { showSpeechBubble("Welcome back.", 3); }, 300);
     }
 
     // Handle first visit greeting
     if (!sessionStorage.getItem('hasVisited')) {
-        playGreeting();
-        sessionStorage.setItem('hasVisited', 'true');
+        window.addEventListener('resultsReady', () => {
+            sessionStorage.setItem('hasVisited', 'true');
+            playGreeting();
+        }, { once: true });
     }
 
     // Apply saved settings on page load
@@ -606,18 +604,53 @@ function handleRandomResponse(responses, nothingChance = 0.5, dotsChance = 0.08)
         return true;
     } else if (randomChance < dotsThreshold) {
         // Show dots
-        showSpeechBubble("...");
+        showSpeechBubble("...", 1);
         stopTalking();
         return true;
     } else {
         // Show random message from array
-        showSpeechBubble(responses);
+        showSpeechBubble(responses, 1);
         return true;
     }
 }
 
+async function triggerSearchReaction(subreddit, searchCount, isLoggedIn) {
+    // 1. Rare line — highest priority
+    const rare = await fetchRareLine();
+    if (rare) {
+        if (rare.type === 'single') {
+            showSpeechBubble(rare.line, 2);
+        } else {
+            showSpeechBubble(rare.lines[0], 2);
+            setTimeout(() => {
+                showSpeechBubble(rare.lines[1], 2);
+                setTimeout(() => {
+                    showSpeechBubble(rare.lines[2], 2);
+                }, 3000);
+            }, 31000);
+        }
+        return;
+    }
+
+    // 2. Premium reminders
+    if (!isLoggedIn) {
+        if (searchCount === 7) { showSpeechBubble("My client told me to inform you that the Bookmarks feature comes with Premium.", 2); return; }
+        if (searchCount === 37) { showSpeechBubble("My client told me to inform you that the Enhanced Search feature comes with Premium. 'Search Reddit Like Google', he says.", 2); return; }
+        if (searchCount === 77) { showSpeechBubble("My client told me to inform you that the Color Themes feature comes with Premium.", 2); return; }
+    }
+
+    // 3. Ambient line
+    const ambientLines = [
+        "I bet you can't poke my eye.", "You ever just sit there?", "Ads are coming to Reddit. But not to us.", "I had a dream about a parking garage.",
+        "Scrollin scrollin scrollin.", "Cold in here."
+    ];
+    const reaction = subreddit ? getCatReaction(subreddit, true) : null;
+    handleRandomResponse(reaction || ambientLines, reaction ? 0.72 : 0.75, 0.05);
+}
+
 // Hermes J. Cat
-function getCatReactionForSubreddit(input, isSubreddit = false) {
+function getCatReaction(input, isSubreddit = false) {
+    if (isMobile()) return;
     if (isSubreddit) {
         const reactions = {
             'amitheasshole': ["My cousin ended up on there once.", "I know you are, but what am I?"],
@@ -625,6 +658,9 @@ function getCatReactionForSubreddit(input, isSubreddit = false) {
             'carsfuckingdragons': ["Touch grass.", "Oh.", "Uhh..."],
             'anime_irl': ["Touch grass.", "Uhh...", "Oh."],
             'newjersey': ['The Garden State.'],
+            'damnthatsinteresting': ['Damn.', "That's interesting."],
+            'interesting': ["That's interesting."],
+            'interestingasfuck': ["That's interesting to a superlative degree.", "That's interesting."],
             'npr': ['I think about Car Talk every day.'],
             'grilling': ["You should look up uhh, uh, Bratwurst. On a Weber Ranch.", "Hardwood lump charcoal or don't bother."],
             'traeger': ["I always used a Weber myself."],
@@ -658,6 +694,14 @@ function getCatReactionForSubreddit(input, isSubreddit = false) {
             'educationalgifs': ["Look up the Chernobyl, uh, reactor containment.", "Don't look up MRI of person speaking. That is disgusting."],
             'marvelrivals': ["I don't do those team fighter games. Besides CS Go."],
             'overwatch': ["I don't do those team fighter games. Besides CS Go."],
+            'aww': ["Cats > Babies > Dogs."],
+            'dogs': ["Cats > Babies > Dogs."],
+            'cats': ["Cats > Babies > Dogs."],
+            'mademesmile': ["Cats > Babies > Dogs."],
+            'nextfuckinglevel': ["I did that yesterday."],
+            'peoplefuckingdying': ["That happened to my buddy Eric."],
+            'science': ["Who funded that study.", "I've known that for years.", "Better a mouse than me."],
+            'todayilearned': ["I've known that for years.", "Yeah I knew all of 'em.", "My cousin mentioned that actually.", "Who funded that study."],
             'steamdeck': ["Good processing power.", "Civ 5 is the best one. They shouldn't even make any more."],
             'memes': ["Some of these are definitely jokes."],
             'dankmemes': ["Some of these are definitely jokes."],
