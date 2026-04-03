@@ -64,7 +64,7 @@ https://github.com/user-attachments/assets/7f6261c8-1bd9-447b-a431-112f9fdeb20c
 
 <div align="center">
   
-<img alt="Screen Shot 2026-04-03 at 01 39 29-fullpage" src="https://github.com/user-attachments/assets/e3b0dde0-7eaa-4bac-8032-26c78deb8387" width="400"/>
+<img alt="Screen Shot 2026-04-03 at 01 39 29-fullpage" src="https://github.com/user-attachments/assets/e3b0dde0-7eaa-4bac-8032-26c78deb8387" width="300"/>
 
 </div>
 
