@@ -54,6 +54,8 @@ https://github.com/user-attachments/assets/4b80a618-6261-49ee-b6cc-75f6f599465c
 - Modal viewer with zoom and smooth gallery navigation with preloading & decoding for seamless transitions.
 - Markdown and image support in comments.
 
+<img width="403" height="874" alt="darkmodephonepic" src="https://github.com/user-attachments/assets/dc8e710d-40bf-46a7-9514-9a1e577bd013" />
+
 ### **UI**
 
 - Multiple themes (Forest, Bluebird, dark, light).
