@@ -26,8 +26,11 @@ https://github.com/user-attachments/assets/4b80a618-6261-49ee-b6cc-75f6f599465c
 - Track creation date, bookmark count, top subreddit, and last modified with custom descriptions for organizing collections.
 - Generate public links to share curated bookmark collections with anyone, no login required.
 
+<div align="center">
+  
 https://github.com/user-attachments/assets/7f6261c8-1bd9-447b-a431-112f9fdeb20c
 
+</div>
 
 ### **Imports**
 
