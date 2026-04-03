@@ -18,13 +18,6 @@
 
 https://github.com/user-attachments/assets/4b80a618-6261-49ee-b6cc-75f6f599465c
 
-
-
-### **Features**
-- Batch rendering for performance, caching for quick responses, minimal API load
-- Passwordless magic link login (login optional)
-- NSFW blur filter with pattern detection
-
 <img width="1918" height="876" alt="forestsectioninfo" src="https://github.com/user-attachments/assets/0fc6480e-793e-4e64-aa52-6348c629baff" />
 
 ### **Section analytics and metadata** 
