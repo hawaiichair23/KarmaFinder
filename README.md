@@ -14,9 +14,11 @@
 **Demo Video:** 
 
 
-
+<div align="center">
 
 https://github.com/user-attachments/assets/4b80a618-6261-49ee-b6cc-75f6f599465c
+
+</div>
 
 <img width="1918" height="876" alt="forestsectioninfo" src="https://github.com/user-attachments/assets/0fc6480e-793e-4e64-aa52-6348c629baff" />
 
@@ -54,7 +56,11 @@ https://github.com/user-attachments/assets/4b80a618-6261-49ee-b6cc-75f6f599465c
 - Modal viewer with zoom and smooth gallery navigation with preloading & decoding for seamless transitions.
 - Markdown and image support in comments.
 
+<div align="center">
+  
 <img width="403" height="874" alt="darkmodephonepic" src="https://github.com/user-attachments/assets/dc8e710d-40bf-46a7-9514-9a1e577bd013" />
+
+</div>
 
 ### **UI**
 
