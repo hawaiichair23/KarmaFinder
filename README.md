@@ -21,54 +21,52 @@ https://github.com/user-attachments/assets/4b80a618-6261-49ee-b6cc-75f6f599465c
 <img width="1918" height="876" alt="forestsectioninfo" src="https://github.com/user-attachments/assets/0fc6480e-793e-4e64-aa52-6348c629baff" />
 
 ### **Section analytics and metadata** 
-- Track creation date, bookmark count, top subreddit, last modified, with custom descriptions for organizing collections
-- Share info via copy link or over social media
+- Track creation date, bookmark count, top subreddit, and last modified with custom descriptions for organizing collections.
+- Generate public links to share curated bookmark collections with anyone, no login required.
 
 ### **Imports**
 
-- Import Reddit saves instantly using OAuth single click login
-- See number of unique posts
-- Saves populate in order to any section
+- Import Reddit saves instantly using OAuth single click login.
+- See number of unique posts.
+- Saves populate in order to any section.
 
 ### **Bookmarks**
 
-- Move any post with dropdown menu
-- Organize posts inside custom sections with drag-and-drop
-- Choose emoji, rename, and delete sections
-- Generate public links to share curated bookmark collections with anyone, no login required
+- Move any post with dropdown menu.
+- Organize posts inside custom sections with drag-and-drop.
+- Choose emoji, rename, and delete sections.
 
 <img width="1920" height="878" alt="Screenshot (238)" src="https://github.com/user-attachments/assets/6f266646-0e88-4a91-bbf8-00ccfa19c72f" />
 
 ### **Search**
 
-- Enhanced Search: semantic search with vector embeddings using Pinecone, query matching and algorithmic ranking
-- Smart filtering with progressive fetch - batch filter by content type (video/image/text, time period) keeps fetching from Reddit until it collects 10 posts matching filters 
-- Combine filters Reddit doesn't allow (hot + past week, etc.)
-- Dynamic search suggestions with spell check from dictionary, word completion API, and user input
+- Enhanced Search: semantic search with vector embeddings using Pinecone, query matching and algorithmic ranking.
+- Smart filtering with progressive fetch - batch filter by content type (video/image/text, time period).
+- Combine filters Reddit doesn't allow (hot + past week, etc.).
+- Dynamic search suggestions with spell check from dictionary, word completion API, and user input.
 
-    
 <img width="1916" height="873" alt="pic7" src="https://github.com/user-attachments/assets/48c1b936-957f-466a-8748-dfcb8fc0f1e8" />
 
 ### **Media**
 
-- Plyr.io player for smooth playback on Reddit video: ffmpeg merges audio/video streams and caches on local CDN
-- YouTube and Streamable embeds 
-- Modal viewer with zoom and smooth gallery navigation with preloading & decoding for seamless transitions
-- Markdown and image support in comments
+- Plyr.io player for smooth playback on Reddit video: ffmpeg merges audio/video streams and caches on a local CDN.
+- YouTube and Streamable embeds.
+- Modal viewer with zoom and smooth gallery navigation with preloading & decoding for seamless transitions.
+- Markdown and image support in comments.
   
 <img width="1712" height="853" alt="pic9" src="https://github.com/user-attachments/assets/413c7ae7-d2ed-4566-8940-7254898e2472" />
 
 ### **UI**
 
-- Multiple themes (Forest, Bluebird, dark, light)
-- Configurable layouts: Comfy and Compact modes for different card sizes
-- Top 8 comments on every post without clicking through
-- Hermes - animated kitty mascot with 100+ unique contextual responses <img width="24" height="25" alt="KarmaFinder logo" src="https://github.com/user-attachments/assets/2650bd36-1834-4b96-96bb-851e9536a6e2" />
+- Multiple themes (Forest, Bluebird, dark, light).
+- Configurable layouts: Comfy and Compact modes for different card sizes.
+- Top 8 comments on every post without clicking through.
+- Hermes - animated kitty mascot with 100+ unique contextual responses. <img width="24" height="25" alt="KarmaFinder logo" src="https://github.com/user-attachments/assets/2650bd36-1834-4b96-96bb-851e9536a6e2" />
 
 ### **Misc Features**
-- Batch rendering for performance, caching for quick responses, minimal API load
-- Passwordless magic link login (login optional)
-- NSFW blur filter with pattern detection
+- Batch rendering for performance, caching for quick responses, minimal API load.
+- Passwordless magic link login (login optional).
+- NSFW blur filter with pattern detection.
 
 # **Install**
 ## Local Installation
