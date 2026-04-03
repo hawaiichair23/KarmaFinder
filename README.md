@@ -74,7 +74,10 @@
 - NSFW blur filter with pattern detection
 
 
-https://github.com/user-attachments/assets/750df3e5-b6eb-45af-87a8-1d47f9204c16
+
+https://github.com/user-attachments/assets/069e5f34-92b7-4b2d-a2fa-6cef5d71b263
+
+
 
 
 # **Install**
