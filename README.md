@@ -10,7 +10,9 @@
 **Live Site:** https://karmafinder.site/
 
 
-**Demo Video:** https://karmafinder.site/html/features.html
+**Demo Video:** 
+https://github.com/user-attachments/assets/575c042e-bc44-4ad1-b53f-12fce80697e5
+
 
 ### **Features**
 - Batch rendering for performance, caching for quick responses, minimal API load
@@ -72,13 +74,6 @@
 - Batch rendering for performance, caching for quick responses, minimal API load
 - Passwordless magic link login (login optional)
 - NSFW blur filter with pattern detection
-
-
-
-https://github.com/user-attachments/assets/069e5f34-92b7-4b2d-a2fa-6cef5d71b263
-
-
-
 
 # **Install**
 ## Local Installation
