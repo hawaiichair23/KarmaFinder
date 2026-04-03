@@ -58,7 +58,7 @@ https://github.com/user-attachments/assets/4b80a618-6261-49ee-b6cc-75f6f599465c
 
 <div align="center">
   
-<img width="403" height="874" alt="darkmodephonepic" src="https://github.com/user-attachments/assets/dc8e710d-40bf-46a7-9514-9a1e577bd013" />
+<img width="1209" height="2627" alt="Screen Shot 2026-04-03 at 01 39 29-fullpage" src="https://github.com/user-attachments/assets/e3b0dde0-7eaa-4bac-8032-26c78deb8387" />
 
 </div>
 
