@@ -1,5 +1,6 @@
 
-<img width="1898" height="904" alt="Screen Shot 2026-04-03 at 00 32 05-fullpage" src="https://github.com/user-attachments/assets/454b5733-c4d3-4897-a756-540e6d2bd112" />
+<img width="1914" height="874" alt="Screenshot (237)" src="https://github.com/user-attachments/assets/212c259e-2865-4f4b-86dd-e652e6167df5" />
+
 <h1>
   <img width="34" height="35" alt="KarmaFinder logo" src="https://github.com/user-attachments/assets/2650bd36-1834-4b96-96bb-851e9536a6e2" />
   KarmaFinder 
@@ -24,21 +25,17 @@ https://github.com/user-attachments/assets/4b80a618-6261-49ee-b6cc-75f6f599465c
 - Passwordless magic link login (login optional)
 - NSFW blur filter with pattern detection
 
-<img width="1921" height="877" alt="pic1" src="https://github.com/user-attachments/assets/ce3fb592-ef48-4221-9407-c72db4f96f16" />
+<img width="1918" height="876" alt="forestsectioninfo" src="https://github.com/user-attachments/assets/0fc6480e-793e-4e64-aa52-6348c629baff" />
 
 ### **Section analytics and metadata** 
 - Track creation date, bookmark count, top subreddit, last modified, with custom descriptions for organizing collections
 - Share info via copy link or over social media
-
-<img width="1911" height="872" alt="pic3" src="https://github.com/user-attachments/assets/2aaba838-7609-4a0f-9fe0-65fcce11a891" />
 
 ### **Imports**
 
 - Import Reddit saves instantly using OAuth single click login
 - See number of unique posts
 - Saves populate in order to any section
-
-<img width="1919" height="828" alt="pic3" src="https://github.com/user-attachments/assets/eb81edd1-35b7-4fd1-93e8-af0fbfe3a20f" />
 
 ### **Bookmarks**
 
@@ -47,7 +44,7 @@ https://github.com/user-attachments/assets/4b80a618-6261-49ee-b6cc-75f6f599465c
 - Choose emoji, rename, and delete sections
 - Generate public links to share curated bookmark collections with anyone, no login required
 
-<img width="1918" height="849" alt="pic8" src="https://github.com/user-attachments/assets/b27b2f3f-8ad5-4ef1-8fd6-a554df0a2479" />
+<img width="1920" height="878" alt="Screenshot (238)" src="https://github.com/user-attachments/assets/6f266646-0e88-4a91-bbf8-00ccfa19c72f" />
 
 ### **Search**
 
