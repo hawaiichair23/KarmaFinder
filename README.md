@@ -86,7 +86,7 @@ https://github.com/user-attachments/assets/7f6261c8-1bd9-447b-a431-112f9fdeb20c
 git clone https://github.com/hawaiichair23/karmafinder.git
 cd karmafinder
 npm install
-node DOGFETCH.js
+node server.js
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
@@ -100,7 +100,7 @@ Create a `.env` file in the root directory with the following variables:
 # Postgres Database
 PGUSER=your_postgres_user
 PGHOST=localhost
-PGDATABASE=karmafinder
+PGDATABASE=whatever
 PGPASSWORD=your_postgres_password
 PGPORT=5432
 
@@ -119,11 +119,6 @@ REDDIT_WEBAPP_CLIENT=your_reddit_webapp_client
 
 ### Optional
 ```
-# Admin Configuration
-EMERGENCY_MODE=false
-REDDIT_FALLBACK_MODE=oauth
-ADMIN_SECRET=
-
 # Vector Search (Pinecone)
 PINECONE_API_KEY=
 PINECONE_ENVIRONMENT=
