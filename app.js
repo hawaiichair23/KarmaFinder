@@ -3190,6 +3190,8 @@
                             updateBookmarkUI(saveIconMobile, id, false);
                             try {
                                 await deleteBookmark(id);
+                                const activeTab = document.querySelector('.tab.active');
+                                const sectionId = activeTab ? activeTab.dataset.tabId : new URLSearchParams(window.location.search).get('section');
                             } catch (err) {
                                 updateBookmarkUI(saveIconMobile, id, true); // revert on failure
                                 console.error('Failed to toggle bookmark:', err);
@@ -3200,6 +3202,8 @@
                             await saveBookmarkWithSection(post, id, selectedSectionId);
                             updateBookmarkUI(saveIconMobile, id, true);
                             await reorderBookmarkToTop(id, selectedSectionId);
+                            const activeTab = document.querySelector('.tab.active');
+                            const currentSectionId = activeTab ? activeTab.dataset.tabId : new URLSearchParams(window.location.search).get('section');
                         }
                     } catch (err) {
                         console.error('Failed to toggle bookmark:', err);
@@ -3506,6 +3510,8 @@
                                     updateBookmarkUI(bookmarkIcon, id, false);
                                     try {
                                         await deleteBookmark(id);
+                                        const activeTab = document.querySelector('.tab.active');
+                                        const sectionId = activeTab ? activeTab.dataset.tabId : new URLSearchParams(window.location.search).get('section');
                                     } catch (err) {
                                         updateBookmarkUI(bookmarkIcon, id, true);
                                         console.error('Failed to toggle bookmark:', err);
@@ -3516,6 +3522,8 @@
                                         if (!sectionId) return;
                                         await saveBookmarkWithSection(post, id, sectionId);
                                         await reorderBookmarkToTop(id, sectionId);
+                                        const activeTab = document.querySelector('.tab.active');
+                                        const currentSectionId = activeTab ? activeTab.dataset.tabId : new URLSearchParams(window.location.search).get('section');
                                     } else {
                                         if (!cachedFirstSectionId) return;
                                         await saveBookmarkWithSection(post, id, cachedFirstSectionId);

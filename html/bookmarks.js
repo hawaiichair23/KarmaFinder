@@ -1980,13 +1980,10 @@ function formatRelativeTime(timestamp) {
 }
 
 async function showRedditImportDialog(username, uniqueCount) {
-    // Fetch real sections first
     let userSections = [];
 
     try {
-        const response = await fetch(`${API_BASE}/api/sections`, {
-            credentials: 'include'
-        });
+        const response = await fetch(`${API_BASE}/api/sections`, { credentials: 'include' });
         const data = await response.json();
         userSections = data.sections || [];
     } catch (error) {
@@ -1998,14 +1995,20 @@ async function showRedditImportDialog(username, uniqueCount) {
 
     const dropdownHtml = `
       <div class="reddit-import-container">
-          <div class="reddit-import-info">
-              <p><strong>Reddit User</strong> <span id="user-info">${isLoading ? '' : username}</span></p>
-              <p><strong>Posts</strong> <span id="count-info">${isLoading ? '' : `${uniqueCount} unique ${uniqueCount === 1 ? 'post' : 'posts'} to import`}</span></p>
+          <div class="import-stats">
+              <div class="import-stat-row">
+                  <span class="import-stat-label">Reddit User</span>
+                  <span class="import-stat-value" id="user-info">${isLoading ? '' : username}</span>
+              </div>
+              <div class="import-stat-row">
+                  <span class="import-stat-label">Posts</span>
+                  <span class="import-stat-value" id="count-info">${isLoading ? '' : `${uniqueCount} unique ${uniqueCount === 1 ? 'post' : 'posts'} to import`}</span>
+              </div>
           </div>
-          <label class="reddit-import-label">Import to section:</label>
+          <label class="import-select-label">Import to section:</label>
           <select id="sectionSelect">
-              <option value="">Select section...</option>
-              ${userSections.map(section =>
+              <option value="" hidden>Select section...</option>
+                  ${userSections.map(section =>
     `<option value="${section.id}">${section.emoji || '📌'} ${section.name.replace(/</g, '&lt;').replace(/>/g,
                       '&gt;')}</option>`
     ).join('')}
@@ -2020,44 +2023,31 @@ async function showRedditImportDialog(username, uniqueCount) {
         confirmButtonText: 'Import',
         cancelButtonText: 'Cancel',
         focusConfirm: false,
+        customClass: { title: 'section-info-topbar-title' },
         didOpen: () => {
             if (isLoading) {
-                // Add spinners to the empty spans
                 const userSpinner = createCanvasSpinner(null, 18);
                 const countSpinner = createCanvasSpinner(null, 18);
 
                 document.getElementById('user-info').appendChild(userSpinner);
                 document.getElementById('count-info').appendChild(countSpinner);
 
-                // Fetch the data and replace spinners
-                                fetch('/api/reddit/saved-count', {
-                    credentials: 'include'
-                })
+                fetch('/api/reddit/saved-count', { credentials: 'include' })
                     .then(response => {
-                        if (response.status === 404) {
+                        if (response.status === 404 || response.status === 500) {
                             Swal.close();
                             initiateRedditLogin();
                             return;
                         }
-                        if (response.status === 500) {
-                            Swal.close();
-                            initiateRedditLogin();
-                            return;
-                        }
-                        if (response.ok) {
-                            return response.json();
-                        }
+                        if (response.ok) return response.json();
                     })
                     .then(data => {
                         if (data) {
-                            document.getElementById('user-info').innerHTML = '<span class="checkmark2">✓</span> ' + data.username;
-                            document.getElementById('count-info').innerHTML = `<span class="checkmark2">✓</span> ${data.uniqueCount} unique ${data.uniqueCount === 1 ? 'post' : 'posts'} to import`;                   
+                            document.getElementById('user-info').innerHTML = `<span class="import-checkmark">✓</span> ${data.username}`;
+                            document.getElementById('count-info').innerHTML = `<span class="import-checkmark">✓</span> ${data.uniqueCount} unique ${data.uniqueCount === 1 ? 'post' : 'posts'} to import`;
                         }
                     })
-                    .catch(error => {
-                        console.error('Error fetching Reddit data:', error);
-                        Swal.close();
-                    });
+                    .catch(() => Swal.close());
             }
 
             window.selectedImportSectionId = null;

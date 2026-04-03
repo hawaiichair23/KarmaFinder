@@ -660,7 +660,7 @@ function getCatReaction(input, isSubreddit = false) {
             'newjersey': ['The Garden State.'],
             'damnthatsinteresting': ['Damn.', "That's interesting."],
             'interesting': ["That's interesting."],
-            'interestingasfuck': ["That's interesting to a superlative degree.", "That's interesting."],
+            'interestingasfuck': ["That's interesting."],
             'npr': ['I think about Car Talk every day.'],
             'grilling': ["You should look up uhh, uh, Bratwurst. On a Weber Ranch.", "Hardwood lump charcoal or don't bother."],
             'traeger': ["I always used a Weber myself."],

@@ -1044,7 +1044,7 @@ body.dark-mode .subreddit-bar a:hover {
     margin-bottom: 9px;
     display: flex;
     align-items: center;
-    padding: 6px 10px 6px;
+    padding: 7px 10px 7px;
     border-radius: var(--card-radius);
     background-color: var(--card-color);
     min-height: 145px;
@@ -1595,7 +1595,6 @@ body.bluebird-theme .vote-button-down {
     color: var(--light-text);
     flex-shrink: 0;
     position: absolute;
-    padding-top: 2px;
 }
 
 .result-action {
@@ -3299,7 +3298,7 @@ body:not(.dark-mode):not(.forest-theme):not(.bluebird-theme) .link-preview-btn:h
 #search-filter-pills,
 .content-type-tabs,
 :not(#suggestions) > .suggestions-subreddit-banner {
-    display: none !important;
+    display: none;
 }
 
 @media (max-width: 1024px) {

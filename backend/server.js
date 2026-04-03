@@ -1,3 +1,6 @@
+require('dotenv').config();
+require('./cleanup.js');
+
 // Node built-ins
 const fs = require('fs');
 const path = require('path');
@@ -181,9 +184,6 @@ const PORT = process.env.PORT || 3000;
 
 const axios = require('axios');
 const cheerio = require('cheerio');
-        
-require('dotenv').config();
-require('./cleanup.js');
 
 const Stripe = require('stripe');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -234,21 +234,6 @@ function getNextClient() {
 
     client.requestCount++;
     return client;
-}
-
-async function requireAdminCookie(req, res, next) {
-    const authToken = req.cookies.authToken;
-    if (!authToken) return res.status(401).json({ error: 'Unauthorized' });
-
-    const result = await pool.query(
-        'SELECT email FROM subscriptions WHERE auth_token = $1',
-        [authToken]
-    );
-
-    if (result.rows.length === 0 || result.rows[0].email !== process.env.ADMIN_EMAIL) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-    next();
 }
 
 // Track requests per minute
@@ -554,6 +539,7 @@ async function dogFetch(url, options = {}, timeoutMs = 10000) {
 
     try {
         const response = await fetch(url, {
+            redirect: 'manual',
             ...options,
             headers,
             signal: controller.signal
@@ -562,7 +548,20 @@ async function dogFetch(url, options = {}, timeoutMs = 10000) {
         logRateInfo(response.headers);
 
         if (!response.ok) {
-            console.error(`❌ Failed to fetch ${url} – Status: ${response.status}`);
+            const status = response.status;
+            const location = response.headers.get('location');
+            const contentType = response.headers.get('content-type') || '';
+
+            if (status === 301 || status === 302 || status === 403 || contentType.includes('text/html')) {
+                const body = await response.clone().text();
+                const isBlock = body.includes('Blocked') || body.includes('whoa there');
+                console.error(`🚫 REDDIT BLOCK: ${url}`);
+                console.error(`   Status: ${status} | Redirect: ${location || 'none'}`);
+                console.error(`   Blocked: ${isBlock}`);
+                console.error(`   Body: ${body.slice(0, 200)}`);
+            } else {
+                console.error(`❌ Failed to fetch ${url} – Status: ${status}`);
+            }
         }
 
         return response;
@@ -606,6 +605,27 @@ async function hedgedRedditRequest(url, hedgeDelayMs = 2000) {
     try {
         const response = await Promise.race(requests);
         clearTimeout(hedgeTimeout);
+
+        // If OAuth is blocked, fall back to public .json endpoint
+        if (response.status === 301 || response.status === 302 || response.status === 403) {
+            console.warn(`⚠️ OAuth blocked (${response.status}), falling back to public .json endpoint`);
+            const publicUrl = url
+                .replace('https://oauth.reddit.com', 'https://www.reddit.com')
+                .replace(/(\?|$)/, (match) => match === '?' ? '.json?' : '.json');
+            console.log(`🔁 Fallback URL: ${publicUrl}`);
+            const fallbackRes = await fetch(publicUrl, {
+                headers: {
+                    'User-Agent': 'karmafinder-test/1.0',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Connection': 'keep-alive'
+                }
+            });
+            console.log(`🔁 Fallback status: ${fallbackRes.status}`);
+            return fallbackRes;
+        }
+
         return response;
     } catch (error) {
         clearTimeout(hedgeTimeout);
@@ -947,6 +967,7 @@ app.get('/reddit', async (req, res) => {
         let response;
 
         response = await hedgedRedditRequest(decodedUrl);
+        console.log('🔍 Reddit status:', response.status, '| content-type:', response.headers.get('content-type'));
 
         if (response.status === 429) {
             const now = new Date().toLocaleTimeString();
@@ -4285,6 +4306,59 @@ async function getSearchEmbedding(query) {
 async function startServer() {
     const token = await getRedditAppToken();
     console.log('✅ Reddit app token fetched:', token.slice(0, 12), '...');
+
+    // ─── Debug endpoint ────────────────────────────────────────────────────────
+    app.get('/debug/reddit', async (req, res) => {
+        const results = [];
+
+        for (let i = 0; i < redditClients.length; i++) {
+            const client = redditClients[i];
+            const entry = { client: i + 1, clientId: client.clientId?.slice(0, 8) + '...', userAgent: client.userAgent, token: null, tokenError: null, redditStatus: null, redditContentType: null, redditBodyPreview: null, requestError: null };
+
+            // 1. Try to get token
+            try {
+                const basicAuth = Buffer.from(`${client.clientId}:${client.clientSecret}`).toString('base64');
+                const tokenRes = await fetch('https://www.reddit.com/api/v1/access_token', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Basic ${basicAuth}`, 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': client.userAgent },
+                    body: 'grant_type=client_credentials'
+                });
+                const tokenData = await tokenRes.json();
+                if (tokenData.access_token) {
+                    entry.token = tokenData.access_token.slice(0, 16) + '...';
+                } else {
+                    entry.tokenError = JSON.stringify(tokenData);
+                }
+
+                // 2. Try a real Reddit request with this token
+                if (tokenData.access_token) {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 8000);
+                    try {
+                        const redditRes = await fetch('https://oauth.reddit.com/r/all/hot?limit=1', {
+                            headers: { 'Authorization': `Bearer ${tokenData.access_token}`, 'User-Agent': client.userAgent },
+                            redirect: 'manual',
+                            signal: controller.signal
+                        });
+                        clearTimeout(timeout);
+                        entry.redditStatus = redditRes.status;
+                        entry.redditContentType = redditRes.headers.get('content-type');
+                        const body = await redditRes.text();
+                        entry.redditBodyPreview = body.slice(0, 300);
+                    } catch (e) {
+                        clearTimeout(timeout);
+                        entry.requestError = e.message;
+                    }
+                }
+            } catch (e) {
+                entry.tokenError = e.message;
+            }
+
+            results.push(entry);
+        }
+
+        res.json({ clients: results });
+    });
 
     const server = app.listen(PORT, '0.0.0.0', () => {
         const host = process.env.NODE_ENV === 'production'

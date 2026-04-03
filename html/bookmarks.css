@@ -763,19 +763,23 @@ body.dark-mode .import-menu-item:hover {
 }
 
 #sectionSelect {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Lato', sans-serif;
     background-color: var(--input-bg);
+    background-image: url('../assets/downchevron.png');
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px 16px;
     font-weight: 500;
     color: var(--text-color);
     font-size: 1rem;
     width: 100%;
-    padding: 6px 12px;
+    padding: 10px 36px 10px 12px;
     border: 1px solid var(--border-color);
-    border-radius: var(--input-radius);
-    transition: all 0.15s ease-in-out;
-    line-height: 1.2;
-    height: 33px;
+    border-radius: 12px;
     box-sizing: border-box;
+    appearance: none;
+    height: 40px;
+    -webkit-appearance: none;
 }
 
 .dark-mode #sectionSelect {
@@ -917,7 +921,7 @@ body.forest-theme .section-info-sheet {
 
 .section-info-topbar-title {
     font-family: 'Lato', sans-serif;
-    font-size: 1.4rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: var(--text-color);
 }
@@ -1194,6 +1198,207 @@ body.dark-mode #mobileOrganizeBtn.active {
     background: var(--primary-color);
     color: white;
 }
+
+/* Import stuff on desktop */
+
+    .import-sheet {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--card-color);
+        z-index: 10000;
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.18, 1.15);
+        display: flex;
+        flex-direction: column;
+        border-radius: 16px 16px 0 0;
+        padding-bottom: 20px;
+        margin-bottom: -20px;
+        padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
+        transform: translateY(100%);
+    }
+
+    .import-sheet.open {
+        transform: translateY(0);
+    }
+
+
+    .import-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 9999;
+        opacity: 0;
+        transition: opacity 0.25s ease;
+    }
+
+    .import-handle {
+        width: 40px;
+        height: 4px;
+        background: var(--border-color);
+        border-radius: 2px;
+        margin: 12px auto 8px;
+        flex-shrink: 0;
+    }
+
+    .import-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--text-color);
+        font-family: 'Lato', sans-serif;
+        text-align: center;
+        padding: 4px 16px 16px;
+        flex-shrink: 0;
+    }
+
+    .import-body {
+        padding: 0 16px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .import-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .import-stat-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--hover-bg-lite);
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-family: 'Lato', sans-serif;
+        font-size: 1rem;
+        color: var(--text-color);
+    }
+
+    body.dark-mode .import-stat-row,
+    body.forest-theme .import-stat-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--input-bg);
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-family: 'Lato', sans-serif;
+        font-size: 1rem;
+        color: var(--text-color);
+    }
+
+    body.bluebird-theme .import-stat-row {
+        background: var(--input-bg);
+    }
+
+    .import-stat-label {
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    .import-stat-value {
+        color: var(--medium-text);
+    }
+
+    .import-checkmark {
+        color: #3b82f6;
+        font-weight: 700;
+    }
+
+    .import-select-label {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--medium-text);
+        font-family: 'Lato', sans-serif;
+        margin-bottom: 6px;
+        display: block;
+    }
+
+    .import-select-native {
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 12px;
+        border: 1.5px solid var(--border-color);
+        background: var(--hover-bg-lite);
+        color: var(--text-color);
+        font-size: 1rem;
+        font-family: 'Lato', sans-serif;
+        margin-bottom: 20px;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+
+    .import-select-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--hover-bg-lite);
+        border-radius: 12px;
+        padding: 14px 16px;
+        cursor: pointer;
+        font-family: 'Lato', sans-serif;
+        font-size: 1rem;
+        color: var(--text-color);
+        margin-bottom: 20px;
+        border: 1.5px solid var(--border-color);
+    }
+    
+    body.dark-mode .import-select-row,
+    body.forest-theme .import-select-row {
+        background: var(--background-color);
+    }
+
+    body.bluebird-theme .import-select-row {
+        background: var(--hover-bg);
+    }
+
+    .dark-mode #sectionSelect {
+        background-image: url('../assets/downchevron_white.png');
+    }
+    body.forest-theme #sectionSelect {
+        background-image: url('../assets/downchevron_green.png');
+    }
+    body.bluebird-theme #sectionSelect {
+        background-image: url('../assets/downchevron_blue.png');
+    }
+
+    .import-footer {
+        display: flex;
+        gap: 10px;
+        padding: 0 16px;
+        flex-shrink: 0;
+        margin-top: 4px;
+    }
+
+    .import-btn {
+        flex: 1;
+        padding: 14px;
+        border-radius: 1.4rem;
+        border: none;
+        font-size: 1.05rem;
+        font-weight: 600;
+        font-family: 'Lato', sans-serif;
+        cursor: pointer;
+    }
+
+    .import-btn-confirm {
+        background: #007bff;
+        color: white;
+    }
+
+    .import-btn-cancel {
+        background: var(--hover-bg-lite);
+        color: var(--text-color);
+    }
+
+    body.dark-mode .import-btn-cancel,
+    body.forest-theme .import-btn-cancel,
+    body.bluebird-theme .import-btn-cancel {
+        background: var(--background-color);
+    }
+
 
 @media (max-width: 1024px) {
 
@@ -1919,7 +2124,7 @@ body.dark-mode #mobileOrganizeBtn.active {
         }
 
         #sectionDescription {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
         }
 
         .scroll-container-minimal {
