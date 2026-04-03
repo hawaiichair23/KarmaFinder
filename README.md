@@ -1,5 +1,5 @@
 
-<img width="1920" height="766" alt="pic2" src="https://github.com/user-attachments/assets/b1b89e6d-154d-4854-97ad-f77a65219c0c" />
+<img width="1898" height="904" alt="Screen Shot 2026-04-03 at 00 32 05-fullpage" src="https://github.com/user-attachments/assets/454b5733-c4d3-4897-a756-540e6d2bd112" />
 <h1>
   <img width="34" height="35" alt="KarmaFinder logo" src="https://github.com/user-attachments/assets/2650bd36-1834-4b96-96bb-851e9536a6e2" />
   KarmaFinder 
@@ -72,6 +72,10 @@
 - Batch rendering for performance, caching for quick responses, minimal API load
 - Passwordless magic link login (login optional)
 - NSFW blur filter with pattern detection
+
+
+https://github.com/user-attachments/assets/750df3e5-b6eb-45af-87a8-1d47f9204c16
+
 
 # **Install**
 ## Local Installation
