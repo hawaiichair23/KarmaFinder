@@ -1433,20 +1433,9 @@ function setupImageModal(imageWrapper) {
                 modalContent.appendChild(iframe);
 
             } else if (embedId && videoType === 'redgifs') {
-                // RedGifs - fetch video URL from backend API
-                fetch(`${API_BASE}/api/redgifs/${embedId}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.videoUrl) {
-                            newVideo.src = data.videoUrl;
-                            modalContent.appendChild(newVideo);
-                        } else {
-                            console.error('Failed to get RedGifs video URL');
-                        }
-                    })
-                    .catch(err => {
-                        console.error('RedGifs fetch error:', err);
-                    });
+                // RedGifs - use server-side video proxy
+                newVideo.src = `${API_BASE}/api/redgifs-video/${embedId}`;
+                modalContent.appendChild(newVideo);
 
             } else if (embedId && videoType === 'youtube') {
                 // YouTube - use iframe embed instead of video
