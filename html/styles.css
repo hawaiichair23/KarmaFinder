@@ -3296,8 +3296,7 @@ body:not(.dark-mode):not(.forest-theme):not(.bluebird-theme) .link-preview-btn:h
 }
 
 #search-filter-pills,
-.content-type-tabs,
-:not(#suggestions) > .suggestions-subreddit-banner {
+.content-type-tabs {
     display: none;
 }
 

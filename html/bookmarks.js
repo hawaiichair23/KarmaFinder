@@ -653,7 +653,11 @@ async function renameSectionById(sectionId, currentName, tabIndex = null) {
         inputPlaceholder: 'Section name',
         showCancelButton: true,
         confirmButtonText: 'Rename',
-        cancelButtonText: 'Cancel'
+        cancelButtonText: 'Cancel',
+        didOpen: () => {
+            const input = Swal.getInput();
+            if (input) input.select();
+        }
     });
 
     if (!newName || newName.trim() === '') return;
@@ -2654,6 +2658,8 @@ async function showImportSectionPicker() {
 }
 
 async function showMobileImportDialog() {
+    if (document.querySelector('.mobile-import-overlay')) return;
+
     const overlay = document.createElement('div');
     overlay.className = 'mobile-import-overlay';
 

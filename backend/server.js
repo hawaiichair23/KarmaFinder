@@ -214,6 +214,11 @@ const redditClients = [
 
 let currentClientIndex = 0;
 
+// Public .json fallback mode — set to true when OAuth credentials are burned
+let usePublicFallback = true;
+let publicRequestCount = 0;
+let publicRequestMinute = Date.now();
+
 function getNextClient() {
     const client = redditClients[currentClientIndex];
 
@@ -574,6 +579,34 @@ async function dogFetch(url, options = {}, timeoutMs = 10000) {
 }
 
 async function hedgedRedditRequest(url, hedgeDelayMs = 2000) {
+    // Skip OAuth entirely when credentials are burned
+    if (usePublicFallback) {
+        const publicUrl = url
+            .replace('https://oauth.reddit.com', 'https://www.reddit.com')
+            .replace(/(\?|$)/, (match) => match === '?' ? '.json?' : '.json');
+
+        // Track requests per minute
+        const now = Date.now();
+        if (now - publicRequestMinute >= 60000) {
+            publicRequestCount = 0;
+            publicRequestMinute = now;
+        }
+        publicRequestCount++;
+        console.log(`🔁 [${new Date().toLocaleTimeString()}] Public .json mode: ${publicRequestCount} req/min | ${publicUrl}`);
+
+        const fallbackRes = await fetch(publicUrl, {
+            headers: {
+                'User-Agent': 'karmafinder-test/1.0',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive'
+            }
+        });
+        return fallbackRes;
+    }
+
+    // OAuth path — used when credentials are valid
     const requests = [];
     let token = null;
 
@@ -608,22 +641,9 @@ async function hedgedRedditRequest(url, hedgeDelayMs = 2000) {
 
         // If OAuth is blocked, fall back to public .json endpoint
         if (response.status === 301 || response.status === 302 || response.status === 403) {
-            console.warn(`⚠️ OAuth blocked (${response.status}), falling back to public .json endpoint`);
-            const publicUrl = url
-                .replace('https://oauth.reddit.com', 'https://www.reddit.com')
-                .replace(/(\?|$)/, (match) => match === '?' ? '.json?' : '.json');
-            console.log(`🔁 Fallback URL: ${publicUrl}`);
-            const fallbackRes = await fetch(publicUrl, {
-                headers: {
-                    'User-Agent': 'karmafinder-test/1.0',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.5',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'Connection': 'keep-alive'
-                }
-            });
-            console.log(`🔁 Fallback status: ${fallbackRes.status}`);
-            return fallbackRes;
+            console.warn(`⚠️ OAuth blocked (${response.status}), switching to public fallback mode`);
+            usePublicFallback = true;
+            return hedgedRedditRequest(url);
         }
 
         return response;

@@ -2407,6 +2407,26 @@
             subredditChipContainer.querySelector('.chip-text').textContent = show ? `r/${subName}` : '';
         }
 
+        function fadeOutCard(card, currentSectionId) {
+            if (!isMobile()) return;
+            const bookmarksScreen = document.getElementById('screen-bookmarks');
+            if (!bookmarksScreen?.classList.contains('active')) return;
+            card.style.transition = 'opacity 0.3s ease';
+            card.style.opacity = '0';
+            setTimeout(() => {
+                card.remove();
+                if (sectionOffsets[currentSectionId] > 0) sectionOffsets[currentSectionId]--;
+                const remaining = document.querySelectorAll('.result-card');
+                if (remaining.length === 0) {
+                    if (!hasMoreBookmarks[currentSectionId]) {
+                        showError('No bookmarks found. Start saving posts to see them here.');
+                    } else {
+                        loadSectionContent(currentSectionId, true);
+                    }
+                }
+            }, 300);
+        }
+
         function createSubredditBanner(subreddit, onRemove) {
             const banner = document.createElement('div');
             banner.className = 'suggestions-subreddit-banner';
@@ -3204,6 +3224,9 @@
                             await reorderBookmarkToTop(id, selectedSectionId);
                             const activeTab = document.querySelector('.tab.active');
                             const currentSectionId = activeTab ? activeTab.dataset.tabId : new URLSearchParams(window.location.search).get('section');
+                            if (String(selectedSectionId) !== String(currentSectionId)) {
+                                fadeOutCard(saveIconMobile.closest('.result-card'), currentSectionId);
+                            }
                         }
                     } catch (err) {
                         console.error('Failed to toggle bookmark:', err);
@@ -3524,6 +3547,9 @@
                                         await reorderBookmarkToTop(id, sectionId);
                                         const activeTab = document.querySelector('.tab.active');
                                         const currentSectionId = activeTab ? activeTab.dataset.tabId : new URLSearchParams(window.location.search).get('section');
+                                        if (String(sectionId) !== String(currentSectionId)) {
+                                            fadeOutCard(resultCard, currentSectionId);
+                                        }
                                     } else {
                                         if (!cachedFirstSectionId) return;
                                         await saveBookmarkWithSection(post, id, cachedFirstSectionId);
@@ -4873,9 +4899,7 @@
             if (activeItem) activeItem.classList.add('active');
 
             // Restore scroll position for new tab
-            setTimeout(() => {
                 window.scrollTo(0, tabScrollY[tab] || 0);
-            }, 0);
         }
         
         function restoreLastHomeArea() {
