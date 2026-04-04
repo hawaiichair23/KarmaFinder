@@ -24,6 +24,15 @@ const { scheduleFileDeletion } = require('./cleanup.js');
 const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 const app = express();
 
+// Sanitize user input for section names/descriptions before storing
+function sanitizeSectionName(str) {
+    return str.replace(/<[^>]*>/g, '').trim().slice(0, 50);
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     origin: true,
@@ -2287,6 +2296,7 @@ app.get('/api/sections', async (req, res) => {
 app.post('/api/sections', async (req, res) => {
     try {
         const { name = 'New Section' } = req.body;
+        const safeName = sanitizeSectionName(name);
         const stripeCustomerId = req.userId;
 
         // Get the next sort_order
@@ -2303,7 +2313,7 @@ app.post('/api/sections', async (req, res) => {
             INSERT INTO sections (user_id, name, sort_order)
             VALUES ($1, $2, $3)
             RETURNING id, name, sort_order, created_at
-        `, [stripeCustomerId, name, nextSortOrder]);
+        `, [stripeCustomerId, safeName, nextSortOrder]);
 
         res.json({ section: result.rows[0] });
     } catch (error) {
@@ -2551,8 +2561,8 @@ app.get('/share/:shareCode', async (req, res) => {
         );
 
         const count = bookmarkCount.rows[0].count;
-        const title = `${section.emoji || '📌'} ${section.name} - KarmaFinder Collection`;
-        const description = `${section.description || 'Curated Reddit collection'} - ${count} bookmarks`;
+        const title = `${escapeHtml(section.emoji || '📌')} ${escapeHtml(section.name)} - KarmaFinder Collection`;
+        const description = `${escapeHtml(section.description || 'Curated Reddit collection')} - ${count} bookmarks`;
         const shareUrl = `${req.protocol}://${req.get('host')}/share/${shareCode}`;
 
         res.send(`<!DOCTYPE html>
@@ -2605,14 +2615,15 @@ app.put('/api/sections/:sectionId', async (req, res) => {
         const userId = userResult.rows[0].user_id;
 
         // Build dynamic query based on what fields are provided
+        const safeName = name ? sanitizeSectionName(name) : null;
         let query, values;
 
-        if (name && emoji) {
+        if (safeName && emoji) {
             query = 'UPDATE sections SET name = $1, emoji = $2, last_modified = CURRENT_TIMESTAMP WHERE id = $3 AND user_id = $4 RETURNING id, name, emoji';
-            values = [name.trim(), emoji, sectionId, userId];
-        } else if (name) {
+            values = [safeName, emoji, sectionId, userId];
+        } else if (safeName) {
             query = `UPDATE sections SET name = $1, last_modified = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 RETURNING id, name, emoji`;
-            values = [name.trim(), sectionId, userId];
+            values = [safeName, sectionId, userId];
         } else if (emoji) {
             query = `UPDATE sections SET emoji = $1, last_modified = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 RETURNING id, name, emoji`;
             values = [emoji, sectionId, userId];

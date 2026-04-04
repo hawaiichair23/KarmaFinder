@@ -5347,9 +5347,10 @@
                             align-items: center;
                             gap: 5px;
                         `;
-                        info.innerHTML = `
-                            <span style="font-size: 1rem; color: var(--text-color); font-weight: 600;">${section.section_name}</span>
-                        `;
+                        const nameSpan = document.createElement('span');
+                        nameSpan.style.cssText = 'font-size: 1rem; color: var(--text-color); font-weight: 600;';
+                        nameSpan.textContent = section.section_name;
+                        info.appendChild(nameSpan);
 
                         item.appendChild(thumbContainer);
                         item.appendChild(info);

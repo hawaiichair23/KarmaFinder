@@ -1821,7 +1821,10 @@ async function showMobileShareSheet() {
             try { await navigator.clipboard.writeText(shareUrl); } catch(e) { console.error('clipboard error:', e); }
             showToast('Link copied!');
         } },
-        { label: 'Instagram', iconClass: 'share-option-icon--instagram', iconSrc: '../assets/instagradient.png', iconOverlay: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="white" stroke="none"/></svg>`, action: () => window.open(`instagram://share?url=${encodeURIComponent(shareUrl)}`, '_blank') },
+        { label: 'Instagram', iconClass: 'share-option-icon--instagram', iconSrc: '../assets/instagradient.png', iconOverlay: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="white" stroke="none"/></svg>`, action: () => {
+            navigator.clipboard.writeText(text + ' ' + shareUrl).catch(e => console.error('clipboard error:', e));
+            window.location.href = 'instagram://direct-inbox';
+        } },
         { label: 'Messages', iconClass: 'messages', iconSrc: '../assets/bubble.png', iconImgClass: 'messages-bubble-img', action: () => window.open(`sms:&body=${encodeURIComponent(text + ' ' + shareUrl)}`, '_blank') },
         { label: 'WhatsApp', iconClass: 'whatsapp', iconOverlay: `<i class="fab fa-whatsapp" style="font-size:31px;color:white;"></i>`, action: () => window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + shareUrl)}`, '_blank') },
         { label: 'More apps', iconClass: 'more-apps', iconOverlay: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" width="22" height="22"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>`, action: () => {
@@ -3237,9 +3240,10 @@ async function showSectionsAntepage(skipHistoryPush = false) {
         const info = document.createElement('div');
         info.className = 'section-info';
         info.innerHTML = `
-    <span class="section-name">${section.section_name}</span>
+    <span class="section-name"></span>
     <span class="section-save-count">${section.bookmark_count} ${section.bookmark_count == 1 ? 'Save' : 'Saves'}</span>
 `;
+        info.querySelector('.section-name').textContent = section.section_name;
         card.appendChild(info);
         grid.appendChild(card);
     }
@@ -3367,8 +3371,8 @@ buildSharedMobileHeader({ ...data.section, bookmark_count: data.total_count }, r
                 addSectionDropdowns(data.section.id).then(() => {
                     setupDropdownEvents();
                 });
+                setupMediaVisibilityOptimization();
             }
-            setupMediaVisibilityOptimization();
         }, 150);
 
     } catch (error) {
@@ -3536,7 +3540,7 @@ function buildMobileSectionHeader(sectionId, name, totalCount, resultsContainer)
     header.innerHTML = `
         <div class="mobile-section-header-top">
             <div class="mobile-section-header-left">
-                <div class="mobile-section-title">${name}</div>
+                <div class="mobile-section-title"></div>
                 <div class="mobile-section-count">${totalCount} ${totalCount === 1 ? 'Save' : 'Saves'}</div>
             </div>
             <div class="mobile-section-header-right">
@@ -3571,6 +3575,7 @@ function buildMobileSectionHeader(sectionId, name, totalCount, resultsContainer)
     `;
 
     resultsContainer.prepend(header);
+    header.querySelector('.mobile-section-title').textContent = name;
 
     header.querySelector('.mobile-section-share-btn').addEventListener('click', () => showMobileShareSheet());
     mobileOrganizeActive = false;
@@ -3801,7 +3806,7 @@ function buildSharedMobileHeader(sectionData, resultsContainer) {
     header.innerHTML = `
         <div class="mobile-section-header-top">
             <div class="mobile-section-header-left">
-                <div class="mobile-section-title">${sectionData.name}</div>
+                <div class="mobile-section-title"></div>
                 <div class="mobile-section-count">${sectionData.bookmark_count} ${sectionData.bookmark_count === 1 ? 'Save' : 'Saves'}</div>
             </div>
             <div class="mobile-section-header-right">
@@ -3821,6 +3826,7 @@ function buildSharedMobileHeader(sectionData, resultsContainer) {
     `;
 
     resultsContainer.prepend(header);
+    header.querySelector('.mobile-section-title').textContent = sectionData.name;
 
     header.querySelector('#sharedInfoBtn').addEventListener('click', () => showSectionInfo());
     header.querySelector('.mobile-section-share-btn').addEventListener('click', () => showMobileShareSheet());
