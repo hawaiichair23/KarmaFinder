@@ -3166,7 +3166,7 @@ async function showSectionsAntepage(skipHistoryPush = false) {
         card.onclick = () => loadSectionContent(section.section_id);
         card.setAttribute('data-permalink', section.permalink);
 
-        const isComment = section.permalink && section.permalink.split('/').filter(Boolean).length > 4;
+        const isComment = section.permalink && section.permalink.split('/').filter(Boolean).length > 5;
 
         if (section.url && !isComment) {
             const post = {
@@ -3601,7 +3601,10 @@ function buildMobileSectionHeader(sectionId, name, totalCount, resultsContainer)
             disableMobileOrganize(sectionId);
         }
     });
-    header.querySelector('#mobileImportBtn').addEventListener('click', () => showMobileImportDialog());
+    header.querySelector('#mobileImportBtn').addEventListener('click', async () => {
+        await fetch(`${API_BASE}/api/reddit/disconnect`, { method: 'DELETE', credentials: 'include' });
+        initiateRedditLogin();
+    });
     header.querySelector('#mobileSectionInfoBtn').addEventListener('click', () => showSectionInfo());
     header.querySelector('.mobile-section-more-btn').addEventListener('click', async () => {
         const result = await showSectionMoreMenu(sectionId, name);
