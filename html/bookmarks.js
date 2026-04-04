@@ -2075,11 +2075,13 @@ async function showRedditImportDialog(username, uniqueCount) {
 
     if (result.isConfirmed) {
         const selectedSectionId = result.value;
-        importRedditBookmarks(selectedSectionId);
+        const select = document.getElementById('sectionSelect');
+        const sectionName = select?.options[select.selectedIndex]?.text || '';
+        importRedditBookmarks(selectedSectionId, sectionName);
     }
 }
 
-async function importRedditBookmarks(sectionId) {
+async function importRedditBookmarks(sectionId, sectionName) {
 
     try {
         // Show loading state
@@ -2107,7 +2109,7 @@ async function importRedditBookmarks(sectionId) {
             // Build the message
             const count = data.imported;
             const plural = count === 1 ? 'bookmark' : 'bookmarks';
-            let message = `Successfully imported ${count} ${plural}.`;
+            let message = `Successfully imported ${count} ${plural}${sectionName ? ` to ${sectionName}` : ''}.`;
             
             // Add "Nice." for special numbers
             if (count === 67 || count === 69) {
@@ -2572,7 +2574,9 @@ async function showImportSectionPicker() {
                 const thumbContainer = document.createElement('div');
                 thumbContainer.className = 'section-picker-thumb';
 
-                if (section.url) {
+                const isComment = section.permalink && section.permalink.split('/').filter(Boolean).length > 5;
+
+                if (section.url && !isComment) {
                     const sectionPost = {
                         reddit_post_id: section.reddit_post_id,
                         title: section.title,
@@ -2783,7 +2787,7 @@ async function showMobileImportDialog() {
             return;
         }
         closeSheet();
-        importRedditBookmarks(selectedSectionId);
+        importRedditBookmarks(selectedSectionId, document.getElementById('mob-section-label').textContent);
     });
 }
 

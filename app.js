@@ -5288,7 +5288,8 @@
                         `;
 
                         // Get thumbnail with cache
-                        if (section.url) {
+                        const isComment = section.permalink && section.permalink.split('/').filter(Boolean).length > 5;
+                        if (section.url && !isComment) {
                             const sectionPost = {
                                 reddit_post_id: section.reddit_post_id,
                                 title: section.title,
