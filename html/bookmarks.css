@@ -2092,6 +2092,7 @@ body.dark-mode #mobileOrganizeBtn.active {
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
         }
 
         .section-picker-info {

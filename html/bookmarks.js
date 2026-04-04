@@ -2614,7 +2614,9 @@ async function showImportSectionPicker() {
 
                 const info = document.createElement('div');
                 info.className = 'section-picker-info';
-                info.innerHTML = `<span>${section.section_name}</span>`;
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = section.section_name;
+                info.appendChild(nameSpan);
 
                 item.appendChild(thumbContainer);
                 item.appendChild(info);
@@ -2691,6 +2693,12 @@ async function showMobileImportDialog() {
             <span class="mobile-import-stat-value" id="mob-reddit-count"></span>
         </div>
     `;
+
+    // Show spinners while loading
+    const userSpinner = createCanvasSpinner(null, 18);
+    const countSpinner = createCanvasSpinner(null, 18);
+    stats.querySelector('#mob-reddit-user').appendChild(userSpinner);
+    stats.querySelector('#mob-reddit-count').appendChild(countSpinner);
 
     // Fetch real data
     fetch('/api/reddit/saved-count', { credentials: 'include' })
@@ -3158,7 +3166,9 @@ async function showSectionsAntepage(skipHistoryPush = false) {
         card.onclick = () => loadSectionContent(section.section_id);
         card.setAttribute('data-permalink', section.permalink);
 
-        if (section.url) {
+        const isComment = section.permalink && section.permalink.split('/').filter(Boolean).length > 4;
+
+        if (section.url && !isComment) {
             const post = {
                 reddit_post_id: section.reddit_post_id,
                 title: section.title,
