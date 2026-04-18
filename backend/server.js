@@ -538,6 +538,42 @@ function logRateInfo(headers, force = false) {
     }
 }
 
+// === Reddit call counter ===
+// Tracks every outbound Reddit call through the tunnel.
+// Rolling 60-second window for real-time pressure measurement.
+const redditCounter = {
+    total: 0,
+    timestamps: [],
+    byEndpoint: { listing: 0, comments: 0, other: 0 },
+    peakPerMin: 0,
+    track(url) {
+        this.total++;
+        const now = Date.now();
+        this.timestamps.push(now);
+        while (this.timestamps.length && this.timestamps[0] < now - 60000) {
+            this.timestamps.shift();
+        }
+        const last60 = this.timestamps.length;
+        if (last60 > this.peakPerMin) this.peakPerMin = last60;
+
+        if (url.includes('/comments/')) this.byEndpoint.comments++;
+        else if (/\/(hot|new|top|rising|controversial)(\.json)?(\?|$)/.test(url)) this.byEndpoint.listing++;
+        else this.byEndpoint.other++;
+
+        console.log(`📊 Reddit call #${this.total} | last 60s: ${last60} | ${url}`);
+    }
+};
+
+// Periodic summary every 60s
+setInterval(() => {
+    const now = Date.now();
+    while (redditCounter.timestamps.length && redditCounter.timestamps[0] < now - 60000) {
+        redditCounter.timestamps.shift();
+    }
+    const { total, peakPerMin, byEndpoint, timestamps } = redditCounter;
+    console.log(`📈 SUMMARY | total: ${total} | last 60s: ${timestamps.length} | peak/min: ${peakPerMin} | listings: ${byEndpoint.listing} | comments: ${byEndpoint.comments} | other: ${byEndpoint.other}`);
+}, 60000);
+
 // Fetch wrapper
 async function dogFetch(url, options = {}, timeoutMs = 10000) {
     const controller = new AbortController();
@@ -934,6 +970,38 @@ app.get('/reddit', async (req, res) => {
             } catch (error) {
                 console.error('Error checking cache:', error);
             }
+        }
+    }
+
+    // TUNNEL MODE: Skip OAuth, fetch directly from www.reddit.com with home IP
+    // Toggle to false when OAuth credentials are approved again
+    const TUNNEL_MODE = true;
+
+    if (TUNNEL_MODE) {
+        try {
+            redditCounter.track(decodedUrl);
+            const { execFile } = require('child_process');
+            const curlUrl = new URL(decodedUrl).toString();
+            const curlResponse = await new Promise((resolve, reject) => {
+                execFile('curl', ['-s', '-H', 'User-Agent: web:karmafinder:v1.0 (by /u/karmafinder)', curlUrl], { maxBuffer: 10 * 1024 * 1024 }, (error, stdout) => {
+                    if (error) return reject(error);
+                    resolve(stdout);
+                });
+            });
+            const data = JSON.parse(curlResponse);
+
+            try {
+                if (data?.data?.children?.length > 10) {
+                    data.data.children = data.data.children.slice(0, 10);
+                }
+            } catch (err) {
+                console.log('❌ Error processing children array:', err.message);
+            }
+
+            return res.json(data);
+        } catch (error) {
+            console.error('❌ Tunnel mode fetch error:', error.message);
+            return res.status(429).json({ error: 'rate_limited', message: 'Reddit is rate limiting us' });
         }
     }
 

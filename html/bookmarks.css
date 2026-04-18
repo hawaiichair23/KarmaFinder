@@ -139,7 +139,7 @@ body.dark-mode .section-option.highlighted {
     left: 50%;
     transform: translateX(-50%);
     background-color: var(--card-color);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--inset-shadow);
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     min-width: 170px;

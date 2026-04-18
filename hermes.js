@@ -31,7 +31,7 @@ function randomBlink() {
     if (isMobile()) return;
     if (!animationsEnabled || isSleeping) return;
     const img = document.querySelector('.hermes-cat');
-    if (!img) return; // ADD THIS LINE
+    if (!img) return; 
 
     // First blink
     img.src = '/assets/hermes-blink.png';
@@ -355,7 +355,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return; // Exit if elements don't exist
     }
 
-    // Add keyboard support for Shift+F10 on hermes cat
+    // Add keyboard support for Shift+F10 on hermes 
     hermesCat.addEventListener('keydown', function (e) {
         if (e.key === 'F10' && e.shiftKey || e.key === 'ContextMenu') {
             e.preventDefault();
@@ -692,8 +692,8 @@ function getCatReaction(input, isSubreddit = false) {
             'buyitforlife': ["One word. Air. Fryer. That's two words. I never use my oven now."],
             'lego': ["My kids love those. My wallet, not so much."],
             'educationalgifs': ["Look up the Chernobyl, uh, reactor containment.", "Don't look up MRI of person speaking. That is disgusting."],
-            'marvelrivals': ["I don't do those team fighter games. Besides CS Go."],
-            'overwatch': ["I don't do those team fighter games. Besides CS Go."],
+            'marvelrivals': ["I don't do those team fighter games. Besides CS 2."],
+            'overwatch': ["I don't do those team fighter games. Besides CS 2."],
             'aww': ["Cats > Babies > Dogs."],
             'dogs': ["Cats > Babies > Dogs."],
             'cats': ["Cats > Babies > Dogs."],
@@ -729,13 +729,11 @@ function getCatReaction(input, isSubreddit = false) {
             'disney': ["You're wondering how I feel about mice."],
             'helldivers': ["My cousin is into that one."],
             'helldivers2': ["My cousin is into that one."],
-            'iwanttolearn': ["I wanna learn the piano. I have my eyes on a $200 keyboard from Amazon."],
-            'piano': ["I wanna learn the piano. I have my eyes on a $200 keyboard from Amazon."],
             'jazz': ["Try Ella Fitzgerald, Lullaby of the Leaves."],
             'musicsuggestions': ["Les parapluies de cherbourg - Nana Mouskouri.", "Twilight - Electric Light Orchestra.", "Ava Adore - Smashing Pumpkins.", "The Strange Boutique - The Monochrome Set."],
             'musicrecommendations': ["Les parapluies de cherbourg - Nana Mouskouri.", "Twilight - Electric Light Orchestra.", "Ava Adore - Smashing Pumpkins.", "The Strange Boutique - The Monochrome Set."],
             'actionfigures': ["My cousin is into those."],
-            'homeimprovement': ["Redid my cousin's bathroom tile once. No experience, just Youtube University. And the spacing was, well, I had to redo the spacing, but.", "DeWalt. Everything else is toys."],
+            'homeimprovement': ["DeWalt. Everything else is toys."],
             'cod': ["My cousin is into that one."],
             'movies': ["I feel like I'm supposed to like Blade Runner. You know, the run time just doesn't do it for me.", "Casablanca.", "They say Citizen Kane is the best film ever made. I wanna argue with it, but I really can't argue with it. That is a damn good movie."],
             'letterboxd': ["I feel like I'm supposed to like Blade Runner. You know, the run time just doesn't do it for me.", "Casablanca.", "They say Citizen Kane is the best film ever made. I wanna argue with it, but I really can't argue with it. That is a damn good movie."],

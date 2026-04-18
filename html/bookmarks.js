@@ -292,6 +292,11 @@ function handleTabSpecificPI(tabName) {
         return;
     }
 
+    if (normalizedTab === "memes") {
+        handleRandomResponse([`'${tabName}'... we have a comedian.`]);
+        return;
+    }
+
     if (normalizedTab === "new section") {
         return;
     }

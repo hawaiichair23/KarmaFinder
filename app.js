@@ -2467,7 +2467,7 @@
             return `${baseToken}__${subreddit}__${sort}__${query}__${time}`;
         }
 
-        function performEnhancedSearch() {
+        function performEnhancedSearch(navigateBack = false) {
             const f = getCurrentFiltersFromUI();
             currentFilters.query = f.query; currentFilters.subreddit = f.subreddit; currentFilters.sort = f.sort; currentFilters.time = f.time; currentFilters.contentType = f.contentType;
             const query = currentFilters.query?.trim() || '';
@@ -2582,6 +2582,7 @@
                     setupVectorScrollListener();
                 })
                 .catch(error => {
+                    console.error("Vector search failed.", error);
                     showError("Vector search failed.");
                 });
         }
@@ -2964,6 +2965,10 @@
 
             // Reddit API fallback
             const redditRes = await fetch(`${API_BASE}/reddit?url=${encodeURIComponent(finalUrl)}`);
+            if (redditRes.status === 429) {
+                showError("We're being rate limited by Reddit. Please check back in a minute.");
+                return;
+            }
             if (!redditRes.ok) throw new Error('Reddit API failed');
             const data = await redditRes.json();
 
