@@ -3767,48 +3767,23 @@ app.post('/api/auto-login-after-payment', async (req, res) => {
             });
         }
 
-        // Retry logic for database lookup (handles race condition with webhook)
+        // Check if subscription exists, create if not
         let dbSubscription = null;
-        let retries = 0;
-        const maxRetries = 15; // 15 retries = up to 7.5 seconds
 
-        console.log(`🔄 Looking for subscription for email: ${email}`);
+        const subscriptionResult = await connection.query(`
+            SELECT user_id, plan_type, auth_token 
+            FROM subscriptions 
+            WHERE LOWER(email) = $1
+        `, [email]);
 
-        while (!dbSubscription && retries < maxRetries) {
-            try {
-                const subscriptionResult = await connection.query(`
-                    SELECT user_id, plan_type, auth_token 
-                    FROM subscriptions 
-                    WHERE LOWER(email) = $1
-                `, [email]);
-
-                if (subscriptionResult.rows.length > 0) {
-                    dbSubscription = subscriptionResult.rows[0];
-                    console.log(`✅ Found subscription for ${email} after ${retries} retries`);
-                    break;
-                }
-
-                // Wait before retry (exponential backoff)
-                const delay = Math.min(500 + (retries * 100), 1000);
-                await new Promise(resolve => setTimeout(resolve, delay));
-                retries++;
-
-                console.log(`⏳ Subscription not found yet, retry ${retries}/${maxRetries}`);
-
-            } catch (dbError) {
-                console.error(`Database error on retry ${retries}:`, dbError);
-                // Continue retrying unless it's the last attempt
-                if (retries === maxRetries - 1) {
-                    throw dbError;
-                }
-                await new Promise(resolve => setTimeout(resolve, 500));
-                retries++;
-            }
+        if (subscriptionResult.rows.length > 0) {
+            dbSubscription = subscriptionResult.rows[0];
+            console.log(`✅ Found subscription for ${email}`);
         }
 
         // If still not found after retries, create the subscription record
         if (!dbSubscription) {
-            console.log(`⚠️ Subscription not found after ${maxRetries} retries, creating manually`);
+            console.log(`⚠️ Subscription not found for ${email}, creating now`);
 
             try {
                 await connection.query('BEGIN');

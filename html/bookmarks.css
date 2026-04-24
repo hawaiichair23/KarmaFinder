@@ -2148,7 +2148,7 @@ body.dark-mode #mobileOrganizeBtn.active {
         }
 
         .toast--error {
-            background: rgba(247, 76, 76, 0.85);
+            background: rgb(247, 76, 76);
         }
 
         .toast--visible {
