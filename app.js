@@ -4092,79 +4092,7 @@
             }
         }
 
-        // Verification handler
-        document.addEventListener('DOMContentLoaded', function () {
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token');
-            if (token) {
-                // This is a magic link verification
-                verifyMagicLink(token);
-            }
-            // Check for payment success
-            if (urlParams.get('success') === 'true') {
-                const sessionId = urlParams.get('session_id');
-
-                // Check if we already processed this session
-                const processedSessions = JSON.parse(localStorage.getItem('processedSessions') || '[]');
-
-                if (sessionId && !processedSessions.includes(sessionId)) {
-                    // Auto-login after successful payment
-                    fetch(`${API_BASE}/api/auto-login-after-payment`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify({ session_id: sessionId })
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                // Set login state
-                                isLoggedIn = true;
-                                localStorage.setItem('isLoggedIn', 'true');
-                                localStorage.setItem('hasSubscription', data.hasSubscription);
-                                localStorage.setItem('planType', data.planType);
-
-                                // Mark this session as processed
-                                processedSessions.push(sessionId);
-                                localStorage.setItem('processedSessions', JSON.stringify(processedSessions));
-
-                                // Show correct message
-                                if (data.planType === 'premium') {
-                                    Swal.fire({
-                                        title: 'Account Created!',
-                                        text: 'Your account has been created. Thank you for unlocking Premium!',
-                                        confirmButtonText: 'Great!',
-                                        didOpen: () => {
-                                            document.activeElement.blur();
-                                        }
-                                    });
-                                } else if (data.planType === 'pro') {
-                                    Swal.fire({
-                                        title: 'Account Created!',
-                                        text: 'Your account has been created. Thank you for unlocking Pro!',
-                                        confirmButtonText: 'Great!',
-                                        didOpen: () => {
-                                            document.activeElement.blur();
-                                        }
-                                    });
-                                }
-                                
-                                // FETTI TIME!
-                                moneyShot();
-                                updateLoginButton();
-                                showSpeechBubble("It's great value, honest.");
-                            }
-
-                            // Clean URL 
-                            const url = new URL(window.location);
-                            url.searchParams.delete('success');
-                            url.searchParams.delete('session_id');
-                            window.history.replaceState({}, document.title, url.toString());
-                        });
-                } 
-            }
-            updatePlanDisplay();
-        });
+        // Removed — consolidated into onReady block
 
         function moneyShot() {
             // First burst from center
@@ -5169,13 +5097,58 @@
             loadBlocklist();
 
             if (token) {
-                // Magic link — verifyMagicLink handles initPage() after success
                 verifyMagicLink(token);
                 return;
             }
 
-            // Skip verify-token if auto-login-after-payment will handle auth
-            if (!urlParams.get('success')) {
+            // Payment success — await auto-login before anything else
+            if (urlParams.get('success') === 'true') {
+                const sessionId = urlParams.get('session_id');
+                const processedSessions = JSON.parse(localStorage.getItem('processedSessions') || '[]');
+
+                if (sessionId && !processedSessions.includes(sessionId)) {
+                    try {
+                        const response = await fetch(`${API_BASE}/api/auto-login-after-payment`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ session_id: sessionId })
+                        });
+                        const data = await response.json();
+
+                        if (data.success) {
+                            isLoggedIn = true;
+                            localStorage.setItem('isLoggedIn', 'true');
+                            localStorage.setItem('hasSubscription', data.hasSubscription);
+                            localStorage.setItem('planType', data.planType);
+
+                            processedSessions.push(sessionId);
+                            localStorage.setItem('processedSessions', JSON.stringify(processedSessions));
+
+                            Swal.fire({
+                                title: 'Account Created!',
+                                text: `Your account has been created. Thank you for unlocking ${data.planType === 'pro' ? 'Pro' : 'Premium'}!`,
+                                confirmButtonText: 'Great!',
+                                didOpen: () => { document.activeElement.blur(); }
+                            });
+
+                            moneyShot();
+                            updateLoginButton();
+                            showSpeechBubble("It's great value, honest.");
+                        }
+                    } catch (e) {
+                        console.error('Auto-login failed:', e);
+                    }
+                }
+
+                // Clean URL
+                const url = new URL(window.location);
+                url.searchParams.delete('success');
+                url.searchParams.delete('session_id');
+                window.history.replaceState({}, document.title, url.toString());
+
+            } else {
+                // Normal load — verify existing cookie
                 try {
                     const res = await fetch('/verify-token', { method: 'POST', credentials: 'include' });
                     const data = await res.json();
@@ -5192,6 +5165,8 @@
                     localStorage.setItem('isLoggedIn', 'false');
                 }
             }
+
+            updatePlanDisplay();
 
             if (isShare) {
                 updateLoginButton();
