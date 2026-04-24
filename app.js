@@ -5174,21 +5174,23 @@
                 return;
             }
 
-            // Always verify cookie against server before rendering auth state
-            try {
-                const res = await fetch('/verify-token', { method: 'POST', credentials: 'include' });
-                const data = await res.json();
-                if (data.valid) {
-                    isLoggedIn = true;
-                    localStorage.setItem('isLoggedIn', 'true');
-                } else {
+            // Skip verify-token if auto-login-after-payment will handle auth
+            if (!urlParams.get('success')) {
+                try {
+                    const res = await fetch('/verify-token', { method: 'POST', credentials: 'include' });
+                    const data = await res.json();
+                    if (data.valid) {
+                        isLoggedIn = true;
+                        localStorage.setItem('isLoggedIn', 'true');
+                    } else {
+                        isLoggedIn = false;
+                        localStorage.setItem('isLoggedIn', 'false');
+                        clearUserDataOnLogout();
+                    }
+                } catch (e) {
                     isLoggedIn = false;
                     localStorage.setItem('isLoggedIn', 'false');
-                    clearUserDataOnLogout();
                 }
-            } catch (e) {
-                isLoggedIn = false;
-                localStorage.setItem('isLoggedIn', 'false');
             }
 
             if (isShare) {
