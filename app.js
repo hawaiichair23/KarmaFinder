@@ -4112,6 +4112,7 @@
                     fetch(`${API_BASE}/api/auto-login-after-payment`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
                         body: JSON.stringify({ session_id: sessionId })
                     })
                         .then(response => response.json())
