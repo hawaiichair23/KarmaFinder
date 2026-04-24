@@ -5101,52 +5101,51 @@
                 return;
             }
 
-            // Payment success — await auto-login before anything else
+            // Payment success — kick off auto-login in background, don't block page render
             if (urlParams.get('success') === 'true') {
                 const sessionId = urlParams.get('session_id');
                 const processedSessions = JSON.parse(localStorage.getItem('processedSessions') || '[]');
 
+                // Clean URL immediately
+                const cleanUrl = new URL(window.location);
+                cleanUrl.searchParams.delete('success');
+                cleanUrl.searchParams.delete('session_id');
+                window.history.replaceState({}, document.title, cleanUrl.toString());
+
                 if (sessionId && !processedSessions.includes(sessionId)) {
-                    try {
-                        const response = await fetch(`${API_BASE}/api/auto-login-after-payment`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'include',
-                            body: JSON.stringify({ session_id: sessionId })
-                        });
-                        const data = await response.json();
+                    fetch(`${API_BASE}/api/auto-login-after-payment`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ session_id: sessionId })
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                isLoggedIn = true;
+                                localStorage.setItem('isLoggedIn', 'true');
+                                localStorage.setItem('hasSubscription', data.hasSubscription);
+                                localStorage.setItem('planType', data.planType);
 
-                        if (data.success) {
-                            isLoggedIn = true;
-                            localStorage.setItem('isLoggedIn', 'true');
-                            localStorage.setItem('hasSubscription', data.hasSubscription);
-                            localStorage.setItem('planType', data.planType);
+                                processedSessions.push(sessionId);
+                                localStorage.setItem('processedSessions', JSON.stringify(processedSessions));
 
-                            processedSessions.push(sessionId);
-                            localStorage.setItem('processedSessions', JSON.stringify(processedSessions));
+                                updateLoginButton();
+                                updatePlanDisplay();
 
-                            Swal.fire({
-                                title: 'Account Created!',
-                                text: `Your account has been created. Thank you for unlocking ${data.planType === 'pro' ? 'Pro' : 'Premium'}!`,
-                                confirmButtonText: 'Great!',
-                                didOpen: () => { document.activeElement.blur(); }
-                            });
+                                Swal.fire({
+                                    title: 'Account Created!',
+                                    text: `Your account has been created. Thank you for unlocking ${data.planType === 'pro' ? 'Pro' : 'Premium'}!`,
+                                    confirmButtonText: 'Great!',
+                                    didOpen: () => { document.activeElement.blur(); }
+                                });
 
-                            moneyShot();
-                            updateLoginButton();
-                            showSpeechBubble("It's great value, honest.");
-                        }
-                    } catch (e) {
-                        console.error('Auto-login failed:', e);
-                    }
+                                moneyShot();
+                                showSpeechBubble("It's great value, honest.");
+                            }
+                        })
+                        .catch(e => console.error('Auto-login failed:', e));
                 }
-
-                // Clean URL
-                const url = new URL(window.location);
-                url.searchParams.delete('success');
-                url.searchParams.delete('session_id');
-                window.history.replaceState({}, document.title, url.toString());
-
             } else {
                 // Normal load — verify existing cookie
                 try {
