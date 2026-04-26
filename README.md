@@ -1,7 +1,7 @@
 
 <img width="1914" height="874" alt="Screenshot (237)" src="https://github.com/user-attachments/assets/212c259e-2865-4f4b-86dd-e652e6167df5" />
 
-<h1><img width="34" height="35" alt="KarmaFinder logo" src="https://github.com/user-attachments/assets/2650bd36-1834-4b96-96bb-851e9536a6e2" align="absmiddle" /> KarmaFinder</h1>
+# <img src="https://github.com/user-attachments/assets/2650bd36-1834-4b96-96bb-851e9536a6e2" width="34" height="35" /> KarmaFinder
 
 **A fast & responsive browser-based Reddit client** with semantic search, bookmark features, advanced filters, themes and more.
 
