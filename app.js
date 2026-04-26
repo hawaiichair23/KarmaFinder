@@ -167,7 +167,7 @@
         function urlFromState(state) {
             const p = new URLSearchParams();
             if (state.tab === 'search') p.set('page', 'search');
-            else if (state.tab === 'bookmarks') p.set('page', 'bookmarks');
+else if (state.tab === 'bookmarks' && !state.query) p.set('page', 'bookmarks');
             if (state.subreddit) p.set('sub', state.subreddit);
             if (state.query) p.set('q', state.query);
             if (state.sort && state.sort !== 'hot') p.set('sort', state.sort);
@@ -529,7 +529,6 @@
                     return;
                 }
 
-
                 // 🌐 Check if the subreddit exists using about.json
                 try {
                     const res = await fetch(`${API_BASE}/reddit?url=https://www.reddit.com/r/${subreddit}/about.json`);
@@ -689,9 +688,8 @@
                         highlighted.classList.remove('highlighted');
                         return;
                     }
-                    // Pressing button too fast
                     if (scrambleYeller()) return;
-                    // Reset search button
+    
                     setTimeout(() => {
                         searchButton.style.backgroundImage = "url('/assets/search-default.png')";
                     }, 500);
@@ -701,7 +699,6 @@
 
                     searchButton.style.backgroundImage = "url('/assets/search-pressed.png')";
 
-                    // **BLOCKLIST CHECK**
                     if (subreddit && bannedSubreddits.includes(subreddit.toLowerCase())) {
                         hideBookmarksUI();
                         
@@ -719,7 +716,6 @@
                         return;
                     }
 
-                    // **RELEVANCE SEARCH TERM CHECK**
                     if (currentTab === 'search' && currentFilters.sort === 'relevance' && !searchTerm) {
 
                         showError(`No search terms detected. ${isMobile() ? '' : '🔎'}`);
@@ -743,7 +739,6 @@
                         return;
                     }
 
-                    // **SUBREDDIT VALIDATION**
                     if (subreddit && subreddit !== 'undefined' && subreddit !== 'null') {
                         // Check for single character inputs
                         if (subreddit.length === 1) {
@@ -819,7 +814,6 @@
                         }
                     }
 
-                    // **STORE SEARCH SUGGESTION**
                     if (searchTerm && searchTerm.length > 3 && searchTerm.length <= 55) {
                         try {
                             const searchType = determineSearchType();
@@ -839,7 +833,6 @@
                         }
                     }
 
-                    // **PERFORM SEARCH**
                     handleSearchRequest();
 
                     searchCount++;
@@ -2553,9 +2546,8 @@
                     const paginationToken = initialResults.length === 10 ? `t3_${initialResults[9].id}` : null;
 
                     // Set global tokens
-                    currentAfter = paginationToken;
+                    currentAfter = null;
                     currentBefore = null;
-
 
                     // Store for scrollination
                     currentVectorResults = allResults;
@@ -3314,9 +3306,6 @@
         
             return { resultContent, snippet };
         }
-
-
-
 
         const getResultsContainer = () => {
             if (currentTab === 'search') return document.getElementById('search-results');
@@ -4091,8 +4080,6 @@
                 return null;
             }
         }
-
-        // Removed — consolidated into onReady block
 
         function moneyShot() {
             // First burst from center

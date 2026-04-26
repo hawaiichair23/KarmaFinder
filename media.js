@@ -1385,9 +1385,9 @@ function setupImageModal(imageWrapper) {
             modalContent = document.createElement('div');
             modalContent.style.cssText = `
             width: ${isMobile ? '100vw' : 'auto'} !important;
-            height: auto !important;
+            height: ${isMobile ? '100vh' : 'auto'} !important;
             max-width: ${isMobile ? '100vw' : '90vw'};
-            max-height: ${isMobile ? '85vh' : '90vh'};
+            max-height: ${isMobile ? '100vh' : '90vh'};
             opacity: 0;
             transform: scale(0.8);
             transition: all 0.1s ease;
@@ -1433,9 +1433,65 @@ function setupImageModal(imageWrapper) {
                 modalContent.appendChild(iframe);
 
             } else if (embedId && videoType === 'redgifs') {
-                // RedGifs - use server-side video proxy
+                // RedGifs - use server-side video proxy, match Reddit video styling + Plyr
                 newVideo.src = `${API_BASE}/api/redgifs-video/${embedId}`;
+                newVideo.style.cssText = `
+                    width: ${isMobile ? '100vw' : '100%'} !important;
+                    height: ${isMobile ? '100vh' : 'auto'} !important;
+                    max-width: ${isMobile ? '100vw' : '90vw'};
+                    max-height: ${isMobile ? '100vh' : '90vh'};
+                    border-radius: ${isMobile ? '0' : '25px'};
+                    object-fit: ${isMobile ? 'contain' : 'cover'};
+                `;
                 modalContent.appendChild(newVideo);
+
+                try {
+                    const modalPlyrInstance = new Plyr(newVideo, {
+                        controls: isMobile ? [] : ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+                        volume: 1,
+                        muted: false,
+                        clickToPlay: true,
+                        autoplay: true,
+                        disableContextMenu: false,
+                        fullscreen: {
+                            enabled: true,
+                            fallback: true,
+                            iosNative: false
+                        }
+                    });
+
+                    modalPlyrInstance.on('enterfullscreen', () => {
+                        newVideo.style.marginLeft = 'auto';
+                        newVideo.style.marginRight = '0';
+                        newVideo.style.transform = 'translateX(-5vw) translateY(5vh) scale(1.2)';
+                    });
+
+                    modalPlyrInstance.on('exitfullscreen', () => {
+                        newVideo.style.marginLeft = '';
+                        newVideo.style.marginRight = '';
+                        newVideo.style.transform = '';
+                        newVideo.style.width = '';
+                    });
+
+                    modalPlyrInstance.muted = false;
+                    modalPlyrInstance.volume = 1;
+
+                    if (isMobile) {
+                        let hasEnteredFullscreen = false;
+                        modalPlyrInstance.on('play', () => {
+                            if (!hasEnteredFullscreen && newVideo.webkitEnterFullscreen) {
+                                hasEnteredFullscreen = true;
+                                newVideo.webkitEnterFullscreen();
+                            }
+                        });
+                        newVideo.addEventListener('webkitendfullscreen', () => {
+                            closeModal();
+                        });
+                    }
+
+                } catch (e) {
+                    console.warn('Plyr init failed for redgifs:', e);
+                }
 
             } else if (embedId && videoType === 'youtube') {
                 // YouTube - use iframe embed instead of video
