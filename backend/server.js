@@ -276,9 +276,6 @@ app.use((req, res, next) => {
     next();
 });
 
-const STRIPE_ENABLED = process.env.STRIPE_ENABLED === 'true';
-
-if (STRIPE_ENABLED) {
 // Stripe webhook
 app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
@@ -396,7 +393,6 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
     }
     res.json({ received: true });
 });
-}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -3960,7 +3956,6 @@ app.post('/verify-token', verifyTokenLimiter, async (req, res) => {
     }
 });
 
-if (STRIPE_ENABLED) {
 app.post('/api/create-checkout', requireAuth, async (req, res) => {
     try {
         const userResult = await pool.query('SELECT email FROM subscriptions WHERE user_id = $1', [req.userId]);
@@ -4009,9 +4004,7 @@ app.post('/api/create-checkout', requireAuth, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-}
 
-if (STRIPE_ENABLED) {
 app.post('/api/create-checkout-pro', requireAuth, async (req, res) => {
     try {
         const userResult = await pool.query('SELECT email FROM subscriptions WHERE user_id = $1', [req.userId]);
@@ -4060,7 +4053,6 @@ app.post('/api/create-checkout-pro', requireAuth, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-}
 
 app.post('/api/vector-search', async (req, res) => {
 
